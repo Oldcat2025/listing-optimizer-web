@@ -72,51 +72,56 @@ page('rev-detail', {
     ]
   },
   body:function(){
-    var cp = btn('复制');
-    return '<div class="cols c21">' +
-      '<div>' +
-        copybox('标题 Title', 'Watercolor Hydrangea Pillow Covers 18x18 Set of 2, Dusty Blue Farmhouse Cushion Cases',
-          '<b>74</b> / 75 字符', cp) +
-        copybox('亮点 Highlights', 'soft watercolor floral, dusty blue &amp; cream, hidden zipper, double-sided print, faux linen texture, cottage &amp; farmhouse decor, covers only',
-          '<b>121</b> / 125 字符 · 7 个短语', cp) +
-        copybox('五点描述 · 第 1 条（讲清最容易误会的地方）', 'COVERS ONLY, INSERTS NOT INCLUDED — this set includes two 18x18 inch pillow covers …',
-          '<b>318</b> 字符', cp) +
-        copybox('五点描述 · 第 2 条（讲图案与视觉）', 'Hand-painted watercolor hydrangea blooms in dusty blue and warm cream …',
-          '<b>341</b> 字符', cp) +
-        copybox('五点描述 · 第 3 条（讲用在哪）', 'Sized for standard 18x18 inserts and works on a sofa, accent chair or reading nook …',
-          '<b>327</b> 字符', cp) +
-        copybox('五点描述 · 第 4 条（讲材质与保养）', 'Woven from faux linen with a soft slub texture; machine washable on cold …',
-          '<b>309</b> 字符', cp) +
-        copybox('五点描述 · 第 5 条（讲买来干什么）', 'A ready-to-give refresh for spring and summer styling, housewarming …',
-          '<b>335</b> 字符', cp) +
-        copybox('后台搜索词 Backend', 'cushion cases throw covers hydrangea watercolour linen look sofa accent couch decor …',
-          '<b>244</b> / 249 字节', cp, true) +
-      '</div>' +
-      '<div>' +
-        panel('这套文案是怎么来的', kv([
-          ['商品 / 站点','FX-03 / 美国'],
-          ['任务编号','RUN-260818-0007'],
-          ['文案版本','v1'],
-          ['AI 指令版本','PR-v7'],
-          ['模型版本','MDL-v3'],
-          ['参数版本','P-v4'],
-          ['平台规则','AMZ-RULES-US-2026-08'],
-          ['关键词数据','8-12 版'],
-        ]), {sub:'出问题时按这几项就能复现'}) +
-        panel('五项检查', table(['检查项','结论'],[
-          ['执行过程完整',chip('通过','ok')],
-          ['语义正确',chip('通过','ok')],
-          ['信息密度达标',chip('通过','ok')],
-          ['字段之间不重复',chip('通过','ok')],
-          ['选词准入合规',chip('通过','ok')],
-        ]), {flush:true, note:'<b>「能否上架 = 可以」由这五项自动判定</b>，任何角色都无法手动打开。'}) +
-        panel('中文对照（仅供核对，不要上架）', '<div style="font-size:13px;color:var(--t-2);line-height:1.7">' +
-          '<b>标题</b>：水彩绣球花抱枕套 18x18 两只装，灰蓝色田园风靠垫套<br><br>' +
-          '<b>亮点</b>：柔和水彩花卉，灰蓝配奶油白，隐形拉链，双面印花，仿亚麻质感，乡村田园装饰，仅含外套' +
-          '</div>') +
-        '<div class="btnrow">'+btn('看检查报告','btn')+btn('看选词记录')+btn('整套复制')+'</div>' +
-      '</div>' +
-    '</div>';
+    var el = '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>';
+    setTimeout(function(){
+      API.table('定稿输出表', {}, 50).then(function(r){
+        var root = document.getElementById('rev-detail-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) {
+          root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
+        }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['Title']; });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        rows.sort(function(a,b){
+          var ta = String(a['生成时间']||''), tb = String(b['生成时间']||'');
+          return ta < tb ? 1 : (ta > tb ? -1 : 0);
+        });
+        var x = rows[0];
+        var cp = btn('复制');
+        var bullets = ['Bullet 1','Bullet 2','Bullet 3','Bullet 4','Bullet 5'];
+        var bm = bullets.map(function(b){
+          var t = x[b]||'';
+          return copybox('五点描述 · ' + b, t, '<b>' + (x[b+'字符数']||String(t).length) + '</b> 字符', cp);
+        }).join('');
+        var cn = bullets.map(function(b){
+          var v = x[b+'中文对照'];
+          return v ? '<b>'+b+'</b>：'+v : '';
+        }).filter(Boolean).join('<br>');
+        root.innerHTML =
+          '<div class="cols c21">' +
+            '<div>' +
+              copybox('标题 Title', x['Title']||'', '<b>'+(x['Title字符数']||'')+'</b> 字符', cp) +
+              copybox('亮点 Highlights', x['Highlights']||'', '<b>'+(x['Highlights字符数']||'')+'</b> 字符' + (x['Highlights短语数']?' · '+x['Highlights短语数']+' 个短语':''), cp) +
+              bm +
+              copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cp, true) +
+            '</div>' +
+            '<div>' +
+              panel('这套文案是怎么来的', kv([
+                ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—')],
+                ['任务编号', x['运行ID']||'—'],
+                ['文案版本', x['定稿版本号']||'—'],
+                ['生成时间', x['生成时间']||'—'],
+              ]), {sub:'出问题时按这几项就能复现'}) +
+              panel('中文对照（仅供核对，不要上架）', '<div style="font-size:13px;color:var(--t-2);line-height:1.7">' +
+                '<b>标题</b>：'+(x['Title中文对照']||'—')+'<br><br>' +
+                '<b>亮点</b>：'+(x['Highlights中文对照']||'—') + (cn?'<br><br>'+cn:'') +
+                '</div>') +
+              '<div class="btnrow">'+btn('看检查报告','btn')+btn('看选词记录')+btn('整套复制')+'</div>' +
+            '</div>' +
+          '</div>';
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -140,88 +145,49 @@ page('rev-audit', {
     ]
   },
   body:function(){
-    return tabs(['五项检查','字段覆盖','反向理解','数据完整性','平台合规']) +
-
-    panel('检查一 · 执行过程完整', table(
-      ['检查什么','要求','实际','结论'],
-      [
-        ['关键词表读全了吗','读到的行数 = 表里的行数','<span class="num">21408 / 21408</span>',chip('通过','ok')],
-        ['有没有悄悄丢掉的行','必须是 0','<span class="num">0</span>',chip('通过','ok')],
-        ['平台规则多久没复核','不超过 90 天','<span class="num">1 天</span>',chip('通过','ok')],
-        ['用的关键词数据对不对季节','必须和商品的季节款式一致','四季款',chip('通过','ok')],
-        ['广告数据归因方式','—','以官方搜索表现为主源',chip('已标注','sys')],
-        ['能不能分清连带销售','—','<span class="m">不能</span>',chip('能力边界·已写明','warn')],
-      ]
-    ), {flush:true, note:'<b>最后两行不是失败，是诚实</b>：「连带销售的识别」客观上拿不到数据。系统把它写成报告里的一个明确字段，而不是含糊带过——任何人拿到这份文案都知道它的证据边界在哪。'}) +
-
-    panel('检查四 · 字段之间不重复', table(
-      ['检查什么','要求','实际','结论'],
-      [
-        ['亮点相对标题有没有新信息','至少 3 个','<span class="num">4</span>',chip('通过','ok')],
-        ['亮点有没有讲新的关系类型','至少 2 种','<span class="num">2</span>',chip('通过','ok')],
-        ['有没有机械重复的字','必须是 0','<span class="num">0</span>',chip('通过','ok')],
-        ['有效字数 = 总字数 − 浪费掉的','—','<span class="num">121 − 0 = 121</span>',chip('通过','ok')],
-        ['后台词和前台重不重','不能重','<span class="num">0 处重复</span>',chip('通过','ok')],
-      ]
-    ), {flush:true}) +
-
-    '<div class="cols c2">' +
-      panel('哪个内容写在了哪个字段', table(
-        ['内容','标题','亮点','五点','后台词'],
-        [
-          ['商品身份（抱枕套）','●','—','●','—'],
-          ['尺寸 18x18','●','—','●','●'],
-          ['两个装','●','—','●','—'],
-          ['绣球花图案','●','●','●','●'],
-          ['灰蓝色','●','●','—','●'],
-          ['田园风','●','●','●','●'],
-          ['仿亚麻材质','—','●','●','●'],
-          ['只含外套（重要提醒）','—','●','●','—'],
-          ['沙发场景','—','—','●','●'],
-        ]
-      ), {flush:true, note:'看最后一行：<b>后台词只补前台没写到的内容</b>（沙发场景、同义词），不是把前台说过的话再说一遍。'}) +
-
-      panel('反向理解测试', kv([
-        ['怎么测的','另一个 AI 只看最终四段文案'],
-        ['它读出来这是什么','抱枕套，18x18，两个装'],
-        ['它读出来适合谁','喜欢田园/乡村装饰风格的人'],
-        ['它读出来为什么买','换季软装、送礼、沙发和阅读角搭配'],
-        ['它读出来主图案','水彩绣球花'],
-        ['它读出来关键提醒','只含外套，不含内芯'],
-        ['和你的商品对得上吗',chip('完全一致','ok')],
-      ]) + '<div style="margin-top:14px">'+callout('','人群怎么描述是有规矩的',
-        '它读出来的人群是「<b>喜欢田园装饰的人</b>」——这是按偏好描述。如果文案里出现 women / moms / families 这类<b>凭空编的人口属性</b>，系统会直接拦截，不让上架。')+'</div>') +
-    '</div>' +
-
-    panel('八项质量门禁对照', table(
-      ['业务规范的八项门禁','落在哪项检查里','本例结果'],
-      [
-        ['事实一致（covers 写成 pillows 之类）','检查二 · 语义正确（含事实比对）',chip('通过','ok')],
-        ['主定位（有没有写漂、写成多个节日并列）','检查二 · 语义正确（含<b>主定位漂移比对</b>）',chip('通过','ok')],
-        ['字段准入（低价值材质/工艺挤占标题）','检查五 · 选词准入合规',chip('通过','ok')],
-        ['跨字段增量（亮点重复标题）','检查四 · 字段之间不重复',chip('通过','ok')],
-        ['内容发育（明显偏短还漏高价值关系）','检查三 · 信息密度达标',chip('通过','ok')],
-        ['COSMO 关系（只有词、没有关系）','检查三（新关系数）+ 下方关系覆盖表',chip('通过','ok')],
-        ['Backend（重复前台/超字节/禁词/没穷尽）','检查一（字节与穷尽）+ 检查四（不重复前台）',chip('通过','ok')],
-        ['本地化 / SKU（尺寸串值/站点直译/跨季节污染）','检查一 · 数据完整性（<b>季节、串值、直译三个具名子项</b>）',chip('通过','ok')],
-      ]
-    ), {flush:true, sub:'业务规范八项门禁 -> 本系统五项检查的完整映射',
-      note:'其中「主定位漂移」和「尺寸串值 / 站点直译 / 跨季节污染」两项原先藏在别的检查里说不清，现在做成<b>具名子项</b>--报告上能直接看到这两项的单独结论。'}) +
-
-    panel('商品关系覆盖（COSMO 关系图）', table(
-      ['关系类型','回答什么问题','这套文案怎么写的','写进了哪'],
-      [
-        ['商品 -> 季节 / 场合','什么时候用','spring &amp; summer styling, seasonal refresh','亮点 · 五点 5'],
-        ['商品 -> 图案 / 颜色 / 风格','看起来怎样','watercolor hydrangea, dusty blue &amp; cream','标题 · 亮点'],
-        ['商品 -> 家具 / 房间','放在哪里','sofa, accent chair, reading nook','五点 3'],
-        ['商品 -> 购买目的','为什么买','seasonal home refresh, housewarming','五点 5'],
-        ['商品 -> 偏好人群','什么偏好的人喜欢','cottage &amp; farmhouse decor lovers（按偏好，不编人口）','亮点'],
-        ['功能 -> 消费者收益','事实有什么价值','double-sided print, hidden zipper -> 使用体验','亮点 · 五点 4'],
-        ['商品 -> 情绪结果','空间有什么感觉','（弱：柔和水彩的氛围未单列成情绪表达）',chip('部分覆盖','warn')],
-        ['事实 -> 预期控制','如何减少误购','covers only, inserts not included','亮点 · 五点 1'],
-      ]
-    ), {flush:true, sub:'交付物之一：这套文案建成了哪些"商品-场景-目的-收益"关系',
-      note:'每条关系必须同时满足四件事：<b>事实允许、与主定位兼容、有人会这样理解/搜索、读起来像自然商品文案</b>。<br>第 7 行是诚实展示：不是每套文案八类全满，缺的写明原因，不硬凑。人群只按偏好/场景/目的描述，凭空的人口属性在违禁词页硬拦。'});
+    var el = '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
+    setTimeout(function(){
+      API.table('证书表', {}, 50).then(function(r){
+        var root = document.getElementById('rev-audit-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) {
+          root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
+        }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['运行ID']; });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        rows.sort(function(a,b){
+          var ta = String(a['生成时间']||''), tb = String(b['生成时间']||'');
+          return ta < tb ? 1 : (ta > tb ? -1 : 0);
+        });
+        var x = rows[0];
+        var certCols = Object.keys(x).filter(function(k){ return k.indexOf('证书') >= 0 && k !== '全部通过'; });
+        function verdict(v){
+          var o = v;
+          if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }
+          if (o && typeof o === 'object') {
+            var keys = Object.keys(o);
+            if (!keys.length) return table(['结论'],[ [String(v||'—')] ]);
+            return table(['检查项','结论'], keys.map(function(k){
+              var val = String(o[k]);
+              var up = val.toUpperCase();
+              var t = (up === 'PASS' || up === 'PASS_WITH_NOTES') ? 'ok' : (up.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+              return [k, chip(val, t)];
+            }));
+          }
+          return table(['结论'],[ [String(v||'—')] ]);
+        }
+        var passed = String(x['全部通过']||'').toUpperCase() === 'TRUE';
+        root.innerHTML =
+          stats([
+            ['全部通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
+            ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—'), '', '', false],
+            ['证书数量', String(certCols.length), '', '', false],
+            ['生成时间', String(x['生成时间']||'—').slice(0,16), '', '', false],
+          ], 4) +
+          certCols.map(function(col){ return panel(col, verdict(x[col]), {flush:true}); }).join('');
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -243,38 +209,41 @@ page('rev-ledger', {
       '候选量级为百到千行，必须服务端分页 + 数据库筛选，禁止前端全量拉取'
     ]
   },
-  body:function(){
-    return stats([
-      ['候选词总数','341','',' ',false],
-      ['进了标题','6','拒绝 41','ok',false],
-      ['进了亮点','12','',' ',false],
-      ['下沉到五点/后台','61','',' ',false],
-      ['被拒绝','262','每条都有理由','',false],
-    ],5) +
-
-    panel('证据来源说明', evLegend(), {sub:'四类证据分开看，不合并成分数',
-      note:'<b>为什么不合成一个分数</b>：商品事实能否决一个词，但市场数据不能；账户数据说明「我们卖得动」，反查说明「爆款从哪来」。混成一个总分，就说不清一个词到底凭什么进来。'}) +
-
-    toolbar(
-      [inp('搜索候选词'), sel('全部去向',['进标题','进亮点','下沉五点','下沉后台词','被拒绝']),
-       sel('全部类型',['关键词','商品事实','关系表达','派生长尾']),
-       sel('全部相关度',['核心','相近','冲突'])],
-      [btn('导出 CSV')]
-    ) +
-    table(
-      ['候选词','类型','承担什么任务','相关度','证据','删掉会损失什么','挤占代价','去向','理由'],
-      [
-        ['<span class="m">pillow covers</span>','商品事实','说清这是什么',chip('核心','ok'),ev('FAS'),'买家找不到','<span class="num">—</span>',chip('进标题','ok'),'商品身份，唯一必进的内容'],
-        ['<span class="m">18x18</span>','关键词','帮买家筛尺寸',chip('核心','ok'),ev('FASR'),'买错尺寸','<span class="num">0.12</span>',chip('进标题','ok'),'尺寸是硬筛选条件'],
-        ['<span class="m">hydrangea</span>','关键词','说清图案',chip('核心','ok'),ev('FAR'),'买家不知道好不好看','<span class="num">0.31</span>',chip('进标题','ok'),'图案是这个商品的选择理由'],
-        ['<span class="m">throw pillow covers for couch</span>','派生长尾','—',chip('相近','warn'),ev('AS'),'几乎不损失','<span class="num">0.62</span>',chip('下沉后台词','sys'),'占的位置比它带来的价值贵'],
-        ['<span class="m">covers only</span>','关系表达','管理买家预期',chip('核心','ok'),ev('F'),'买家会退货','<span class="num">0.44</span>',chip('进亮点','sys'),'标题放不下，但这句不能丢'],
-        ['<span class="m">waterproof</span>','关键词','—',chip('冲突','fail'),ev('A'),'—','<span class="num">—</span>',chip('被拒绝','fail'),'和商品事实冲突 · 你标了「不能说」'],
-        ['<span class="m">pillow inserts</span>','关键词','—',chip('冲突','fail'),ev('AS'),'—','<span class="num">—</span>',chip('被拒绝','fail'),'本商品不含内芯，写了会误导'],
-        ['<span class="m">cushion covers for women</span>','派生长尾','—',chip('相近','warn'),ev('A'),'—','<span class="num">—</span>',chip('被拒绝','fail'),'凭空编造人群属性 · 系统硬拦截'],
-        ['<span class="m">decorative pillow case</span>','关键词','带来搜索流量',chip('相近','warn'),ev('AS'),'少一点流量','<span class="num">0.58</span>',chip('下沉后台词','sys'),'和标题里的词意思重复'],
-      ]
-    );
+    body:function(){
+    var el = '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
+    setTimeout(function(){
+      API.table('候选台账', {}, 200).then(function(r){
+        var root = document.getElementById('rev-ledger-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['候选ID']; });
+        function has(v, kw){ return String(v||'').indexOf(kw) >= 0; }
+        var intoTitle = rows.filter(function(x){ return has(x['字段决策'],'标题'); }).length;
+        var intoHL = rows.filter(function(x){ return has(x['字段决策'],'亮点'); }).length;
+        var intoBackend = rows.filter(function(x){ return has(x['字段决策'],'五点')||has(x['字段决策'],'后台'); }).length;
+        var rejected = rows.filter(function(x){ return has(x['字段决策'],'拒绝'); }).length;
+        root.innerHTML =
+          stats([
+            ['候选词总数', rows.length, '', ' ', false],
+            ['进了标题', intoTitle, '拒绝 '+rejected, 'ok', false],
+            ['进了亮点', intoHL, '', ' ', false],
+            ['下沉到五点/后台', intoBackend, '', ' ', false],
+            ['被拒绝', rejected, '每条都有理由', '', false],
+          ], 5) +
+          panel('候选词台账（'+rows.length+' 条）', table(
+            ['候选词','类型','任务角色','字段决策','目的地理由','最终状态'],
+            rows.slice(0,50).map(function(x){ return [
+              '<span class="m">'+(x['表面文本']||'')+'</span>',
+              x['候选类型']||'—',
+              x['任务角色']||'—',
+              chip(x['字段决策']||'', has(x['字段决策'],'拒绝')?'fail':(has(x['字段决策'],'标题')?'ok':'')),
+              x['目的地理由']||'—',
+              chip(x['最终状态']||'', x['最终状态']==='被拒绝'?'fail':'ok')
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -297,37 +266,29 @@ page('rev-action', {
       '运营角色<b>无本页权限</b>'
     ]
   },
-  body:function(){
-    return callout('','待审核 · FX-03 / 美国 / v1',
-      '五项检查全部通过。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。') +
-
-    '<div class="cols c2">' +
-      panel('放行 / 打回', '<div class="form">'+
-        fld('你的结论', pick(['放行','打回 · 让运营补商品资料','打回 · 只重做某个字段','转人工处理'])) +
-        fld('打回哪个字段（选了打回才需要填）', pick(['—','标题','亮点','五点描述','后台搜索词'])) +
-        fld('审核意见', '<textarea class="ctl" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
-      '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn')+'</div>') +
-
-      panel('人工改判选词结论', '<div class="form">'+
-        fld('要改判哪个词', pick(['cushion covers（现在是：被拒绝）','decorative pillow case（现在是：下沉后台词）'])) +
-        fld('改判为', pick(['进标题','进亮点','下沉五点','下沉后台词','被拒绝'])) +
-        fld('理由 <span style="color:var(--red)">*必填</span>', '<textarea class="ctl" rows="3" placeholder="为什么你认为系统判错了"></textarea>') +
-      '</div>' +
-      '<div class="btnrow" style="margin-top:14px">'+btn('提交改判并自动重检','btn--danger')+'</div>' +
-      callout('','改判之后会发生什么（自动完成，不用你操心）',
-        '① 改判和理由写进<b>台账</b>（谁、什么时候、改了什么、为什么）<br>' +
-        '② 系统<b>自动重跑五项检查</b>——只重跑检查，不重写文案，几秒钟出结果<br>' +
-        '③ 检查通过 → 「能否上架」恢复为可以，并标注<b>本条经过人工干预</b><br>' +
-        '④ 检查不通过 → 告诉你哪一项被你的改判破坏了') ) +
-    '</div>' +
-
-    panel('人工改判台账（近 10 条）', table(
-      ['时间','审核人','商品/站点','改了哪个词','改判前 → 后','理由','自动重检结果'],
-      [
-        ['<span class="m">8-17 16:22</span>','Lita','FX-01 / 英国','<span class="m">cushion covers</span>','被拒绝 → 进标题','英国当地就叫 cushion，系统按美国说法误判',chip('重检通过','ok')],
-        ['<span class="m">8-15 11:08</span>','Lita','FX-02 / 美国','<span class="m">sofa throw pillow</span>','下沉后台 → 进亮点','场景词对这个商品是选择理由',chip('重检通过','ok')],
-      ]
-    ), {flush:true, note:'台账<b>只增不改不删</b>。将来要回答「这条文案为什么和系统原判不一样」，靠的就是这张表。'});
+    body:function(){
+    var el = '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
+    setTimeout(function(){
+      API.table('定稿输出表', {'准备发布':'是'}, 20).then(function(r){
+        var root = document.getElementById('rev-action-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU']; });
+        var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待审核文案';
+        var body0 = rows.length ? '五项检查已完成。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。' : '当前没有待审核的定稿文案。';
+        root.innerHTML = callout('', head, body0) +
+          '<div class="cols c2">' +
+            panel('放行 / 打回', '<div class="form">'+
+              fld('你的结论', pick(['放行','打回 · 让运营补商品资料','打回 · 只重做某个字段','转人工处理'])) +
+              fld('打回哪个字段（选了打回才需要填）', pick(['—','标题','亮点','五点描述','后台搜索词'])) +
+              fld('审核意见', '<textarea class="ctl" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
+            '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn')+'</div>') +
+            panel('待审核列表', table(['SKU','站点','定稿版本',''], rows.slice(0,10).map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn')]; })), {flush:true}) +
+          '</div>' +
+          callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -347,16 +308,33 @@ page('rev-manual', {
     limits:['进入人工队列时<b>保留全部中间证据</b>，不清理','人工改写的文本必须标记来源=人工，不混入系统产出统计']
   },
   body:function(){
-    return table(
-      ['任务编号','商品/站点','为什么进来','失败字段','已重做','等了多久','谁在处理',''],
-      [
-        ['<span class="m">RUN-260817-0031</span>','FX-05 / 美国','重做 3 次仍不通过','亮点','3/3','<span class="m">18 小时</span>','—',btn('认领','btn')],
-        ['<span class="m">RUN-260816-0012</span>','FX-09 / 美国','商品资料有必填项没填','—','0/3','<span class="m">2 天</span>','Lita',btn('继续处理')],
-      ]
-    ) +
-    callout('warn','这两条性质完全不同，别找错人',
-      '<b>FX-05</b> —— 系统尽力了，但可用的词确实不够。要么补关键词数据，要么接受亮点写短一点。<b>这是系统侧的事</b>。<br>' +
-      '<b>FX-09</b> —— 婴儿床笠的「认证/安全」没填。<b>这不是系统的问题</b>，让运营补资料就行。');
+    var el = '<div id="rev-manual-root">' + ghost('正在加载需人工处理队列…') + '</div>';
+    setTimeout(function(){
+      API.table('SKU_输入表', {'处理状态':'REVIEW_REQUIRED'}, 200).then(function(r){
+        var root = document.getElementById('rev-manual-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) {
+          root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
+        }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU']; });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','当前没有需要人工处理的商品。'); return; }
+        root.innerHTML =
+          panel('需人工处理（' + rows.length + ' 条）', table(
+            ['任务编号','商品/站点','状态','为什么进来','更新时间',''],
+            rows.map(function(x){
+              return [
+                '<span class="m">'+(x['运行ID']||'—')+'</span>',
+                (x['SKU']||'—')+' / '+(x['目标市场']||'—'),
+                chip(x['处理状态']||'', 'warn'),
+                x['错误信息']||'—',
+                '<span class="m">'+String(x['更新时间']||x['处理时间']||'').slice(0,16)+'</span>',
+                btn('认领','btn')
+              ];
+            })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -383,42 +361,35 @@ page('data-kw', {
       '「关键词翻译」列落库但<b>禁止进入 AI 提示词</b>，否则中式表达会带回本地语言'
     ]
   },
-  body:function(){
-    return panel('导入向导', steps([
-      ['done','选文件','站点词库_US_20260818.xlsx · 21,408 行 × 34 列','—'],
-      ['done','比对列名','34 列全部对上（自动忽略了 3 处空格差异）','—'],
-      ['done','抽查数值单位','7 项已核对：搜索量、转化共享、搜索排名…','—'],
-      ['now','预览并确认','看下面的检查结果，确认后建快照','—'],
-      ['wait','建快照','美国 · 抱枕套 · 四季款 · 8-18 版','—'],
-    ])) +
-
-    '<div class="cols c2">' +
-      panel('完整性证明（正式导入前的预演）', kv([
-        ['表里有多少行','21,408'],
-        ['系统读了多少行','21,408'],
-        ['差多少','0'],
-        ['重复行（保留来源）','142'],
-        ['有缺失指标的行','1,033'],
-        ['指标互相打架的行','87'],
-        ['搜索排名没值 → 写空','4,910'],
-      ]) + '<div style="margin-top:12px">'+chip('可以建快照','ok')+'</div>') +
-
-      panel('检查告警', table(['级别','问题','说明'],[
-        [chip('警告','warn'),'指标打架','87 行的官方排名和估算搜索量对不上 → 自动降权，<b>不丢弃</b>'],
-        [chip('提示','neutral'),'语义待确认','曝光/点击两列的具体含义未确认，已标记后入库'],
-        [chip('通过','ok'),'列名有没有变','和上一份快照完全一致'],
-      ]), {flush:true}) +
-    '</div>' +
-
-    panel('已有快照', table(
-      ['快照','站点','类目','季节款式','数据日期','行数','被多少任务用过','状态',''],
-      [
-        ['<span class="m">US-抱枕套-四季-0812</span>','美国','抱枕套','四季款','8-12','<span class="num">21,203</span>','<span class="num">14</span>',chip('默认 · 只读','ok'),btn('查看')],
-        ['<span class="m">US-抱枕套-四季-0805</span>','美国','抱枕套','四季款','8-05','<span class="num">20,988</span>','<span class="num">9</span>',chip('只读','neutral'),btn('查看')],
-        ['<span class="m">GB-抱枕套-四季-0805</span>','英国','抱枕套','四季款','8-05','<span class="num">11,472</span>','<span class="num">6</span>',chip('默认 · 已过 13 天','warn'),btn('查看')],
-        ['<span class="m">US-抱枕套-圣诞-0810</span>','美国','抱枕套','圣诞款','8-10','<span class="num">6,341</span>','<span class="num">3</span>',chip('默认 · 只读','ok'),btn('查看')],
-      ]
-    ), {flush:true, note:'圣诞款和四季款是<b>两份独立的数据</b>。生成圣诞款文案时，系统不会去读四季款的词表——这是在存储层面就隔开的，不靠 AI 自觉。'});
+    body:function(){
+    var el = '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    setTimeout(function(){
+      API.table('站点词库_US', {}, 200).then(function(r){
+        var root = document.getElementById('data-kw-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['关键词']; });
+        var total = r.data.total || rows.length;
+        root.innerHTML =
+          panel('词库概览', kv([
+            ['词库行数（全表）', total],
+            ['本页展示', rows.length],
+            ['示例关键词', (rows[0]&&rows[0]['关键词'])||'—'],
+          ])) +
+          panel('关键词列表（'+rows.length+' 条）', table(
+            ['关键词','关键词翻译','月搜索量','购买率','相关度','需供比'],
+            rows.slice(0,50).map(function(x){ return [
+              '<span class="m">'+(x['关键词']||'')+'</span>',
+              x['关键词翻译']||'—',
+              x['月搜索量']||'—',
+              x['购买率']||'—',
+              x['相关度']||'—',
+              x['需供比']||'—'
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -490,18 +461,41 @@ page('data-adgroup', {
     writes:['adgroup_sku_map','audit_log'],
     limits:['置信度由商品个数自动派生（数据库生成列），不允许手填','没建对应关系的广告组只贡献花费，不参与任何商品级判断']
   },
-  body:function(){
-    return toolbar([sel('全部站点',['美国','英国']), sel('全部置信度',['只投一个商品','投多个商品','未对应'])],
-      [btn('批量导入'), btn('新增对应','btn')]) +
-    table(
-      ['站点','广告活动','广告组','对应商品','商品数','置信度','核对日期',''],
-      [
-        ['美国','<span class="m">SP-Pillow-Auto</span>','<span class="m">AG-Floral-18</span>','<span class="m">FX-03</span>','<span class="num">1</span>',chip('只投一个','ok'),'<span class="m">8-16</span>',btn('编辑')],
-        ['美国','<span class="m">SP-Pillow-Manual</span>','<span class="m">AG-Xmas-All</span>','<span class="m">FX-04, FX-05, FX-06</span>','<span class="num">3</span>',chip('投多个','warn'),'<span class="m">8-16</span>',btn('编辑')],
-        ['英国','<span class="m">SP-Cushion-GB</span>','<span class="m">AG-Floral-GB</span>','<span class="m">FX-03</span>','<span class="num">1</span>',chip('只投一个','ok'),'<span class="m">8-16</span>',btn('编辑')],
-        ['美国','<span class="m">SP-Brand-Def</span>','<span class="m">AG-Defense</span>','<span class="m dim">—</span>','<span class="num">0</span>',chip('未对应','fail'),'<span class="m">—</span>',btn('去建','btn')],
-      ]
-    );
+      body:function(){
+    var el = '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
+    setTimeout(function(){
+      API.table('PPC出单词_US', {}, 200).then(function(r){
+        var root = document.getElementById('data-ppc-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['客户搜索词']; });
+        var total = r.data.total || rows.length;
+        var clicks = rows.reduce(function(s,x){ return s + (parseInt(x['点击']||'0',10)||0); }, 0);
+        var orders = rows.reduce(function(s,x){ return s + (parseInt(x['订单']||'0',10)||0); }, 0);
+        var spend = rows.reduce(function(s,x){ return s + (parseFloat(x['花费']||'0')||0); }, 0);
+        root.innerHTML =
+          panel('PPC 出单词概览', kv([
+            ['出单词总数（全表）', total],
+            ['本页展示', rows.length],
+            ['点击合计', clicks],
+            ['订单合计', orders],
+            ['花费合计', '$' + spend.toFixed(2)],
+          ])) +
+          panel('出单词列表（'+rows.length+' 条）', table(
+            ['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'],
+            rows.slice(0,50).map(function(x){ return [
+              '<span class="m">'+(x['客户搜索词']||'')+'</span>',
+              x['广告活动名称']||'—',
+              x['曝光']||'—',
+              x['点击']||'—',
+              x['花费']||'—',
+              x['订单']||'—',
+              x['ACOS']||'—'
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -524,36 +518,32 @@ page('data-aba', {
       '外部反查数据只作<b>补充证据</b>：导入必须带来源与时间，落库标「外部研究」，不与倒推的强证据混算'
     ]
   },
-  body:function(){
-    return toolbar([inp('输入竞品 ASIN，例如 B0BQ39Y64F'), sel('美国',['美国','英国']), sel('全部证据',['强（前三名）','弱（前十名）'])],
-      [btn('查询','btn')]) +
-
-    stats([
-      ['命中多少个搜索词','148','强 37 / 弱 111','',false],
-      ['归成几类入口','6','按品类/场景/尺寸/颜色/图案/风格','',false],
-      ['最大一类占比','31.4%','花卉装饰','',false],
-      ['数据从哪来','关键词表倒推','不用额外买反查工具','',true],
-    ],4) +
-
-    panel('这个竞品的入口结构 · B0BQ39Y64F', table(
-      ['入口类型','代表搜索词','命中词数','点击份额合计','转化份额合计','证据强度'],
-      [
-        ['花卉装饰','<span class="m">floral pillow covers</span>','31','<span class="num">31.4%</span>','<span class="num">28.9%</span>',chip('强','ok')],
-        ['春季换新','<span class="m">spring decor pillow covers</span>','24','<span class="num">18.2%</span>','<span class="num">21.0%</span>',chip('强','ok')],
-        ['沙发场景','<span class="m">couch decor pillows</span>','22','<span class="num">14.7%</span>','<span class="num">12.3%</span>',chip('强','ok')],
-        ['尺寸筛选','<span class="m">18x18 pillow covers</span>','19','<span class="num">11.1%</span>','<span class="num">13.8%</span>',chip('强','ok')],
-        ['田园风格','<span class="m">farmhouse pillow covers</span>','29','<span class="m dim">只在前十</span>','<span class="m dim">只在前十</span>',chip('弱','warn')],
-        ['向日葵图案','<span class="m">sunflower pillow covers</span>','23','<span class="m dim">只在前十</span>','<span class="m dim">只在前十</span>',chip('弱','warn')],
-      ]
-    ), {flush:true, note:'这印证了一条重要经验：<b>爆款的成交常常来自更宽泛的入口</b>（花卉装饰 / 春季换新 / 沙发场景），而不是最大的那个品类词。'}) +
-
-    panel('导入外部反查数据（可选）', table(
-      ['文件','导入时间','覆盖','证据级别','和倒推的关系'],
-      [
-        ['<span class="m">花卉爆款反查研究.xlsx</span>','8-02','5 个竞品 ASIN · 214 个词',chip('外部研究 · 参考','warn'),'只补倒推覆盖不到的入口，<b>不与强证据混算</b>'],
-      ]
-    ), {flush:true, sub:'倒推是主源；外部反查报告是可选补充',
-      note:'倒推不用额外花钱（数据就在自己的关键词表里），<b>继续作为主源</b>。外部反查工具的报告或既有研究成果导进来时，必须标<b>来源和日期</b>，落库后 R 徽章注明「外部研究」，与倒推的 R 分开显示--证据分层，不互相冒充。'});
+    body:function(){
+    var el = '<div id="data-aba-root">' + ghost('正在加载品牌份额数据…') + '</div>';
+    setTimeout(function(){
+      API.table('SQP_US', {}, 200).then(function(r){
+        var root = document.getElementById('data-aba-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) {
+          root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
+        }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['搜索查询']; });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        root.innerHTML = panel('品牌份额（SQP_US · 共 ' + rows.length + ' 条）', table(
+          ['搜索查询','查询总量','曝光总量','品牌曝光份额','品牌购买份额'],
+          rows.slice(0, 100).map(function(x){
+            return [
+              '<span class="m">'+(x['搜索查询']||'—')+'</span>',
+              '<span class="num">'+String(x['查询总量']||'—')+'</span>',
+              '<span class="num">'+String(x['曝光总量']||'—')+'</span>',
+              '<span class="num">'+String(x['品牌曝光份额']||'—')+'</span>',
+              '<span class="num">'+String(x['品牌购买份额']||'—')+'</span>'
+            ];
+          })
+        ), {flush:true, note:'数据来自亚马逊官方「搜索查询绩效」品牌视图。品牌曝光/购买份额为空表示该查询下品牌暂未拿到份额。'});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -579,38 +569,32 @@ page('data-opp', {
       '状态不允许为空'
     ]
   },
-  body:function(){
-    return stats([
-      ['最重要','9','全部用上','ok',false],
-      ['重要','17','用上 15 / 合法省略 2','ok',false],
-      ['一般','34','','',false],
-      ['次要','61','','',false],
-      ['不合适','220','每条都有理由','',false],
-    ],5) +
-    toolbar([sel('全部等级',['最重要','重要','一般','次要','不合适']),
-             sel('全部入口层级',['主入口','中尾','精准长尾','语义召回','不属入口']),
-             sel('全部状态',['还没分配','已用上','需要强化','不合适','待人工裁定']),
-             sel('全部角色',['帮买家找到','帮买家选择','两者都是','辅助说明'])],
-      [btn('导出')]) +
-    table(
-      ['机会','类型','起什么作用','相关度','等级','入口层级','状态','用在哪 / 为什么没用'],
-      [
-        ['<span class="m">pillow covers</span>','商品实体','帮买家找到',chip('核心','ok'),'最重要',chip('主入口','sys'),chip('已用上','ok'),'标题 + 五点 + 后台词'],
-        ['<span class="m">watercolor hydrangea</span>','图案','找到 + 选择',chip('核心','ok'),'最重要',chip('精准长尾','ok'),chip('已用上','ok'),'标题 + 亮点 + 五点 + 后台词'],
-        ['<span class="m">18x18</span>','尺寸','帮买家找到',chip('核心','ok'),'最重要',chip('中尾','ok'),chip('已用上','ok'),'标题 + 五点 + 后台词'],
-        ['<span class="m">farmhouse decor</span>','装饰风格','找到 + 选择',chip('核心','ok'),'最重要',chip('中尾','ok'),chip('已用上','ok'),'标题 + 亮点'],
-        ['<span class="m">spring refresh</span>','购买目的','辅助说明',chip('相近','warn'),'重要',chip('语义召回','warn'),chip('已用上','ok'),'五点第 5 条'],
-        ['<span class="m">couch decor</span>','使用场景','帮买家找到',chip('相近','warn'),'重要',chip('中尾','ok'),chip('已用上','ok'),'五点第 3 条 + 后台词'],
-        ['<span class="m">gift for housewarming</span>','购买目的','辅助说明',chip('相近','warn'),'重要',chip('语义召回','warn'),chip('合法省略','warn'),'字数用完了，且不是搜索入口 —— 理由已记录'],
-        ['<span class="m">velvet texture</span>','材质','帮买家选择',chip('冲突','fail'),'不合适',chip('不属入口','neutral'),chip('不合适','fail'),'和商品事实冲突：本品是仿亚麻'],
-      ]
-    ) +
-
-    callout('','入口层级：四层要搭配，不是只挑最大的词',
-      '<b>主入口</b>（品类/季节大词）建立身份，不因竞争大就全放弃，但控制位置；<b>中尾</b>（尺寸/套装/风格/场景连接词）是小卖家的重点；<b>精准长尾</b>（图案+季节+尺寸组合）量小但意图清晰，优先用真实出单证据；<b>语义召回</b>（同义/偏好/购买目的）补亮点、五点和后台，不得改变商品身份。<br>看上面几行：这套文案四层都有，<b>这就是"兼顾相关性与可触达性"的具体样子</b>。') +
-
-    callout('','分类的完整体系是 12 类，这里只画了 6 类',
-      '完整清单：<b>尺寸 / 颜色 / 风格 / 场景 / 功能 / 套装数量 / 图案元素 / 季节·节日 / 情绪 / 人群偏好 / 购买目的 / 商品实体</b>，一个词允许挂多个标签。本页示例只展示其中 6 类；12 类清单进 PRD 与数据库设计，一词多标签在库层面落地。');
+    body:function(){
+    var el = '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
+    setTimeout(function(){
+      API.table('SQP_ASIN_US', {}, 200).then(function(r){
+        var root = document.getElementById('data-opp-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) {
+          root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
+        }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['搜索查询']; });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        root.innerHTML = panel('ASIN 份额（SQP_ASIN_US · 共 ' + rows.length + ' 条）', table(
+          ['搜索查询','查询总量','ASIN曝光份额','ASIN购买份额','ASIN'],
+          rows.slice(0, 100).map(function(x){
+            return [
+              '<span class="m">'+(x['搜索查询']||'—')+'</span>',
+              '<span class="num">'+String(x['查询总量']||'—')+'</span>',
+              '<span class="num">'+String(x['ASIN曝光份额']||'—')+'</span>',
+              '<span class="num">'+String(x['ASIN购买份额']||'—')+'</span>',
+              '<span class="m">'+(x['ASIN']||'—')+'</span>'
+            ];
+          })
+        ), {flush:true, note:'数据来自亚马逊官方「搜索查询绩效」ASIN 视图。ASIN 购买份额 > 0 的查询即该 ASIN 已占住的入口。'});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -634,16 +618,7 @@ page('data-grade', {
     ]
   },
   body:function(){
-    return callout('','和 ⑦ 上线跟踪是一条链',
-      '这一页的建议由系统<b>每周</b>根据真实表现自动产出。<b>建议不等于生效</b>——采纳后会生成新的参数版本，必须回测确认比现在好，才能设为默认。') +
-    table(
-      ['词','现在的等级','建议','依据','近 4 周曝光','转化率','是不是新词'],
-      [
-        ['<span class="m">watercolor pillow covers</span>','假设有效','→ 已验证有效','实际入口和当初的假设一致','<span class="num">12,408</span>','<span class="num">4.1%</span>',chip('否','neutral')],
-        ['<span class="m">cottage core cushion</span>','假设有效','→ 降级淘汰','连续 4 周零曝光','<span class="num">0</span>','<span class="num">—</span>',chip('否','neutral')],
-        ['<span class="m">dusty blue accent pillow</span>','探索中','保持不动','样本还太少，按探索词保护','<span class="num">318</span>','<span class="num">2.2%</span>',chip('是','sys')],
-      ]
-    );
+    return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。');
   }
 });
 
@@ -663,18 +638,6 @@ page('data-import', {
     limits:['原始文件<b>必须保留</b>，用于事后复核解析器是否改错了口径']
   },
   body:function(){
-    return table(
-      ['批次','时间','类型','站点','文件','行数','告警','结果'],
-      [
-        ['<span class="m">IMP-0042</span>','<span class="m">8-18 09:31</span>','关键词','美国','站点词库_US_20260818.xlsx','<span class="num">21,408</span>','2 个警告',chip('待确认','warn')],
-        ['<span class="m">IMP-0041</span>','<span class="m">8-16 14:02</span>','搜索表现','美国','SQP_US_W33.csv','<span class="num">3,842</span>','0',chip('成功','ok')],
-        ['<span class="m">IMP-0040</span>','<span class="m">8-16 13:55</span>','广告','美国','PPC_US_W33.csv','<span class="num">2,494</span>','1 个警告',chip('成功','ok')],
-        ['<span class="m">IMP-0039</span>','<span class="m">8-12 10:20</span>','关键词','美国','站点词库_US_20260812.xlsx','<span class="num">21,203</span>','0',chip('成功','ok')],
-        ['<span class="m">IMP-0037</span>','<span class="m">8-05 09:14</span>','关键词','英国','站点词库_GB_20260805.xlsx','<span class="num">11,472</span>','3 个警告',chip('成功','ok')],
-        ['<span class="m">IMP-0036</span>','<span class="m">8-02 15:40</span>','反查研究','美国','花卉爆款反查研究.xlsx','<span class="num">214</span>','1 个警告',chip('成功 · 外部来源','warn')],
-      ]
-    ) +
-    callout('','为什么一定要留原始文件',
-      '解析规则改版之后，「同一份文件解析出来的结果变了」是必须能查清的。<b>没有原始文件，就分不清是数据源变了还是我们解析错了</b>——这个亏已经吃过。');
+    return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。');
   }
 });

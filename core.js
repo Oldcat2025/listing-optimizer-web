@@ -26,7 +26,8 @@ var API = {
   stats: function(){ return this._post('/proj28/api/stats', {}, true); },
   listings: function(){ return this._post('/proj28/api/listings', {}, true); },
   create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); },
-  generate: function(sku){ return this._post('/proj28/api/generate', sku, true); }
+  generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
+  table: function(sheet, filter, limit){ return this._post('/proj28/api/table', {sheet:sheet, filter:filter||{}, limit:limit||50}, true); }
 };
 
 /* ═══ 登录会话 ═══ */

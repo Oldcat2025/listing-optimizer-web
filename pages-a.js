@@ -21,108 +21,84 @@ page('dash-todo', {
       '流程图上的数字必须是真实待办数，<b>不允许显示估算或缓存值</b>'
     ]
   },
-  body:function(){
+    body:function(){
     var R = (typeof ROLE !== 'undefined') ? ROLE : '管理员';
-    var statBar = '<div id="dash-stats" style="margin-bottom:14px">' + ghost('正在加载统计…') + '</div>';
+    var el = '<div id="dash-todo-root">' + ghost('正在加载待办…') + '</div>';
     setTimeout(function(){
-      API.stats().then(function(r){
-        var el = document.getElementById('dash-stats');
-        if (!el) return;
-        if (r.ok && r.data) {
-          var d = r.data;
-          el.innerHTML = stats([
-            ['待处理', d.pending||0, '待生成', 'neutral', false],
-            ['生成中', d.running||0, '', '', false],
-            ['待审核', d.review||0, '', 'run', false],
-            ['已完成', d.completed||0, '', 'ok', false],
-            ['失败', d.failed||0, '', 'fail', false],
-          ], 5);
-        } else { el.innerHTML = ''; }
+      Promise.all([
+        API.table('SKU_输入表', {}, 200),
+        API.table('定稿输出表', {}, 200)
+      ]).then(function(rs){
+        var root = document.getElementById('dash-todo-root');
+        if (!root) return;
+        var sku = (rs[0].ok && rs[0].data && rs[0].data.data) || [];
+        var draft = (rs[1].ok && rs[1].data && rs[1].data.data) || [];
+        function cnt(rows, key, val){ return rows.filter(function(x){ return String(x[key]||'').toUpperCase() === val; }).length; }
+        var pending = cnt(sku,'处理状态','PENDING');
+        var processing = cnt(sku,'处理状态','PROCESSING');
+        var review = cnt(sku,'处理状态','REVIEW_REQUIRED');
+        var completed = cnt(sku,'处理状态','COMPLETED');
+        var failed = cnt(sku,'处理状态','FAILED');
+        var skuRows = sku.filter(function(x){ return x && x['SKU']; });
+        function rowList(rows, actionTxt, btnCls){
+          return rows.slice(0,20).map(function(x){ return [
+            '<span class="m">'+(x['SKU']||'')+'</span>',
+            x['目标市场']||'—',
+            chip(x['处理状态']||'', String(x['处理状态']||'').toUpperCase()==='COMPLETED'?'ok':(String(x['处理状态']||'').toUpperCase()==='FAILED'?'fail':(String(x['处理状态']||'').toUpperCase()==='PROCESSING'?'run':''))),
+            String(x['更新时间']||'').slice(0,16),
+            btn(actionTxt, btnCls||'')
+          ]; });
+        }
+        var html = '';
+        if (R === '运营'){
+          html = stats([
+            ['待生成', pending, '排队等生成', '', false],
+            ['生成中', processing, '', '', false],
+            ['待审核', review, '', 'run', false],
+            ['可复制上架', completed, '已通过检查', 'ok', false],
+          ], 4) +
+          panel('你的完整流程', flow([
+            {t:'提交生成', s:'填好商品资料选站点', n:pending, go:'gen-new'},
+            {t:'等系统生成', s:'一般 12 分钟内', n:processing, go:'dash-runs'},
+            {t:'看待审文案', s:'系统给一套定稿', n:review, tone:'run', go:'rev-list'},
+            {t:'复制上架', s:'四段文案复制到亚马逊', n:completed, tone:'ok', go:'rev-list'},
+          ]), {sub:'点任意环节直接跳过去处理'}) +
+          panel('我的商品（'+skuRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情')), {flush:true});
+        } else if (R === '审核'){
+          var reviewRows = skuRows.filter(function(x){ return String(x['处理状态']||'').toUpperCase()==='REVIEW_REQUIRED'; });
+          html = stats([
+            ['待审核', review, '已出检查报告', '', false],
+            ['已完成', completed, '', 'ok', false],
+            ['失败', failed, '', 'fail', false],
+          ], 3) +
+          panel('你的完整流程', flow([
+            {t:'看待审文案', s:'系统只给一套定稿', n:review, tone:'run', go:'rev-list'},
+            {t:'看检查报告', s:'五项检查', n:review, go:'rev-audit'},
+            {t:'放行或打回', s:'打回指定字段', n:review, go:'rev-action'},
+            {t:'处理疑难', s:'系统修不了的', n:failed, tone:'fail', go:'rev-manual'},
+          ]), {sub:'点任意环节直接跳过去处理'}) +
+          panel('待审核商品（'+reviewRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn')), {flush:true});
+        } else {
+          html = stats([
+            ['待生成', pending, '', '', false],
+            ['生成中', processing, '', '', false],
+            ['待审核', review, '', 'run', false],
+            ['已完成', completed, '', 'ok', false],
+            ['失败', failed, '', 'fail', false],
+          ], 5) +
+          panel('运行概览', flow([
+            {t:'待生成', s:'排队等生成', n:pending, go:'dash-runs'},
+            {t:'生成中', s:'正在跑', n:processing, go:'dash-runs'},
+            {t:'待审核', s:'等人工放行', n:review, tone:'run', go:'rev-list'},
+            {t:'已完成', s:'可上架', n:completed, tone:'ok', go:'rev-list'},
+            {t:'失败', s:'按原因归类重跑', n:failed, tone:'fail', go:'gen-retry'},
+          ]), {sub:'点任意环节直接跳过去处理'}) +
+          panel('全部任务（'+skuRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情')), {flush:true});
+        }
+        root.innerHTML = html;
       });
     }, 0);
-
-    if (R === '运营'){
-      return statBar + stats([
-        ['等我补资料','3','缺必填项，卡住不能生成','fail',false],
-        ['正在生成','4','预计 12 分钟内出结果','',false],
-        ['可以复制上架','7','已通过全部检查','ok',false],
-        ['等我登记 ASIN','2','上架后回来登记','warn',false],
-      ],4) +
-
-      panel('你的完整流程', flow([
-        {t:'填商品资料', s:'把商品是什么、多大、几个装写清楚', n:3, tone:'fail', go:'sku-list'},
-        {t:'提交生成',   s:'选好站点，点提交',                 n:0,               go:'gen-new'},
-        {t:'等系统生成', s:'一般 12 分钟内，可以去干别的',       n:4,               go:'dash-runs'},
-        {t:'复制上架',   s:'四段文案直接复制到亚马逊后台',       n:7, tone:'ok',   go:'rev-list'},
-        {t:'登记 ASIN',  s:'上架后填个 ASIN，系统才能跟踪效果',  n:2, tone:'warn', go:'fb-publish'},
-      ]), {sub:'点任意环节直接跳过去处理', flush:false,
-        note:'流程图上的数字就是<b>卡在那一步、等你处理</b>的数量。数字是 0 说明这一步现在不用你管。'}) +
-
-      panel('轮到你处理的', table(
-        ['要做什么','商品','站点','为什么卡住','等了多久',''],
-        [
-          [chip('补资料','fail'),'<span class="m">FX-07</span>','—','「包含物」没填（要写清含不含内芯）','<span class="m">3 小时</span>',btn('去补','btn')],
-          [chip('补资料','fail'),'<span class="m">FX-09</span>','—','婴儿类必须填「认证/安全」','<span class="m">1 天</span>',btn('去补')],
-          [chip('可复制','ok'),'<span class="m">FX-03</span>','US','已全部通过检查','<span class="m">42 分钟</span>',btn('去复制','btn')],
-          [chip('可复制','ok'),'<span class="m">FX-03</span>','GB','已通过（后台关键词偏短但已说明理由）','<span class="m">40 分钟</span>',btn('去复制')],
-          [chip('登记','warn'),'<span class="m">FX-01</span>','US','上架后还没填 ASIN','<span class="m">2 天</span>',btn('去登记')],
-        ]
-      ), {flush:true});
-    }
-
-    if (R === '审核'){
-      return statBar + stats([
-        ['等我审核','7','已出检查报告','',false],
-        ['其中一次通过','5','五项检查全绿','ok',false],
-        ['有说明的通过','2','某项偏短但已证明合理','warn',false],
-        ['需人工处理','2','系统已放弃自动修','fail',false],
-      ],4) +
-
-      panel('你的完整流程', flow([
-        {t:'看待审文案', s:'系统只给一套定稿，不给你做选择题', n:7, tone:'ok', go:'rev-list'},
-        {t:'看检查报告', s:'五项检查 + 每个词为什么进来',      n:7,             go:'rev-audit'},
-        {t:'放行或打回', s:'打回时指定改哪个字段，不整篇重写',  n:7,             go:'rev-action'},
-        {t:'处理疑难',   s:'系统修不了的，交给人判断',          n:2, tone:'fail', go:'rev-manual'},
-      ]), {sub:'点任意环节直接跳过去处理',
-        note:'<b>放行前建议先看检查报告</b>：报告里写清了每个词凭什么进这个字段、哪些词被拒绝以及原因。'}) +
-
-      panel('等你放行的', table(
-        ['商品','站点','五项检查','结论','等了多久',''],
-        [
-          ['<span class="m">FX-03</span>','US','5/5 '+chip('全通过','ok'),'可上架','<span class="m">42 分钟</span>',btn('去审核','btn')],
-          ['<span class="m">FX-03</span>','GB','4/5 '+chip('1 项偏短','warn'),'可上架（有说明）','<span class="m">40 分钟</span>',btn('去审核')],
-          ['<span class="m">FX-05</span>','US','0/5 '+chip('未出','fail'),'需人工','<span class="m">18 小时</span>',btn('去处理','btn--danger')],
-        ]
-      ), {flush:true});
-    }
-
-    /* 管理员（含数据维护） */
-    return statBar + stats([
-      ['数据该更新了','1','英国关键词已过 13 天','warn',false],
-      ['规则超期','1','英国平台规则 97 天没复核','fail',false],
-      ['正在运行','4','并发上限 3，有排队','',false],
-      ['今日失败','5','3 条是数据问题，2 条是准入','fail',false],
-    ],4) +
-
-    panel('你的完整流程', flow([
-      {t:'导入数据',      s:'关键词表、广告、搜索表现',        n:1, tone:'warn', go:'data-kw'},
-      {t:'维护规则与模型', s:'类目/站点规则、AI 指令、模型密钥', n:1, tone:'fail', go:'cfg-market'},
-      {t:'看运行情况',    s:'谁在跑、跑到哪、排队多久',        n:4,              go:'dash-runs'},
-      {t:'处理异常',      s:'失败的按原因归类，批量重跑',       n:5, tone:'fail', go:'gen-retry'},
-      {t:'看用量与费用',  s:'离护栏还有多远',                  go:'adm-cost'},
-    ]), {sub:'点任意环节直接跳过去处理',
-      note:'管理员合并了原「数据维护」角色。<b>这意味着数据岗同时拿到了改模型密钥和用户权限的能力</b>——如果这两个岗不是同一个人，去 ⑧.1 打开「受限管理员」开关。'}) +
-
-    panel('需要你处理的', table(
-      ['类型','对象','说明','严重度',''],
-      [
-        [chip('规则超期','fail'),'<span class="m">英国站平台规则</span>','97 天没复核（超过 90 天阈值），提交生成时会告警','高',btn('去复核','btn')],
-        [chip('数据到期','warn'),'<span class="m">英国站关键词表</span>','快照是 8-05 的，已过 13 天','中',btn('去导入')],
-        [chip('失败','fail'),'<span class="m">FX-07 / FX-09</span>','商品资料必填项为空 —— 属输入问题，需通知运营','中',btn('通知运营')],
-        [chip('失败','fail'),'<span class="m">FX-02</span>','关键词表没读完整（读到的行数 ≠ 表里的行数）','高',btn('重导数据','btn')],
-        [chip('密钥','warn'),'<span class="m">云雾 API 旧密钥</span>','已失效（401），备用密钥可用，建议轮换','中',btn('去处理')],
-      ]
-    ), {flush:true});
+    return el;
   }
 });
 
@@ -142,33 +118,37 @@ page('dash-runs', {
     limits:['取消只改状态标记，不直接杀 n8n 执行，避免留下半写数据','不在此页改任何生成结果']
   },
   body:function(){
-    return stats([
-      ['正在运行','4','',' ',false],
-      ['排队等待','11','预计 1 小时 42 分清空','',false],
-      ['今天完成','38','',' ok',false],
-      ['今天失败','5','3 数据问题 / 2 准入问题','fail',false],
-      ['平均耗时','9分12秒','目标 12 分钟内','ok',true],
-    ],5) +
-
-    panel('正在运行', table(
-      ['任务编号','商品','站点','跑到哪一步','进度','已用时',''],
-      [
-        ['<span class="m">RUN-260818-0011</span>','FX-04','US','第二段 · 决定用哪些词',bar(58),'<span class="m">5分02秒</span>',btn('详情')],
-        ['<span class="m">RUN-260818-0012</span>','FX-04','GB','第一段 · 判断买家意图',bar(41),'<span class="m">3分48秒</span>',btn('详情')],
-        ['<span class="m">RUN-260818-0013</span>','FX-06','US','第一段 · 处理关键词表',bar(22),'<span class="m">1分30秒</span>',btn('详情')],
-        ['<span class="m">RUN-260818-0014</span>','FX-06','GB','第一段 · 看商品图',bar(9),'<span class="m">0分41秒</span>',btn('详情')],
-      ]
-    ), {flush:true}) +
-
-    panel('今天失败的（已按原因归类）', table(
-      ['原因','说清楚是什么意思','条数','该怎么修','涉及商品',''],
-      [
-        ['<span class="m">资料不全</span>','商品资料必填项没填','2','让运营补齐后重跑','FX-07, FX-09',btn('批量重跑','btn')],
-        ['<span class="m">数据没读全</span>','关键词表读到的行数和表里对不上','1','重新导一次关键词表','FX-02',btn('去导入')],
-        ['<span class="m">标题没词可用</span>','所有候选词都没通过标题准入','1','看选词记录，或放宽类目规则','FX-05',btn('看选词记录')],
-        ['<span class="m">亮点没新内容</span>','亮点相对标题没提供新信息','1','只重做亮点，不整篇重写','FX-05',btn('失败重做')],
-      ]
-    ), {flush:true, note:'失败原因 → 修复动作是<b>系统定死的对应关系</b>（18 条规则），不用你判断该怎么修。'});
+    var el = '<div id="dash-runs-root">' + ghost('正在加载运行情况…') + '</div>';
+    setTimeout(function(){
+      API.table('SKU_输入表', {}, 200).then(function(r){
+        var root = document.getElementById('dash-runs-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        function cnt(s){ return rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === s; }).length; }
+        var running = cnt('PROCESSING'), pending = cnt('PENDING'), completed = cnt('COMPLETED'), review = cnt('REVIEW_REQUIRED'), failed = cnt('FAILED');
+        function tone(s){ var u = String(s||'').toUpperCase(); return u==='COMPLETED'?'ok':(u==='FAILED'||u==='REVIEW_REQUIRED'?'fail':(u==='PROCESSING'?'run':'')); }
+        root.innerHTML =
+          stats([
+            ['正在运行', running, '', ' ', false],
+            ['排队等待', pending, '', '', false],
+            ['待审核', review, '', 'warn', false],
+            ['已完成', completed, '', 'ok', false],
+            ['失败', failed, '', 'fail', false],
+          ], 5) +
+          panel('全部任务（' + rows.length + ' 条）', table(
+            ['SKU','站点','状态','更新时间',''],
+            rows.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['SKU']||'') + '</span>',
+              x['目标市场'] || '—',
+              chip(x['处理状态']||'', tone(x['处理状态'])),
+              '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
+              btn('详情')
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -187,33 +167,41 @@ page('dash-quality', {
     writes:['无'],
     limits:['指标必须绑版本：换过指令/模型的周次要在图上标出分界线，否则趋势没有意义']
   },
-  body:function(){
-    return stats([
-      ['一次通过率','83.6%','目标 85% 以上','warn',false],
-      ['人工花的时间','2分41秒','每条商品，目标 3 分钟内','ok',false],
-      ['数据读全率','100%','必须 100%','ok',false],
-      ['凑字数的词','0','必须是 0','ok',false],
-    ],4) +
-
-    '<div class="cols c2">' +
-      panel('失败原因分布（近 4 周）', table(
-        ['原因','W31','W32','W33','W34','趋势'],
-        [
-          ['亮点没新内容','9','7','4','3','↓ 好转'],
-          ['标题没词可用','2','3','2','4','↑ 变差'],
-          ['数据没读全','5','1','0','1','— 平'],
-          ['商品资料不全','6','6','5','7','↑ 变差'],
-        ]
-      ), {flush:true, note:'<b>「商品资料不全」走高不是系统退化</b>——那是运营填表的问题，应该转给运营看，不该算在系统头上。指标要能分清这两类。'}) +
-
-      panel('版本分界线', kv([
-        ['当前参数','P-v4 · 8-14 起'],
-        ['当前 AI 指令','PR-v7 · 8-16 起'],
-        ['当前模型','MDL-v3 · 8-18 起'],
-        ['本周是否混版','是 · W34 含两个模型版本'],
-      ]) + '<div style="margin-top:12px">' + callout('warn','这周的数字不能直接和上周比',
-        'W34 中途换了模型。<b>换模型等于换了写作者</b>，通过率的变化可能来自模型而不是参数。要下结论，只能在同版本区间内比较。') + '</div>') +
-    '</div>';
+    body:function(){
+    var el = '<div id="dash-quality-root">' + ghost('正在加载质量数据…') + '</div>';
+    setTimeout(function(){
+      API.table('证书表', {}, 200).then(function(r){
+        var root = document.getElementById('dash-quality-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        function isPass(v){ var s = String(v||'').trim().toUpperCase(); return s==='TRUE'||s==='是'||s==='YES'||s==='1'||s==='PASS'; }
+        function isFail(v){ var s = String(v||'').trim().toUpperCase(); return s==='FALSE'||s==='否'||s==='NO'||s==='0'||s==='FAIL'; }
+        var passed = rows.filter(function(x){ return isPass(x['全部通过']); }).length;
+        var failed = rows.filter(function(x){ return isFail(x['全部通过']); }).length;
+        var rate = rows.length ? Math.round(passed / rows.length * 1000) / 10 : 0;
+        var failedRows = rows.filter(function(x){ return isFail(x['全部通过']); });
+        root.innerHTML =
+          stats([
+            ['一次通过率', rate + '%', '目标 85% 以上', rate >= 85 ? 'ok' : 'warn', false],
+            ['已出证书', rows.length + ' 份', '证书表累计', '', false],
+            ['全部通过', passed + ' 份', '', 'ok', false],
+            ['未通过', failed + ' 份', '', 'fail', false],
+          ], 4) +
+          panel('未通过明细（全部通过 = 否）', failedRows.length ? table(
+            ['SKU','站点','结论','生成时间',''],
+            failedRows.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['SKU']||'—') + '</span>',
+              x['目标市场'] || '—',
+              chip('未通过','fail'),
+              '<span class="m">' + String(x['生成时间']||'').slice(0,16) + '</span>',
+              btn('查看报告')
+            ]; })
+          ) : callout('ok','全部通过','当前所有证书全部通过，没有失败明细。'), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -238,60 +226,37 @@ page('dash-flow', {
       '回流段不属于 12 道工序，是闭环的第四段，单独标出'
     ]
   },
-  body:function(){
-    var ar = '<div class="farrow">-></div>';
-    function pnode(no, t, c, s, go){
-      return '<div class="pnode" onclick="location.hash=\''+go+'\'">'+
-        '<div class="pnode__no">'+no+'</div>'+
-        '<div class="pnode__t">'+t+'</div>'+
-        '<div class="pnode__c">'+c+'</div>'+
-        '<div class="pnode__s">'+s+'</div></div>';
-    }
-
-    return stats([
-      ['关键词累计入库','128 万','5 份快照 · 零丢失','ok',false],
-      ['选词记录累计','142,038','每条候选进不进、为什么','ok',false],
-      ['定稿文案累计','84 套','42 商品 × 2 站点','',false],
-      ['其中已可上架','74 套','其余在人工或重做中','warn',false],
-    ],4) +
-
-    panel('12 道工序 · 每道积累了多少',
-      '<div class="psec">第一段 · 搞懂商品和市场（工序 1-5）</div>' +
-      '<div class="flow">' +
-        pnode('01','收商品资料','42 份','事实 486 条 · 必填全部确认','sku-detail') + ar +
-        pnode('02','看商品图','126 条','图片识别结论 · 均经防编造复核','sku-dna') + ar +
-        pnode('03','处理关键词表','128 万行','5 份快照 · 逐行读完','data-kw') + ar +
-        pnode('04','判断买家意图','21.4 万条','一词可挂多个意图标签','data-opp') + ar +
-        pnode('05','锁定主定位','84 条','42 商品 × 2 站点各一条','gen-run') +
-      '</div>' +
-
-      '<div class="psec">第二段 · 决定写什么并写出来（工序 6-10）</div>' +
-      '<div class="flow">' +
-        pnode('06','列机会清单','88,412 条','含被拒的，每条有理由','data-opp') + ar +
-        pnode('07','写标题','84 份','选词记录 41,208 条','rev-ledger') + ar +
-        pnode('08','写亮点','84 份','选词记录 38,540 条','rev-ledger') + ar +
-        pnode('09','写五点','420 条','选词记录 36,612 条','rev-ledger') + ar +
-        pnode('10','写后台搜索词','84 份','选词记录 25,678 条','rev-ledger') +
-      '</div>' +
-
-      '<div class="psec">第三段 · 自检并交付（工序 11-12）</div>' +
-      '<div class="flow">' +
-        pnode('11','反向理解测试','84 次','独立模型只看成品反推','rev-audit') + ar +
-        pnode('12','出检查报告并交付','84 份','可上架 74 · 需人工 6 · 重做中 4','rev-list') +
-      '</div>' +
-
-      '<div class="psec">回流段 · 不属 12 道工序，但在持续积累（-> 喂回工序 4/6，让下一批更准）</div>' +
-      '<div class="flow">' +
-        pnode('↺','上线登记 ASIN','2 条','不登记就没有效果跟踪','fb-publish') + ar +
-        pnode('↺','每周表现数据','4,102 行','按入口类型分开统计','fb-perf') + ar +
-        pnode('↺','词的升降级','312 次','表现好的升级、零曝光的淘汰','data-grade') + ar +
-        pnode('↺','版本迭代','3+3+3 版','参数 / AI 指令 / 模型，全部可回测','fb-backtest') +
-      '</div>',
-    {flush:true, sub:'数字都是系统启用以来的累计值，来自各工序落库的真实记录',
-      note:'看懂这张图就明白"系统会越用越好"不是口号：<b>每一次生成都往 12 道工序里沉淀数据</b>，回流段再把这些数据变成更准的意图标注、词评级和参数版本。'}) +
-
-    callout('','为什么 84 套定稿对应 74 套可上架',
-      '12 道工序不是流水线走完就完--每套定稿都要过五项检查，过不了的进<b>定向重做</b>（只重做失败字段，最多 3 次），再不行转人工。所以累计值是"产出"，可上架值是"合格产出"，两个数字之间的差就是系统还在打磨的部分。');
+    body:function(){
+    var el = '<div id="dash-flow-root">' + ghost('正在加载全流程数据…') + '</div>';
+    setTimeout(function(){
+      Promise.all([
+        API.table('SKU_输入表', {}, 200),
+        API.table('站点词库_US', {}, 200),
+        API.table('定稿输出表', {}, 200),
+        API.table('证书表', {}, 200)
+      ]).then(function(rs){
+        var root = document.getElementById('dash-flow-root');
+        if (!root) return;
+        for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
+        function cnt(r, key){ if (r && r.data && r.data.total !== undefined && r.data.total !== null) return r.data.total; var rows = (r && r.data && r.data.data) || []; return rows.filter(function(x){ return x && x[key]; }).length; }
+        function fmt(n){ n = Number(n || 0); try { return n.toLocaleString(); } catch(e){ return String(n); } }
+        var skuN = cnt(rs[0], 'SKU'), kwN = cnt(rs[1], '关键词'), finN = cnt(rs[2], 'SKU'), certN = cnt(rs[3], '运行ID');
+        root.innerHTML =
+          stats([
+            ['商品累计', fmt(skuN), 'SKU_输入表', '', false],
+            ['关键词累计', fmt(kwN), '站点词库_US', 'ok', false],
+            ['定稿累计', fmt(finN), '定稿输出表', '', false],
+            ['证书累计', fmt(certN), '证书表', 'ok', false],
+          ], 4) +
+          panel('四道工序的数据底子（系统启用以来的累计值）', kv([
+            ['① 收商品资料 · SKU_输入表', fmt(skuN) + ' 条'],
+            ['② 处理关键词表 · 站点词库_US', fmt(kwN) + ' 行'],
+            ['③ 出定稿文案 · 定稿输出表', fmt(finN) + ' 套'],
+            ['④ 出检查报告 · 证书表', fmt(certN) + ' 份'],
+          ]), {flush:true, note:'这四个数字就是系统「越用越好」的底子：<b>每一次生成都往这些表里沉淀记录</b>。数据越多，词评级、意图标注和参数版本越准。'});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -367,38 +332,68 @@ page('sku-detail', {
       '「不能说的话」写入后进禁用注册表，<b>不可逆</b>'
     ]
   },
-  body:function(){
-    return '<div class="cols c21">' +
-      panel('商品资料 · FX-03', '<div class="form g2">'+
-        fld('商品编号', txt('FX-03', true)) +
-        fld('所属系列', txt('PF-FLORAL-18')) +
-        fld('这是什么 <span style="color:var(--red)">*</span>', txt('pillow covers'), '写「抱枕套」不能写「抱枕」——写错会让整套文案说错商品') +
-        fld('尺寸 <span style="color:var(--red)">*</span>', txt('18x18 inch')) +
-        fld('几个装 <span style="color:var(--red)">*</span>', txt('set of 2')) +
-        fld('包含什么 <span style="color:var(--red)">*</span>', txt('covers only, inserts not included'), '含不含内芯必须写清，这是买家最容易误会的地方') +
-        fld('材质', txt('faux linen')) +
-        fld('工艺', txt('double-sided print')) +
-        fld('结构', txt('hidden zipper')) +
-        fld('功能', txt(''), '留空 = 不许说这类功能，不是「以后再补」') +
-        fld('怎么清洗', txt('machine washable')) +
-        fld('认证 / 安全', txt(''), '婴儿床笠类目必须填，否则整条不通过') +
-      '</div>' +
-      '<div style="margin-top:14px">'+fld('不能说的话（逗号分隔）', txt('waterproof, outdoor'),
-        '写进去就永久生效，后面任何环节都不会再用这些词')+'</div>' +
-      '<div class="btnrow" style="margin-top:14px">'+btn('保存','btn--ghost')+btn('保存并生成文案','btn')+btn('看修改历史')+'</div>'
-      ) +
-      panel('这份资料的情况', kv([
-        ['已确认','11 项'],
-        ['不确定','2 项（功能 / 认证）'],
-        ['已禁止','2 项（防水 / 户外）'],
-        ['最后修改','2026-08-18 09:14 · Oldcat'],
-        ['商品图','3 张'],
-        ['用过这份资料的任务','7 条'],
-      ]) + '<div style="margin-top:14px">' +
-        callout('stop','改资料会让已生成的文案作废',
-          '有 7 条历史任务用过这份资料。改完之后系统<b>不会自动重写已上架的文案</b>，只会列一张「受影响清单」给你，由你决定要不要重跑。') +
-      '</div>') +
-    '</div>';
+    body:function(){
+    function pageParam(){
+      var h = (location.hash || '').replace(/^#/, '');
+      var idx = h.indexOf('?');
+      if (idx >= 0){
+        var q = h.slice(idx + 1);
+        var ps = q.split('&');
+        for (var i=0;i<ps.length;i++){ var kvp = ps[i].split('='); if (kvp[0] === 'sku') return decodeURIComponent((kvp[1]||'').replace(/\+/g, ' ')); }
+        return '';
+      }
+      idx = h.indexOf('/');
+      return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : '';
+    }
+    function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
+    var el = '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
+    setTimeout(function(){
+      var sku = pageParam();
+      Promise.all([
+        API.table('SKU_输入表', sku ? {SKU: sku} : {}, 1),
+        API.table('商品事实表', sku ? {SKU: sku} : {}, 1)
+      ]).then(function(rs){
+        var root = document.getElementById('sku-detail-root');
+        if (!root) return;
+        for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
+        var input = ((rs[0].data.data||[]).filter(function(x){ return x && x['SKU']; }))[0];
+        var fact = ((rs[1].data.data||[]).filter(function(x){ return x && x['SKU']; }))[0];
+        if (!input && !fact){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        var skuName = (input && input['SKU']) || (fact && fact['SKU']) || '—';
+        var leftPairs = input ? [
+          ['SKU', input['SKU']||'—'],
+          ['产品族ID', input['产品族ID']||'—'],
+          ['目标市场', input['目标市场']||'—'],
+          ['类目', input['类目']||'—'],
+          ['季节范围', input['季节范围']||'—'],
+          ['品牌名', input['品牌名']||'—'],
+          ['词库快照ID', input['词库快照ID']||'—'],
+          ['处理状态', chip(input['处理状态']||'待处理', toneOf(input['处理状态']))],
+          ['处理时间', String(input['处理时间']||'—').slice(0,16)],
+          ['运行ID', input['运行ID']||'—'],
+        ] : [];
+        var factPairs = fact ? [
+          ['产品实体', fact['产品实体']||'—'],
+          ['尺寸', fact['尺寸']||'—'],
+          ['数量', fact['数量']||'—'],
+          ['材质', fact['材质']||'—'],
+          ['工艺', fact['工艺']||'—'],
+          ['结构', fact['结构']||'—'],
+          ['功能', fact['功能']||'（留空 = 不许说这类功能）'],
+          ['包含物', fact['包含物']||'—'],
+          ['护理', fact['护理']||'—'],
+          ['认证安全', fact['认证安全']||'—'],
+          ['禁止声明', fact['禁止声明']||'—'],
+          ['数据完整性', fact['数据完整性']||'—'],
+        ] : [];
+        root.innerHTML =
+          '<div class="cols c21">' +
+          panel('商品资料 · ' + skuName, (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。'))) +
+          panel('商品事实（Product Truth）', (factPairs.length ? kv(factPairs) : callout('warn','暂无事实','该 SKU 还没有商品事实记录。')) + (fact && fact['缺失字段清单'] ? '<div style="margin-top:12px">' + callout('warn','缺失字段', fact['缺失字段清单']) + '</div>' : '')) +
+          '</div>';
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -421,26 +416,52 @@ page('sku-family', {
       '系列只保证同款不串，<b>不保证季节不串</b>——季节靠「季节款式」字段'
     ]
   },
-  body:function(){
-    return panel('系列', table(
-      ['系列编号','共享什么','商品数','季节款式分布','检查',''],
-      [
-        ['<span class="m">PF-FLORAL-18</span>','花卉图案 · 仿亚麻','4','四季款 ×4',chip('正常','ok'),btn('展开')],
-        ['<span class="m">PF-XMAS-20</span>','圣诞图案 · 天鹅绒','3','圣诞款 ×3',chip('正常','ok'),btn('展开')],
-        ['<span class="m">PF-SUM-WP</span>','纯色 · 户外面料','2','春夏防水款 ×2',chip('正常','ok'),btn('展开')],
-        ['<span class="m">PF-MIX-RISK</span>','向日葵图案','5','四季款 ×3 / 秋款 ×2',chip('季节混装','warn'),btn('展开','btn')],
-      ]
-    ), {flush:true, note:'<b>PF-MIX-RISK 就是典型的容易出事的情况</b>：同一个图案跨了两个季节款式。系统不阻止你这样建，但「防水/户外」这类说法会被二次校验拦住，不会串过去。'}) +
-
-    panel('系列内差异（PF-FLORAL-18）', table(
-      ['商品','尺寸','几个装','应该共享','应该独享','检查'],
-      [
-        ['<span class="m">FX-01</span>','16x16','2 个装','图案/材质/风格','尺寸/数量',chip('一致','ok')],
-        ['<span class="m">FX-03</span>','18x18','2 个装','图案/材质/风格','尺寸/数量',chip('一致','ok')],
-        ['<span class="m">FX-11</span>','20x20','4 个装','图案/材质/风格','尺寸/数量',chip('一致','ok')],
-        ['<span class="m">FX-12</span>','18x18','2 个装','图案/材质/风格','尺寸/数量',chip('材质对不上','warn')],
-      ]
-    ), {flush:true});
+    body:function(){
+    function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
+    var el = '<div id="sku-family-root">' + ghost('正在加载系列数据…') + '</div>';
+    setTimeout(function(){
+      API.table('SKU_输入表', {}, 200).then(function(r){
+        var root = document.getElementById('sku-family-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        var groups = {};
+        rows.forEach(function(x){ var fid = x['产品族ID'] || '（未分组）'; if (!groups[fid]) groups[fid] = []; groups[fid].push(x); });
+        var fams = Object.keys(groups).map(function(fid){
+          var members = groups[fid];
+          var seasons = {};
+          members.forEach(function(m){ var s = m['季节范围']||'—'; seasons[s] = (seasons[s]||0) + 1; });
+          return { fid: fid, members: members, seasonTxt: Object.keys(seasons).map(function(s){ return s + ' ×' + seasons[s]; }).join(' / '), markets: members.map(function(m){ return m['目标市场']||'—'; }).join(', ') };
+        });
+        var html = panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
+          ['系列编号','商品数','目标市场','季节款式分布',''],
+          fams.map(function(f){ return [
+            '<span class="m">' + f.fid + '</span>',
+            f.members.length,
+            f.markets,
+            f.seasonTxt,
+            btn('展开')
+          ]; })
+        ), {flush:true, note:'同一系列共享图案/材质/风格，各自独享尺寸/数量。<b>季节混装</b>（同一系列跨多个季节款式）容易串词，系统会二次校验拦截。'});
+        if (fams.length){
+          var first = fams[0];
+          html += panel('系列内商品（' + first.fid + '）', table(
+            ['SKU','目标市场','类目','季节范围','处理状态',''],
+            first.members.map(function(m){ return [
+              '<span class="m">' + (m['SKU']||'—') + '</span>',
+              m['目标市场']||'—',
+              m['类目']||'—',
+              m['季节范围']||'—',
+              chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
+              btn('详情')
+            ]; })
+          ), {flush:true});
+        }
+        root.innerHTML = html;
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -463,34 +484,60 @@ page('sku-dna', {
       '材质与工艺的视觉推断一律降级为「推断」，且不允许进标题'
     ]
   },
-  body:function(){
-    return '<div class="cols c2">' +
-      panel('系统认定的商品身份', kv([
-        ['这是什么','pillow covers 抱枕套'],
-        ['尺寸','18x18 inch'],
-        ['几个装','set of 2'],
-        ['包含','只有外套，不含内芯'],
-      ])) +
-      panel('系统从图片看到的', kv([
-        ['主视觉','水彩绣球花'],
-        ['次级风格','田园 / 乡村装饰'],
-        ['主色','灰蓝 + 奶油白'],
-        ['画风','柔和水彩'],
-        ['防编造复核',chip('已通过 · 另一个模型重看核对','ok')],
-      ])) +
-    '</div>' +
-
-    panel('逐条事实', table(
-      ['事实','内容','状态','从哪来','能用在哪些字段','适用站点'],
-      [
-        ['这是什么','pillow covers',chip('已确认','ok'),'你填的资料','标题 / 亮点 / 五点 / 后台词','US, GB'],
-        ['尺寸','18x18 inch',chip('已确认','ok'),'你填的资料','标题 / 亮点 / 五点 / 后台词','US, GB'],
-        ['材质','faux linen',chip('已确认','ok'),'你填的资料','亮点 / 五点 / 后台词','US, GB'],
-        ['工艺','double-sided print',chip('推断','warn'),'系统看图猜的','<b>不含标题</b> · 五点 / 后台词','US, GB'],
-        ['防水','—',chip('已禁止','fail'),'你写进「不能说的话」','（哪都不能用）','—'],
-        ['认证/安全','—',chip('不确定','neutral'),'没填','（哪都不能用）','—'],
-      ]
-    ), {flush:true, note:'<b>看第 4 行</b>：工艺是系统看图推断的，所以它能写进五点，但<b>不许进标题</b>。这就是「事实是真的 ≠ 有资格进标题」在系统里的具体表现。'});
+    body:function(){
+    var el = '<div id="sku-dna-root">' + ghost('正在加载系统识别结果…') + '</div>';
+    setTimeout(function(){
+      API.table('商品事实表', {}, 200).then(function(r){
+        var root = document.getElementById('sku-dna-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        function statusChip(x){
+          var comp = String(x['数据完整性']||'').toUpperCase();
+          if (comp === 'COMPLETE') return chip('已确认','ok');
+          if (comp === 'INCOMPLETE') return chip('不完整','warn');
+          if (comp === 'REJECTED') return chip('已拒绝','fail');
+          return chip('待定','neutral');
+        }
+        var first = rows[0];
+        root.innerHTML =
+          '<div class="cols c2">' +
+          panel('系统认定的商品身份', kv([
+            ['SKU', first['SKU']||'—'],
+            ['产品实体', first['产品实体']||'—'],
+            ['尺寸', first['尺寸']||'—'],
+            ['数量', first['数量']||'—'],
+            ['包含物', first['包含物']||'—'],
+            ['数据完整性', statusChip(first)],
+          ])) +
+          panel('这份事实的约束', kv([
+            ['材质', first['材质']||'—'],
+            ['工艺', first['工艺']||'—'],
+            ['结构', first['结构']||'—'],
+            ['功能', first['功能']||'（留空 = 不许说）'],
+            ['护理', first['护理']||'—'],
+            ['认证安全', first['认证安全']||'—'],
+            ['禁止声明', first['禁止声明']||'—'],
+          ])) +
+          '</div>' +
+          panel('逐条事实（商品事实表 · 共 ' + rows.length + ' 条）', table(
+            ['SKU','产品实体','尺寸','数量','材质','工艺','结构','功能','数据完整性'],
+            rows.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['SKU']||'—') + '</span>',
+              x['产品实体']||'—',
+              x['尺寸']||'—',
+              x['数量']||'—',
+              x['材质']||'—',
+              x['工艺']||'—',
+              x['结构']||'—',
+              x['功能']||'—',
+              statusChip(x),
+            ]; })
+          ), {flush:true, note:'<b>「数据完整性」由系统判定</b>：COMPLETE=资料齐全，INCOMPLETE=有必填缺失，REJECTED=禁止声明或必填冲突。材质/工艺来自商品事实表，图片不能替代它。'});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -608,27 +655,38 @@ page('gen-queue', {
     writes:['job_queue.priority','run.status'],
     limits:['并发上限由成本护栏决定，不允许在此页突破','取消不退还已消耗费用']
   },
-  body:function(){
-    return stats([
-      ['同时最多跑','3 条','控制费用与服务器压力','',true],
-      ['排队中','11 条','预计 1 小时 42 分','',true],
-      ['本批次','B-260818-02','共 18 条','',true],
-      ['今日已用量','412 K','上限 2 M','ok',true],
-    ],4) +
-    panel('队列', toolbar(
-      [sel('全部批次',['B-260818-02','B-260818-01']), sel('全部站点',['美国','英国'])],
-      [btn('暂停队列'), btn('批量取消','btn--danger')]
-    ) + table(
-      ['排序','任务编号','商品','站点','优先级','状态','预计开始',''],
-      [
-        ['1','<span class="m">RUN-260818-0011</span>','FX-04','US','加急',chip('运行中','run'),'—',btn('取消','btn--danger')],
-        ['2','<span class="m">RUN-260818-0012</span>','FX-04','GB','加急',chip('运行中','run'),'—',btn('取消','btn--danger')],
-        ['3','<span class="m">RUN-260818-0013</span>','FX-06','US','普通',chip('运行中','run'),'—',btn('取消','btn--danger')],
-        ['4','<span class="m">RUN-260818-0015</span>','FX-06','GB','普通',chip('排队','neutral'),'<span class="m">约 3 分钟后</span>',btn('取消')],
-        ['5','<span class="m">RUN-260818-0016</span>','FX-08','US','普通',chip('排队','neutral'),'<span class="m">约 12 分钟后</span>',btn('取消')],
-        ['6','<span class="m">RUN-260818-0017</span>','FX-08','GB','普通',chip('排队','neutral'),'<span class="m">约 21 分钟后</span>',btn('取消')],
-      ]
-    ), {flush:true});
+    body:function(){
+    function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='PROCESSING') return 'run'; if (s==='PENDING') return 'neutral'; if (s==='FAILED') return 'fail'; return 'neutral'; }
+    var el = '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
+    setTimeout(function(){
+      API.table('SKU_输入表', {}, 200).then(function(r){
+        var root = document.getElementById('gen-queue-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        var q = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'PENDING' || s === 'PROCESSING'; });
+        if (!q.length){ root.innerHTML = callout('warn','暂无数据','当前没有排队中或处理中的任务。'); return; }
+        var running = q.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'PROCESSING'; }).length;
+        var pending = q.length - running;
+        root.innerHTML =
+          stats([
+            ['处理中', running, 'PROCESSING', 'run', false],
+            ['排队等待', pending, 'PENDING', '', false],
+          ], 2) +
+          panel('队列（' + q.length + ' 条）', table(
+            ['SKU','产品族','站点','处理状态','更新时间',''],
+            q.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['SKU']||'—') + '</span>',
+              x['产品族ID']||'—',
+              x['目标市场']||'—',
+              chip(x['处理状态']||'', toneOf(x['处理状态'])),
+              '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
+              btn('取消','btn--danger')
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -651,55 +709,41 @@ page('gen-run', {
       '隔离信息每步校验，任一不一致立即停止'
     ]
   },
-  body:function(){
-    return flow([
-      {t:'第一段 · 搞懂商品和市场', s:'5 个步骤 · 已完成'},
-      {t:'第二段 · 决定写什么并写出来', s:'5 个步骤 · 已完成'},
-      {t:'第三段 · 自检并交付', s:'2 个步骤 · 正在做'},
-    ]) +
-
-    phaseFlow([
-      { no:'一', state:'done', time:'3分45秒', chip:chip('已完成','ok'),
-        t:'搞懂商品和市场', s:'系统先弄明白这是个什么商品，以及买家在市场上怎么找它',
-        steps:[
-          ['done','收商品资料','11 项已确认，2 项被你标为不能说','0.4秒'],
-          ['done','看商品图','3 张图，另一个模型复核过，没有编造','18.2秒'],
-          ['done','处理关键词表','表里 21,408 行，全部读完，一行没漏','1分52秒'],
-          ['done','判断买家意图','把尺寸/颜色/风格/场景/用途连成关系网','41.0秒'],
-          ['done','锁定主定位','确定 2 条主要的「买家怎么找到它」的路径','12.8秒'],
-        ]},
-      { no:'二', state:'done', time:'4分29秒', chip:chip('已完成','ok'),
-        t:'决定写什么并写出来', s:'先列出所有可用的词和卖点，再逐个字段决定谁进谁不进，然后才动笔',
-        steps:[
-          ['done','列机会清单','最重要 9 个 / 重要 17 个 / 一般 95 个 / 不合适 220 个','33.5秒'],
-          ['done','写标题','6 个词通过准入，41 个被拒（各有理由）· 74 字符','48.1秒'],
-          ['done','写亮点','只用标题没覆盖的内容 · 新增 4 个信息点','52.6秒'],
-          ['done','写五点描述','从 11 个任务里挑了 5 个，每条讲不同的事 · 平均 331 字符','1分38秒'],
-          ['done','写后台搜索词','补前台没写到的同义词和长尾 · 244/250 字节','36.9秒'],
-        ]},
-      { no:'三', state:'now', time:'进行中', chip:chip('正在做','run'),
-        t:'自检并交付', s:'另一个模型只看最终文案，反推「这是什么、适合谁、为什么买」，和主定位对一遍',
-        steps:[
-          ['done','反向理解测试','独立复核 · 结论与主定位一致','29.4秒'],
-          ['now','出检查报告并交付','五项检查全部通过 → 转「待审核」','—'],
-        ]},
-    ]) +
-
-    '<div class="cols c2">' +
-      panel('这条任务的基本信息', kv([
-        ['任务编号','RUN-260818-0007'],
-        ['商品 / 站点','FX-03 / 美国'],
-        ['类目','抱枕套'],
-        ['季节款式','四季款'],
-        ['所属系列','PF-FLORAL-18'],
-        ['关键词数据','8-12 版'],
-        ['商品图指纹','a91f4b2e…c07'],
-      ])) +
-      panel('可以做什么', '<div class="btnrow">'+
-        btn('看生成出来的文案','btn')+btn('看检查报告')+btn('下载中间产物')+btn('取消这条任务','btn--danger')+
-        '</div>' + callout('','为什么这里不能改内容',
-          '生成过程中的每一步都有<b>上下游依赖</b>：改了中间某一步，后面所有判断的前提就变了，但已经算完的部分不会自动跟着变。所以这里只能重跑，不能改。')) +
-    '</div>';
+    body:function(){
+    var el = '<div id="gen-run-root">' + ghost('正在加载运行详情…') + '</div>';
+    setTimeout(function(){
+      API.table('运行日志表', {}, 200).then(function(r){
+        var root = document.getElementById('gen-run-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return ''; }
+        var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
+        var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
+        var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
+        root.innerHTML =
+          stats([
+            ['运行总数', rows.length, '运行日志表', '', false],
+            ['成功', succ, '', 'ok', false],
+            ['失败', fail, '', 'fail', false],
+            ['需人工', revw, '', 'warn', false],
+          ], 4) +
+          panel('运行列表（' + rows.length + ' 条）', table(
+            ['运行ID','SKU','站点','耗时(秒)','最终状态','开始时间',''],
+            rows.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['运行ID']||'—') + '</span>',
+              x['SKU']||'—',
+              x['目标市场']||'—',
+              x['耗时秒']||'—',
+              chip(x['最终状态']||'', t(x['最终状态'])),
+              '<span class="m">' + String(x['开始时间']||'').slice(0,16) + '</span>',
+              btn('详情')
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
   }
 });
 
@@ -722,29 +766,30 @@ page('gen-retry', {
       '修复动作来自 18 条固定规则，不由人临时决定'
     ]
   },
-  body:function(){
-    return callout('warn','RUN-260817-0031 · FX-05 · 美国站',
-      '「亮点」这个字段已经重做 3 次还是不通过。按规则<b>已经自动转人工处理</b>，不再提供重做按钮。') +
-
-    panel('各字段状态', table(
-      ['字段','状态','什么问题','已重做','系统给的修复动作',''],
-      [
-        ['标题',chip('通过','ok'),'—','0/3','—',chip('已锁定','sys')],
-        ['亮点',chip('不通过','fail'),'相对标题没有提供新信息','3/3','扩大可用词范围 → 还不够就把内容下沉到五点',btn('已超限','btn--ghost')],
-        ['五点描述',chip('还没轮到','neutral'),'—','0/3','要等亮点定下来才能开始','—'],
-        ['后台搜索词',chip('还没轮到','neutral'),'—','0/3','要等前台三个字段写完','—'],
-      ]
-    ), {flush:true}) +
-
-    panel('三次重做分别做了什么', table(
-      ['第几次','时间','调整了什么','结果','新增信息点'],
-      [
-        ['1','8-17 21:04','按规则扩大可用词范围','还是不通过','2 个（要求至少 3 个）'],
-        ['2','8-17 21:11','放宽相近词的准入','还是不通过','2 个'],
-        ['3','8-17 21:19','允许用强化关系的表达','还是不通过','2 个'],
-      ]
-    ), {flush:true, note:'三次都停在 2 个新增信息点 —— <b>这不是碰运气没碰上，是可用的词确实不够</b>。所以系统的结论是「交给人」，而不是继续试到通过为止。'}) +
-
-    '<div class="btnrow">'+btn('看这个字段的选词记录','btn')+btn('转人工处理')+'</div>';
+    body:function(){
+    var el = '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
+    setTimeout(function(){
+      API.table('SKU_输入表', {}, 200).then(function(r){
+        var root = document.getElementById('gen-retry-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        var failed = rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'FAILED'; });
+        if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
+        root.innerHTML =
+          panel('失败任务（处理状态 = FAILED · 共 ' + failed.length + ' 条）', table(
+            ['SKU','产品族','站点','错误信息','处理时间',''],
+            failed.slice(0, 30).map(function(x){ return [
+              '<span class="m">' + (x['SKU']||'—') + '</span>',
+              x['产品族ID']||'—',
+              x['目标市场']||'—',
+              x['错误信息']||'—',
+              '<span class="m">' + String(x['处理时间']||'').slice(0,16) + '</span>',
+              btn('重做','btn')
+            ]; })
+          ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
+      });
+    }, 0);
+    return el;
   }
 });
