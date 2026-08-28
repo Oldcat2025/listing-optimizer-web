@@ -516,38 +516,50 @@ page('gen-new', {
     ]
   },
   body:function(){
-    return '<div class="cols c21">' +
+    var html = '<div class="cols c21">' +
       panel('生成设置', '<div class="form g2">'+
-        fld('选商品', pick(['FX-03（已选）','批量：按系列选','批量：所有待处理的'])) +
-        fld('选站点', pick(['美国 + 英国（已选）','只做美国','只做英国'])) +
-        fld('类目', txt('抱枕套（跟着商品走，不用选）', true)) +
-        fld('季节款式', txt('四季款（跟着商品走，不用选）', true)) +
-        fld('用哪版关键词数据', pick(['8-12 版（最新）','8-05 版'])) +
-        fld('优先级', pick(['普通','加急'])) +
+        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="gen-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，提交后进入生成队列') +
+        fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option></select>') +
+        fld('类目', '<input id="gen-category" class="ctl" placeholder="Home & Kitchen > Home Décor > Decorative Pillows">') +
+        fld('季节范围', '<input id="gen-season" class="ctl" placeholder="All-Season / Christmas">') +
+        fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="HomGoodz">') +
+        fld('产品图片URL', '<input id="gen-image" class="ctl" placeholder="图片地址（ProductDNA 需要看图）">') +
+        fld('词库快照ID', '<input id="gen-kw" class="ctl" placeholder="KDB-US-ALL_SEASON-20260825">') +
       '</div>' +
-      '<div class="btnrow" style="margin-top:16px">'+btn('先检查一下','btn--ghost')+btn('提交生成','btn')+'</div>') +
+      '<div class="btnrow" style="margin-top:16px">' +
+        '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
+      '</div>' +
+      '<div id="gen-result" style="margin-top:12px"></div>') +
+    '</div>';
 
-      panel('这次会锁定的版本', kv([
-        ['规范版本','7.1.3'],
-        ['参数版本','P-v4'],
-        ['AI 指令版本','PR-v7'],
-        ['模型版本','MDL-v3'],
-        ['平台规则版本','AMZ-RULES-US-2026-08'],
-        ['关键词数据','8-12 版'],
-      ]) + '<div style="margin-top:14px">'+callout('','为什么要锁这六项',
-        '将来要能回答「这条文案是哪版指令、哪个模型、哪批关键词写出来的」。<b>答不出来，就没法回头验证改动有没有让效果变好。</b>')+'</div>') +
-    '</div>' +
+    setTimeout(function(){
+      var btn = document.getElementById('gen-submit');
+      if (btn) btn.onclick = function(){
+        var sku = (document.getElementById('gen-sku')||{}).value || '';
+        var result = document.getElementById('gen-result');
+        if (!sku) { result.innerHTML = callout('warn','请填 SKU 编号','SKU 是必填项，提交后主编排才会处理。'); return; }
+        btn.disabled = true; btn.textContent = '提交中…';
+        var body = {
+          sku: sku,
+          marketplace: (document.getElementById('gen-market')||{}).value || 'US',
+          category: (document.getElementById('gen-category')||{}).value || '',
+          season_scope: (document.getElementById('gen-season')||{}).value || '',
+          brand_name: (document.getElementById('gen-brand')||{}).value || '',
+          product_image_url: (document.getElementById('gen-image')||{}).value || '',
+          keyword_snapshot_id: (document.getElementById('gen-kw')||{}).value || ''
+        };
+        API.generate(body).then(function(r){
+          btn.disabled = false; btn.textContent = '提交生成';
+          if (r.ok && r.data && r.data.success) {
+            result.innerHTML = callout('warn','已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「我的商品」查看状态。');
+          } else {
+            result.innerHTML = callout('warn','提交失败', (r.data && r.data.error) || '请检查网络或稍后重试');
+          }
+        });
+      };
+    }, 0);
 
-    panel('检查结果', table(
-      ['检查项','美国','英国','说明'],
-      [
-        ['商品资料齐不齐',chip('通过','ok'),chip('通过','ok'),'11 项必填全部已确认'],
-        ['关键词数据有没有',chip('通过','ok'),chip('偏旧','warn'),'英国的数据是 8-05 的，已过 13 天'],
-        ['站点规则版本',chip('通过','ok'),chip('通过','ok'),'—'],
-        ['平台规则复核时效',chip('通过','ok'),chip('不通过','fail'),'英国规则 <b>97 天</b>没复核（超过 90 天）'],
-        ['AI 模型能不能连上',chip('通过','ok'),chip('通过','ok'),'9 个环节的模型全部可达'],
-      ]
-    ), {flush:true, note:'<b>英国站规则超期</b>，可以强行放行，但这个决定会<b>记进这次生成的检查报告里</b>，不会悄悄跳过。'});
+    return html;
   }
 });
 

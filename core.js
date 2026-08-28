@@ -25,7 +25,8 @@ var API = {
   skus: function(q){ return this._post('/proj28/api/skus', {query:q||{}}, true); },
   stats: function(){ return this._post('/proj28/api/stats', {}, true); },
   listings: function(){ return this._post('/proj28/api/listings', {}, true); },
-  create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); }
+  create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); },
+  generate: function(sku){ return this._post('/proj28/api/generate', sku, true); }
 };
 
 /* ═══ 登录会话 ═══ */
