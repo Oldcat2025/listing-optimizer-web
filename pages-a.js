@@ -517,14 +517,27 @@ page('gen-new', {
   },
   body:function(){
     var html = '<div class="cols c21">' +
-      panel('生成设置', '<div class="form g2">'+
-        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="gen-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，提交后进入生成队列') +
+      panel('商品信息', '<div class="form g2">'+
+        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="gen-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option></select>') +
         fld('类目', '<input id="gen-category" class="ctl" placeholder="Home & Kitchen > Home Décor > Decorative Pillows">') +
         fld('季节范围', '<input id="gen-season" class="ctl" placeholder="All-Season / Christmas">') +
         fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="HomGoodz">') +
-        fld('产品图片URL', '<input id="gen-image" class="ctl" placeholder="图片地址（ProductDNA 需要看图）">') +
+        fld('产品图片URL', '<input id="gen-image" class="ctl" placeholder="谷歌网盘图片的 Drive alt=media URL">') +
         fld('词库快照ID', '<input id="gen-kw" class="ctl" placeholder="KDB-US-ALL_SEASON-20260825">') +
+      '</div>') +
+      panel('商品事实（9 项必填，ProductDNA 以此为准）', '<div class="form g2">'+
+        fld('产品实体 <span style="color:var(--red)">*</span>', '<input id="gen-entity" class="ctl" placeholder="如 pillow covers">') +
+        fld('尺寸 <span style="color:var(--red)">*</span>', '<input id="gen-dimensions" class="ctl" placeholder="如 18x18 inch">') +
+        fld('数量 <span style="color:var(--red)">*</span>', '<input id="gen-quantity" class="ctl" placeholder="如 set of 2">') +
+        fld('材质 <span style="color:var(--red)">*</span>', '<input id="gen-material" class="ctl" placeholder="如 faux linen">') +
+        fld('工艺 <span style="color:var(--red)">*</span>', '<input id="gen-craft" class="ctl" placeholder="如 printed pattern, floral">') +
+        fld('结构 <span style="color:var(--red)">*</span>', '<input id="gen-structure" class="ctl" placeholder="如 hidden zipper">') +
+        fld('功能 <span style="color:var(--red)">*</span>', '<input id="gen-function" class="ctl" placeholder="如 waterproof, decorative">') +
+        fld('包含物 <span style="color:var(--red)">*</span>', '<input id="gen-inclusion" class="ctl" placeholder="如 covers only, inserts not included">') +
+        fld('护理 <span style="color:var(--red)">*</span>', '<input id="gen-care" class="ctl" placeholder="如 machine washable">') +
+        fld('认证安全', '<input id="gen-certification" class="ctl" placeholder="可选，如 OEKO-TEX">') +
+        fld('禁止声明', '<input id="gen-prohibited" class="ctl" placeholder="可选，如 waterproof">') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -535,18 +548,35 @@ page('gen-new', {
     setTimeout(function(){
       var btn = document.getElementById('gen-submit');
       if (btn) btn.onclick = function(){
-        var sku = (document.getElementById('gen-sku')||{}).value || '';
+        function val(id){ return (document.getElementById(id)||{}).value || ''; }
+        var sku = val('gen-sku');
         var result = document.getElementById('gen-result');
-        if (!sku) { result.innerHTML = callout('warn','请填 SKU 编号','SKU 是必填项，提交后主编排才会处理。'); return; }
+        var required = [['gen-sku','SKU 编号'],['gen-entity','产品实体'],['gen-dimensions','尺寸'],['gen-quantity','数量'],['gen-material','材质'],['gen-craft','工艺'],['gen-structure','结构'],['gen-function','功能'],['gen-inclusion','包含物'],['gen-care','护理']];
+        var missing = required.filter(function(x){ return !val(x[0]); });
+        if (missing.length > 0) {
+          result.innerHTML = callout('warn','还缺必填项', missing.map(function(x){return x[1];}).join('、') + ' 还没填。');
+          return;
+        }
         btn.disabled = true; btn.textContent = '提交中…';
         var body = {
           sku: sku,
-          marketplace: (document.getElementById('gen-market')||{}).value || 'US',
-          category: (document.getElementById('gen-category')||{}).value || '',
-          season_scope: (document.getElementById('gen-season')||{}).value || '',
-          brand_name: (document.getElementById('gen-brand')||{}).value || '',
-          product_image_url: (document.getElementById('gen-image')||{}).value || '',
-          keyword_snapshot_id: (document.getElementById('gen-kw')||{}).value || ''
+          marketplace: val('gen-market') || 'US',
+          category: val('gen-category'),
+          season_scope: val('gen-season'),
+          brand_name: val('gen-brand'),
+          product_image_url: val('gen-image'),
+          keyword_snapshot_id: val('gen-kw'),
+          product_entity: val('gen-entity'),
+          dimensions: val('gen-dimensions'),
+          quantity: val('gen-quantity'),
+          material: val('gen-material'),
+          craft: val('gen-craft'),
+          structure: val('gen-structure'),
+          function: val('gen-function'),
+          inclusion: val('gen-inclusion'),
+          care: val('gen-care'),
+          certification: val('gen-certification'),
+          prohibited_claims: val('gen-prohibited')
         };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
