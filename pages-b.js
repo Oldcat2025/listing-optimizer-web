@@ -412,56 +412,7 @@ page('data-ppc', {
       '连带销售识别不可得 → 报告显式标注，不伪装'
     ]
   },
-  body:function(){
-    return '<div class="cols c2">' +
-      panel('搜索表现报告（主要依据）', kv([
-        ['最新报表','8-10 ~ 8-16'],
-        ['覆盖商品','9 / 9'],
-        ['查询行数','3,842'],
-        ['数据滞后','5 天（新品前 14 天不参与判断）'],
-        ['数据性质','官方，精确到商品'],
-      ]) + '<div class="btnrow" style="margin-top:12px">'+btn('上传新报表','btn')+'</div>') +
-      panel('广告报告（花费 + 推断）', kv([
-        ['最新报表','8-10 ~ 8-16'],
-        ['广告组数','23'],
-        ['只投一个商品的组','14 → 可推断到商品'],
-        ['投多个商品的组','7 → 只能算花费'],
-        ['没建对应关系的','2 → 需要维护'],
-      ]) + '<div class="btnrow" style="margin-top:12px">'+btn('上传新报表','btn')+btn('去维护对应关系')+'</div>') +
-    '</div>' +
-
-    panel('数据归到了哪一层', table(
-      ['层级','来源','行数','占比','能用来判断什么','是不是推断的'],
-      [
-        ['官方 · 精确到商品','搜索表现','<span class="num">3,842</span>','<span class="num">61%</span>','这个词能不能带来成交',chip('不是','ok')],
-        ['推断 · 精确到商品','广告 + 对应表','<span class="num">1,410</span>','<span class="num">22%</span>','参考用，必须标「推断」',chip('是','warn')],
-        ['只能算花费','广告','<span class="num">702</span>','<span class="num">11%</span>','<b>只作花费</b>，不参与商品判断',chip('不是','neutral')],
-        ['估算 · 自然流量','粗估','<span class="num">318</span>','<span class="num">5%</span>','标「估算」，不当自然流量用',chip('是','warn')],
-        ['不明','—','<span class="num">64</span>','<span class="num">1%</span>','不参与',chip('不是','neutral')],
-      ]
-    ), {flush:true, note:'<b>还有两件事系统做不到</b>：分不清「连带销售」，也分不清「自然流量和广告流量」。两者都做成随文案落库的明确标记，而不是在报告里写一段话解释。'}) +
-
-    callout('','给客户的一条可选建议（不属于本系统交付范围）',
-      '如果把广告组拆成「<b>一个广告组只投一个商品</b>」，推断的准确率能接近 100%，账户数据的质量会明显上一档。');
-  }
-});
-
-page('data-adgroup', {
-  roles:['管理员'],
-  guide:[
-    '这张表告诉系统：<b>某个广告组是在推哪些商品</b>。',
-    '只投一个商品的广告组，系统就能把成交推断到这个商品；投多个的只能算花费。',
-    '「置信度」是系统<b>根据商品个数自动算的</b>，不用你填。'
-  ],
-  spec:{
-    q:'每个广告组对应哪些商品 —— 这是广告数据能否用到商品级的关键。',
-    acts:['编辑对应关系','批量导入','标记未对应'],
-    wf:['无（供 WF-28-02 读取）'],
-    reads:['adgroup_sku_map'],
-    writes:['adgroup_sku_map','audit_log'],
-    limits:['置信度由商品个数自动派生（数据库生成列），不允许手填','没建对应关系的广告组只贡献花费，不参与任何商品级判断']
-  },
-      body:function(){
+    body:function(){
     var el = '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
     setTimeout(function(){
       API.table('PPC出单词_US', {}, 200).then(function(r){
@@ -491,6 +442,48 @@ page('data-adgroup', {
               x['花费']||'—',
               x['订单']||'—',
               x['ACOS']||'—'
+            ]; })
+          ), {flush:true});
+      });
+    }, 0);
+    return el;
+  }
+});
+
+page('data-adgroup', {
+  roles:['管理员'],
+  guide:[
+    '这张表告诉系统：<b>某个广告组是在推哪些商品</b>。',
+    '只投一个商品的广告组，系统就能把成交推断到这个商品；投多个的只能算花费。',
+    '「置信度」是系统<b>根据商品个数自动算的</b>，不用你填。'
+  ],
+  spec:{
+    q:'每个广告组对应哪些商品 —— 这是广告数据能否用到商品级的关键。',
+    acts:['编辑对应关系','批量导入','标记未对应'],
+    wf:['无（供 WF-28-02 读取）'],
+    reads:['adgroup_sku_map'],
+    writes:['adgroup_sku_map','audit_log'],
+    limits:['置信度由商品个数自动派生（数据库生成列），不允许手填','没建对应关系的广告组只贡献花费，不参与任何商品级判断']
+  },
+        body:function(){
+    var el = '<div id="data-adgroup-root">' + ghost('正在加载广告组对应关系…') + '</div>';
+    setTimeout(function(){
+      API.table('广告组SKU映射', {}, 200).then(function(r){
+        var root = document.getElementById('data-adgroup-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['广告活动名称']; });
+        root.innerHTML =
+          panel('广告组对应关系（'+rows.length+' 条）', table(
+            ['广告活动名称','广告组名称','SKU列表','SKU数量','站点','映射置信度','核对日期'],
+            rows.slice(0,50).map(function(x){ return [
+              x['广告活动名称']||'—',
+              x['广告组名称']||'—',
+              '<span class="m">'+(x['SKU列表']||'')+'</span>',
+              x['SKU数量']||'—',
+              x['站点']||'—',
+              chip(x['映射置信度']||'', x['映射置信度']==='SINGLE_SKU'?'ok':(x['映射置信度']==='MULTI_SKU'?'warn':'fail')),
+              x['核对日期']||'—'
             ]; })
           ), {flush:true});
       });
