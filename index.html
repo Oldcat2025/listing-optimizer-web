@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>亚马逊Listing文案优化系统 — 低保真原型 v0.3</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ══ 顶部主导航 ══ -->
+<header class="nav">
+  <div class="nav__in">
+    <a class="brand" href="#dash-todo">
+      <span class="brand__mark">文</span>
+      <span class="brand__txt">
+        <b>亚马逊Listing文案优化系统</b>
+        <i>每 SKU × 站点唯一定稿 · 每个词可解释</i>
+      </span>
+    </a>
+
+    <nav class="tabs" id="groupTabs"></nav>
+
+    <div class="nav__rt">
+      <div class="search">
+        <svg viewBox="0 0 20 20" width="15" height="15"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input placeholder="搜索 SKU、ASIN、候选词、运行 ID…">
+      </div>
+      <button class="ibtn" id="specBtn" title="页面规格">
+        <svg viewBox="0 0 20 20" width="16" height="16"><rect x="3" y="3" width="14" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12.5 3v14M6 7.5h3.5M6 10.5h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="roleswap">
+        <select id="roleSel">
+          <option>管理员</option><option>运营</option><option>审核</option><option>数据维护</option>
+        </select>
+      </div>
+      <div class="avatar" id="avatar">管</div>
+    </div>
+  </div>
+</header>
+
+<!-- ══ 主体 ══ -->
+<div class="shell">
+  <aside class="side">
+    <div class="card side__card">
+      <div class="side__hd">
+        <div class="side__ico" id="sideIco"></div>
+        <div>
+          <b id="sideTitle"></b>
+          <i id="sideSub"></i>
+        </div>
+      </div>
+      <div id="sideNav"></div>
+    </div>
+
+    <div class="card side__ver">
+      <div class="side__verhd">当前生效版本</div>
+      <ul>
+        <li><span>spec</span><em>7.1.3</em></li>
+        <li><span>param</span><em>P-v4</em></li>
+        <li><span>prompt</span><em>PR-v7</em></li>
+        <li><span>model</span><em>MDL-v3</em></li>
+        <li><span>rules</span><em>AMZ-US-2026-08</em></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div id="page"></div>
+    <div class="pagefoot">原型仅用于确认信息架构与页面职责 · 数据均为假 · 不连接 n8n / 数据库</div>
+  </main>
+</div>
+
+<!-- ══ 右侧规格抽屉 ══ -->
+<aside class="spec" id="spec">
+  <div class="spec__hd">
+    <b>页面规格</b>
+    <button class="x" id="specX">×</button>
+  </div>
+  <div class="spec__bd" id="specBody"></div>
+</aside>
+<div class="mask" id="mask"></div>
+
+<!-- ══ 登录遮罩 ══ -->
+<div class="login-mask" id="loginMask">
+  <div class="login-box">
+    <div class="login-brand">
+      <span class="brand__mark">文</span>
+      <div><b>亚马逊Listing文案优化系统</b><i>登录后继续</i></div>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-form">
+      <input id="loginUser" class="inp" placeholder="用户名" autocomplete="username">
+      <input id="loginPwd" class="inp" type="password" placeholder="密码" autocomplete="current-password">
+      <button id="loginBtn" class="btn">登录</button>
+    </div>
+    <div class="login-foot">账号由管理员分配 · 忘记密码请联系管理员重置</div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script src="pages-a.js"></script>
+<script src="pages-b.js"></script>
+<script src="pages-c.js"></script>
+<script>BOOT();</script>
+</body>
+</html>
