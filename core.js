@@ -279,10 +279,6 @@ function guideBar(list){
     '</ol></details>';
 }
 
-var REAL_PAGES = ['dash-todo', 'sku-list', 'gen-new', 'rev-list'];
-function demoBanner(){
-  return '<div style="margin:0 0 14px;padding:10px 14px;background:#fff8e1;border:1px solid #f0c000;border-left:4px solid #f0a000;border-radius:6px;color:#7a5b00;font-size:13px;line-height:1.6"><b>演示数据</b> · 本页为界面示意，数据为演示用，接入真实数据后显示实际内容。</div>';
-}
 function page(id, def){ window.PAGES[id] = def; }
 
 /* ═══ 路由与外壳 ═══ */
@@ -398,7 +394,7 @@ function render(){
     '</div>';
 
   var body = allowed(def)
-    ? (REAL_PAGES.indexOf(id) >= 0 ? '' : demoBanner()) + guideBar(def.guide) + def.body()
+    ? guideBar(def.guide) + def.body()
     : callout('stop', '你当前的角色（'+ROLE+'）看不到这一页',
         '本页只对 '+(def.roles||[]).join(' / ')+' 开放。这不只是把按钮藏起来——服务器会拒绝请求，数据库也有约束兜底。想对比不同角色看到什么，换右上角的角色。');
 
