@@ -165,16 +165,28 @@ page('rev-audit', {
           var o = v;
           if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }
           if (o && typeof o === 'object') {
-            var keys = Object.keys(o);
-            if (!keys.length) return table(['结论'],[ [String(v||'—')] ]);
-            return table(['检查项','结论'], keys.map(function(k){
-              var val = String(o[k]);
-              var up = val.toUpperCase();
-              var t = (up === 'PASS' || up === 'PASS_WITH_NOTES') ? 'ok' : (up.indexOf('FAIL') === 0 ? 'fail' : 'warn');
-              return [k, chip(val, t)];
-            }));
+            var st = String(o.status || o.certificate_type || '');
+            var stUp = st.toUpperCase();
+            var tone = (stUp === 'PASS' || stUp === 'PASS_WITH_NOTES') ? 'ok' : (stUp.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+            var head = '<div style="margin:4px 0 8px">' + chip(st || '—', tone) + '</div>';
+            var asrts = (Array.isArray(o.assertions) && o.assertions.length) ? o.assertions : null;
+            if (asrts) {
+              var rows = asrts.map(function(a){
+                var at = String(a.status || '').toUpperCase();
+                var tt = (at === 'PASS' || at === 'PASS_WITH_NOTES') ? 'ok' : (at.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+                var c = chip(a.status || '—', tt);
+                if (at === 'FAIL' || at === 'WARN') {
+                  c += '<div class="dim" style="font-size:12px;color:var(--t-4);margin-top:2px">实际：' + String(a.actual || '—').slice(0,90) + '<br>期望：' + String(a.expected || '—').slice(0,90) + '</div>';
+                }
+                return [ (a.id || '—'), c, String(a.desc || '—').slice(0,100) ];
+              });
+              return head + table(['断言','结论','说明'], rows);
+            }
+            var keys = Object.keys(o).filter(function(k){ var vv = o[k]; return vv === null || (typeof vv !== 'object'); });
+            if (!keys.length) return table(['结论'], [[String(v || '—')]]);
+            return head + table(['检查项','结论'], keys.map(function(k){ return [k, String(o[k])]; }));
           }
-          return table(['结论'],[ [String(v||'—')] ]);
+          return table(['结论'], [[String(v || '—')]]);
         }
         var passed = String(x['全部通过']||'').toUpperCase() === 'TRUE';
         root.innerHTML =
