@@ -157,7 +157,10 @@ function sel(label, opts){
     (opts||[]).map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
 }
 function inp(ph){ return '<input class="inp" placeholder="'+ph+'">'; }
-function btn(t, cls){ return '<button class="btn '+(cls||'btn--ghost')+'">'+t+'</button>'; }
+function btn(t, cls, go, sku){
+  var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '');
+  return '<button class="btn '+(cls||'btn--ghost')+'"'+a+'>'+t+'</button>';
+}
 
 function kv(pairs){
   return '<dl class="kv">'+pairs.map(function(p){
@@ -433,6 +436,16 @@ function BOOT(){
     document.getElementById('avatar').textContent = ROLE.slice(0,1);
     render();
   };
+
+  /* 详情/跳转按钮：带 data-go 的按钮点击后跳转，data-sku 存入 CUR_SKU 供详情页读取 */
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('.btn[data-go]') : null;
+    if (!b) return;
+    var sku = b.getAttribute('data-sku');
+    if (sku) window.CUR_SKU = sku;
+    var go = b.getAttribute('data-go');
+    if (go) location.hash = go;
+  });
 
   window.onhashchange = render;
   render();

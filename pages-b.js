@@ -43,7 +43,7 @@ page('rev-list', {
             '<span class="num">'+String(x.backend||'').length+'</span>',
             chip(x.status||'pending', toneOf(x.status)),
             x.created_at||'—',
-            btn('详情')
+            btn('详情', '', 'rev-detail')
           ];
         });
         el.innerHTML = table(['标题','后台词字节','状态','生成日期',''], tr);
@@ -74,7 +74,8 @@ page('rev-detail', {
   body:function(){
     var el = '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>';
     setTimeout(function(){
-      API.table('定稿输出表', {}, 50).then(function(r){
+      var flt = window.CUR_SKU ? {SKU: window.CUR_SKU} : {};
+      API.table('定稿输出表', flt, 50).then(function(r){
         var root = document.getElementById('rev-detail-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) {

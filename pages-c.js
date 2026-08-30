@@ -506,7 +506,7 @@ page('adm-audit', {
             x['执行人'] || '—',
             chip(x['最终状态']||'—', ftone(x['最终状态'])),
             '<span class="m">' + String(x['开始时间']||'—').slice(0,16) + '</span>',
-            btn('详情')
+            btn('详情', '', 'rev-detail', (x['SKU']||''))
            ]; })
         ), {flush:true});
       });

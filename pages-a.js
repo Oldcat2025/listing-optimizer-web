@@ -41,13 +41,20 @@ page('dash-todo', {
         var failed = cnt(sku,'处理状态','FAILED');
         var skuRows = sku.filter(function(x){ return x && x['SKU']; });
         function rowList(rows, actionTxt, btnCls){
-          return rows.slice(0,20).map(function(x){ return [
-            '<span class="m">'+(x['SKU']||'')+'</span>',
-            x['目标市场']||'—',
-            chip(x['处理状态']||'', String(x['处理状态']||'').toUpperCase()==='COMPLETED'?'ok':(String(x['处理状态']||'').toUpperCase()==='FAILED'?'fail':(String(x['处理状态']||'').toUpperCase()==='PROCESSING'?'run':''))),
-            String(x['更新时间']||'').slice(0,16),
-            btn(actionTxt, btnCls||'')
-          ]; });
+          return rows.slice(0,20).map(function(x){
+            var sku = x['SKU']||'';
+            var st = String(x['处理状态']||'').toUpperCase();
+            var go = (actionTxt === '去审核') ? 'rev-action'
+                   : (st === 'COMPLETED') ? 'rev-detail'
+                   : 'sku-detail';
+            return [
+              '<span class="m">'+sku+'</span>',
+              x['目标市场']||'—',
+              chip(x['处理状态']||'', st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))),
+              String(x['更新时间']||'').slice(0,16),
+              btn(actionTxt, btnCls||'', go, sku)
+            ];
+          });
         }
         var html = '';
         if (R === '运营'){
@@ -138,13 +145,17 @@ page('dash-runs', {
           ], 5) +
           panel('全部任务（' + rows.length + ' 条）', table(
             ['SKU','站点','状态','更新时间',''],
-            rows.slice(0, 30).map(function(x){ return [
-              '<span class="m">' + (x['SKU']||'') + '</span>',
-              x['目标市场'] || '—',
-              chip(x['处理状态']||'', tone(x['处理状态'])),
-              '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
-              btn('详情')
-            ]; })
+            rows.slice(0, 30).map(function(x){
+              var sku = x['SKU']||'';
+              var st = String(x['处理状态']||'').toUpperCase();
+              return [
+                '<span class="m">' + sku + '</span>',
+                x['目标市场'] || '—',
+                chip(x['处理状态']||'', tone(x['处理状态'])),
+                '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
+                btn('详情', '', (st === 'COMPLETED' ? 'rev-detail' : 'sku-detail'), sku)
+              ];
+            })
           ), {flush:true});
       });
     }, 0);
@@ -302,7 +313,7 @@ page('sku-list', {
             x['目标市场']||'—',
             chip(x['处理状态']||'待处理', toneOf(x['处理状态'])),
             (x['处理时间']||'—').slice(0,10),
-            btn('详情')
+            btn('详情', '', (String(x['处理状态']||'').toUpperCase()==='COMPLETED'?'rev-detail':'sku-detail'), (x.SKU||''))
           ];
         });
         el.innerHTML = table(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr);
@@ -454,7 +465,7 @@ page('sku-family', {
               m['类目']||'—',
               m['季节范围']||'—',
               chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
-              btn('详情')
+              btn('详情', '', (String(m['处理状态']||'').toUpperCase()==='COMPLETED'?'rev-detail':'sku-detail'), (m['SKU']||''))
             ]; })
           ), {flush:true});
         }
@@ -738,7 +749,7 @@ page('gen-run', {
               x['耗时秒']||'—',
               chip(x['最终状态']||'', t(x['最终状态'])),
               '<span class="m">' + String(x['开始时间']||'').slice(0,16) + '</span>',
-              btn('详情')
+              btn('详情', '', 'rev-detail', (x['SKU']||''))
             ]; })
           ), {flush:true});
       });
