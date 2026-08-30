@@ -157,8 +157,8 @@ function sel(label, opts){
     (opts||[]).map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
 }
 function inp(ph){ return '<input class="inp" placeholder="'+ph+'">'; }
-function btn(t, cls, go, sku, copy){
-  var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '') + (copy ? ' data-copy="'+encodeURIComponent(copy)+'"' : '');
+function btn(t, cls, go, sku, copy, todo){
+  var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '') + (copy ? ' data-copy="'+encodeURIComponent(copy)+'"' : '') + (todo ? ' data-todo="'+todo+'"' : '');
   return '<button class="btn '+(cls||'btn--ghost')+'"'+a+'>'+t+'</button>';
 }
 function copyText(t){
@@ -172,6 +172,18 @@ function copyText(t){
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).catch(function(){ fallback(t); });
   } else { fallback(t); }
+}
+function toast(msg){
+  var t = document.getElementById('toast') || (function(){
+    var d = document.createElement('div');
+    d.id = 'toast';
+    d.style.cssText = 'position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:rgba(20,24,32,.92);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:9999;transition:opacity .3s;opacity:0;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    document.body.appendChild(d);
+    return d;
+  })();
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.style.opacity = '0'; }, 2600);
 }
 
 function kv(pairs){
@@ -459,6 +471,8 @@ function BOOT(){
     if (go) location.hash = go;
     var copy = b.getAttribute('data-copy');
     if (copy) copyText(decodeURIComponent(copy));
+    var todo = b.getAttribute('data-todo');
+    if (todo) toast(todo);
   });
 
   window.onhashchange = render;

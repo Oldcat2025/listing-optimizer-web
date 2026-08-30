@@ -207,7 +207,7 @@ page('dash-quality', {
               x['目标市场'] || '—',
               chip('未通过','fail'),
               '<span class="m">' + String(x['生成时间']||'').slice(0,16) + '</span>',
-              btn('查看报告')
+              btn('查看报告','','rev-audit',(x['SKU']||''))
             ]; })
           ) : callout('ok','全部通过','当前所有证书全部通过，没有失败明细。'), {flush:true});
       });
@@ -289,7 +289,7 @@ page('sku-list', {
   body:function(){
     var html = toolbar(
       [inp('搜索 SKU'), sel('全部状态',['待处理','生成中','待审核','需人工','已上架'])],
-      [btn('批量导入'), btn('新建商品','btn')]
+      [btn('批量导入','','','','','批量导入功能暂未开放'), btn('新建商品','btn','sku-detail')]
     ) + '<div id="sku-data" style="margin-top:14px">' + ghost('正在加载商品列表…') + '</div>';
     setTimeout(function(){
       API.skus({}).then(function(r){
@@ -452,7 +452,7 @@ page('sku-family', {
             f.members.length,
             f.markets,
             f.seasonTxt,
-            btn('展开')
+            btn('展开','','','','','展开功能暂未开放')
           ]; })
         ), {flush:true, note:'同一系列共享图案/材质/风格，各自独享尺寸/数量。<b>季节混装</b>（同一系列跨多个季节款式）容易串词，系统会二次校验拦截。'});
         if (fams.length){
@@ -692,7 +692,7 @@ page('gen-queue', {
               x['目标市场']||'—',
               chip(x['处理状态']||'', toneOf(x['处理状态'])),
               '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
-              btn('取消','btn--danger')
+              btn('取消','btn--danger','','','','取消任务功能暂未开放')
             ]; })
           ), {flush:true});
       });
@@ -796,7 +796,7 @@ page('gen-retry', {
               x['目标市场']||'—',
               x['错误信息']||'—',
               '<span class="m">' + String(x['处理时间']||'').slice(0,16) + '</span>',
-              btn('重做','btn')
+              btn('重做','btn','','','','重做功能暂未开放')
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
       });

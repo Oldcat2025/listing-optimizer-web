@@ -44,7 +44,7 @@ page('cfg-category', {
             chip(x['人群守卫方向']||'未配置', gdir(x['人群守卫方向'])),
             x['配置版本'] || '—',
             '<span class="m">' + String(x['更新时间']||'—').slice(0,10) + '</span>',
-            btn('详情')
+            btn('详情','','','','','配置详情暂未开放')
            ]; })
         ), {flush:true});
       });
@@ -93,7 +93,7 @@ page('cfg-market', {
             x['词库表名'] || '—',
             '<span class="m">' + (x['合规规则版本']||'—') + '</span>',
             '<span class="m">' + String(x['合规规则核对日期']||'—').slice(0,10) + '</span>',
-            btn('详情')
+            btn('详情','','','','','配置详情暂未开放')
            ]; })
         ), {flush:true});
       });
@@ -136,7 +136,7 @@ page('cfg-rules', {
             '<span class="m">' + (x['类目']||'—') + '</span>',
             '<span class="m">' + (x['配置版本']||'—') + '</span>',
             '<span class="m">' + String(x['更新时间']||'—').slice(0,16) + '</span>',
-            btn('查看')
+            btn('查看','','','','','查看详情暂未开放')
            ]; })
         ), {flush:true});
       });
@@ -317,7 +317,7 @@ page('fb-publish', {
             '<span class="m">' + (x['定稿版本号']||'—') + '</span>',
             chip(x['处理状态']||'—', 'ok'),
             '<span class="m">' + String(x['更新时间']||'—').slice(0,16) + '</span>',
-            btn('登记 ASIN')
+            btn('登记 ASIN','','','','','登记 ASIN 功能暂未开放')
            ]; })
         ), {flush:true});
       });

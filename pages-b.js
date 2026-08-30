@@ -23,7 +23,7 @@ page('rev-list', {
   body:function(){
     var html = toolbar(
       [inp('搜索标题'), sel('全部状态',['completed','pending','review'])],
-      [btn('导出 Excel'), btn('导出到表格')]
+      [btn('导出 Excel','','','','','导出功能暂未开放'), btn('导出到表格','','','','','导出功能暂未开放')]
     ) + '<div id="rev-data" style="margin-top:14px">' + ghost('正在加载文案列表…') + '</div>';
     setTimeout(function(){
       API.listings().then(function(r){
@@ -301,8 +301,8 @@ page('rev-action', {
               fld('你的结论', pick(['放行','打回 · 让运营补商品资料','打回 · 只重做某个字段','转人工处理'])) +
               fld('打回哪个字段（选了打回才需要填）', pick(['—','标题','亮点','五点描述','后台搜索词'])) +
               fld('审核意见', '<textarea class="ctl" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
-            '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn')+'</div>') +
-            panel('待审核列表', table(['SKU','站点','定稿版本',''], rows.slice(0,10).map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn')]; })), {flush:true}) +
+            '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn','','','','提交结论功能暂未开放')+'</div>') +
+            panel('待审核列表', table(['SKU','站点','定稿版本',''], rows.slice(0,10).map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn','rev-action',(x['SKU']||''))]; })), {flush:true}) +
           '</div>' +
           callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
       });
@@ -347,7 +347,7 @@ page('rev-manual', {
                 chip(x['处理状态']||'', 'warn'),
                 x['错误信息']||'—',
                 '<span class="m">'+String(x['更新时间']||x['处理时间']||'').slice(0,16)+'</span>',
-                btn('认领','btn')
+                btn('认领','btn','','','','认领功能暂未开放')
               ];
             })
           ), {flush:true});
