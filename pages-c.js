@@ -34,7 +34,7 @@ page('cfg-category', {
         function gdir(d){ return d==='INFANT_ONLY'?'warn':(d==='ADULT_ONLY'?'sys':''); }
         root.innerHTML = panel('类目规则（' + rows.length + ' 条）', table(
           ['类目','Title最大字符','Title目标区间','Highlights格式','Highlights短语数','Bullet条数','人群守卫方向','配置版本','更新时间',''],
-          rows.map(function(x){ return [
+          rows.map(function(x, i){ return [
             '<span class="m">' + (x['类目']||'—') + '</span>',
             '<span class="num">' + (x['Title最大字符']||'—') + '</span>',
             (x['Title目标最小']||'—') + ' ~ ' + (x['Title目标最大']||'—'),
@@ -44,9 +44,18 @@ page('cfg-category', {
             chip(x['人群守卫方向']||'未配置', gdir(x['人群守卫方向'])),
             x['配置版本'] || '—',
             '<span class="m">' + String(x['更新时间']||'—').slice(0,10) + '</span>',
-            btn('详情','','','','','配置详情暂未开放')
+            '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true});
+        ), {flush:true}) + '<div id="cfg-cat-detail" style="margin-top:14px"></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('#cfg-category-root .btn[data-idx]'), function(el){
+          el.onclick = function(){
+            var i = parseInt(el.getAttribute('data-idx'), 10);
+            var x = rows[i];
+            var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
+              .map(function(k){ return [k, x[k]]; });
+            document.getElementById('cfg-cat-detail').innerHTML = panel('完整配置 · ' + (x['类目']||''), kv(pairs), {sub:'该行全部字段'});
+          };
+        });
       });
     }, 0);
     return el;
@@ -83,7 +92,7 @@ page('cfg-market', {
         if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         root.innerHTML = panel('站点规则（' + rows.length + ' 条）', table(
           ['站点','语言区域','Backend最大字节','标点策略','分词','复合词','词库表名','合规规则版本','核对日期',''],
-          rows.map(function(x){ return [
+          rows.map(function(x, i){ return [
             '<span class="m">' + (x['站点']||'—') + '</span>',
             '<span class="m">' + (x['语言区域']||'—') + '</span>',
             '<span class="num">' + (x['Backend最大字节']||'—') + '</span> 字节',
@@ -93,9 +102,18 @@ page('cfg-market', {
             x['词库表名'] || '—',
             '<span class="m">' + (x['合规规则版本']||'—') + '</span>',
             '<span class="m">' + String(x['合规规则核对日期']||'—').slice(0,10) + '</span>',
-            btn('详情','','','','','配置详情暂未开放')
+            '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true});
+        ), {flush:true}) + '<div id="cfg-market-detail" style="margin-top:14px"></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('#cfg-market-root .btn[data-idx]'), function(el){
+          el.onclick = function(){
+            var i = parseInt(el.getAttribute('data-idx'), 10);
+            var x = rows[i];
+            var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
+              .map(function(k){ return [k, x[k]]; });
+            document.getElementById('cfg-market-detail').innerHTML = panel('完整配置 · ' + (x['站点']||''), kv(pairs), {sub:'该行全部字段'});
+          };
+        });
       });
     }, 0);
     return el;
@@ -132,13 +150,22 @@ page('cfg-rules', {
         if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         root.innerHTML = panel('规则版本（' + rows.length + ' 条）', table(
           ['类目','规则版本','更新时间',''],
-          rows.map(function(x){ return [
+          rows.map(function(x, i){ return [
             '<span class="m">' + (x['类目']||'—') + '</span>',
             '<span class="m">' + (x['配置版本']||'—') + '</span>',
             '<span class="m">' + String(x['更新时间']||'—').slice(0,16) + '</span>',
-            btn('查看','','','','','查看详情暂未开放')
+            '<button class="btn btn--ghost" data-idx="'+i+'">查看</button>'
            ]; })
-        ), {flush:true});
+        ), {flush:true}) + '<div id="cfg-rules-detail" style="margin-top:14px"></div>';
+        Array.prototype.forEach.call(document.querySelectorAll('#cfg-rules-root .btn[data-idx]'), function(el){
+          el.onclick = function(){
+            var i = parseInt(el.getAttribute('data-idx'), 10);
+            var x = rows[i];
+            var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
+              .map(function(k){ return [k, x[k]]; });
+            document.getElementById('cfg-rules-detail').innerHTML = panel('完整配置 · ' + (x['类目']||'') + ' · ' + (x['配置版本']||''), kv(pairs), {sub:'该版本全部字段'});
+          };
+        });
       });
     }, 0);
     return el;

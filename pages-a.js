@@ -445,21 +445,10 @@ page('sku-family', {
           members.forEach(function(m){ var s = m['季节范围']||'—'; seasons[s] = (seasons[s]||0) + 1; });
           return { fid: fid, members: members, seasonTxt: Object.keys(seasons).map(function(s){ return s + ' ×' + seasons[s]; }).join(' / '), markets: members.map(function(m){ return m['目标市场']||'—'; }).join(', ') };
         });
-        var html = panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
-          ['系列编号','商品数','目标市场','季节款式分布',''],
-          fams.map(function(f){ return [
-            '<span class="m">' + f.fid + '</span>',
-            f.members.length,
-            f.markets,
-            f.seasonTxt,
-            btn('展开','','','','','展开功能暂未开放')
-          ]; })
-        ), {flush:true, note:'同一系列共享图案/材质/风格，各自独享尺寸/数量。<b>季节混装</b>（同一系列跨多个季节款式）容易串词，系统会二次校验拦截。'});
-        if (fams.length){
-          var first = fams[0];
-          html += panel('系列内商品（' + first.fid + '）', table(
+        function renderMembers(fam){
+          return panel('系列内商品（' + fam.fid + '）', table(
             ['SKU','目标市场','类目','季节范围','处理状态',''],
-            first.members.map(function(m){ return [
+            fam.members.map(function(m){ return [
               '<span class="m">' + (m['SKU']||'—') + '</span>',
               m['目标市场']||'—',
               m['类目']||'—',
@@ -469,7 +458,25 @@ page('sku-family', {
             ]; })
           ), {flush:true});
         }
+        var html = panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
+          ['系列编号','商品数','目标市场','季节款式分布',''],
+          fams.map(function(f, i){ return [
+            '<span class="m">' + f.fid + '</span>',
+            f.members.length,
+            f.markets,
+            f.seasonTxt,
+            '<button class="btn btn--ghost" data-fidx="'+i+'">展开</button>'
+          ]; })
+        ), {flush:true, note:'同一系列共享图案/材质/风格，各自独享尺寸/数量。<b>季节混装</b>（同一系列跨多个季节款式）容易串词，系统会二次校验拦截。'});
+        html += '<div id="fam-members">' + (fams.length ? renderMembers(fams[0]) : '') + '</div>';
         root.innerHTML = html;
+        Array.prototype.forEach.call(document.querySelectorAll('.btn[data-fidx]'), function(el){
+          el.onclick = function(){
+            var i = parseInt(el.getAttribute('data-fidx'), 10);
+            var fam = fams[i];
+            if (fam) document.getElementById('fam-members').innerHTML = renderMembers(fam);
+          };
+        });
       });
     }, 0);
     return el;
