@@ -88,23 +88,29 @@ page('rev-detail', {
           return ta < tb ? 1 : (ta > tb ? -1 : 0);
         });
         var x = rows[0];
-        var cp = btn('复制');
+        var sku = x['SKU'] || window.CUR_SKU || '';
+        function cpBtn(t){ return btn('复制','',null,null,t); }
         var bullets = ['Bullet 1','Bullet 2','Bullet 3','Bullet 4','Bullet 5'];
         var bm = bullets.map(function(b){
           var t = x[b]||'';
-          return copybox('五点描述 · ' + b, t, '<b>' + (x[b+'字符数']||String(t).length) + '</b> 字符', cp);
+          return copybox('五点描述 · ' + b, t, '<b>' + (x[b+'字符数']||String(t).length) + '</b> 字符', cpBtn(t));
         }).join('');
         var cn = bullets.map(function(b){
           var v = x[b+'中文对照'];
           return v ? '<b>'+b+'</b>：'+v : '';
         }).filter(Boolean).join('<br>');
+        var full = [
+          x['Title']||'', x['Highlights']||'',
+          x['Bullet 1']||'', x['Bullet 2']||'', x['Bullet 3']||'', x['Bullet 4']||'', x['Bullet 5']||'',
+          x['Backend Search Terms']||''
+        ].filter(Boolean).join('\n\n');
         root.innerHTML =
           '<div class="cols c21">' +
             '<div>' +
-              copybox('标题 Title', x['Title']||'', '<b>'+(x['Title字符数']||'')+'</b> 字符', cp) +
-              copybox('亮点 Highlights', x['Highlights']||'', '<b>'+(x['Highlights字符数']||'')+'</b> 字符' + (x['Highlights短语数']?' · '+x['Highlights短语数']+' 个短语':''), cp) +
+              copybox('标题 Title', x['Title']||'', '<b>'+(x['Title字符数']||'')+'</b> 字符', cpBtn(x['Title']||'')) +
+              copybox('亮点 Highlights', x['Highlights']||'', '<b>'+(x['Highlights字符数']||'')+'</b> 字符' + (x['Highlights短语数']?' · '+x['Highlights短语数']+' 个短语':''), cpBtn(x['Highlights']||'')) +
               bm +
-              copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cp, true) +
+              copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cpBtn(x['Backend Search Terms']||''), true) +
             '</div>' +
             '<div>' +
               panel('这套文案是怎么来的', kv([
@@ -117,7 +123,7 @@ page('rev-detail', {
                 '<b>标题</b>：'+(x['Title中文对照']||'—')+'<br><br>' +
                 '<b>亮点</b>：'+(x['Highlights中文对照']||'—') + (cn?'<br><br>'+cn:'') +
                 '</div>') +
-              '<div class="btnrow">'+btn('看检查报告','btn')+btn('看选词记录')+btn('整套复制')+'</div>' +
+              '<div class="btnrow">'+btn('看检查报告','btn','rev-audit',sku)+btn('看选词记录','','rev-ledger',sku)+btn('整套复制','',null,null,full)+'</div>' +
             '</div>' +
           '</div>';
       });

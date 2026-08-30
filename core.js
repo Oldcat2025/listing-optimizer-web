@@ -157,9 +157,21 @@ function sel(label, opts){
     (opts||[]).map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
 }
 function inp(ph){ return '<input class="inp" placeholder="'+ph+'">'; }
-function btn(t, cls, go, sku){
-  var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '');
+function btn(t, cls, go, sku, copy){
+  var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '') + (copy ? ' data-copy="'+encodeURIComponent(copy)+'"' : '');
   return '<button class="btn '+(cls||'btn--ghost')+'"'+a+'>'+t+'</button>';
+}
+function copyText(t){
+  function fallback(s){
+    var ta = document.createElement('textarea');
+    ta.value = s; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).catch(function(){ fallback(t); });
+  } else { fallback(t); }
 }
 
 function kv(pairs){
@@ -439,12 +451,14 @@ function BOOT(){
 
   /* 详情/跳转按钮：带 data-go 的按钮点击后跳转，data-sku 存入 CUR_SKU 供详情页读取 */
   document.addEventListener('click', function(e){
-    var b = e.target && e.target.closest ? e.target.closest('.btn[data-go]') : null;
+    var b = e.target && e.target.closest ? e.target.closest('.btn') : null;
     if (!b) return;
     var sku = b.getAttribute('data-sku');
     if (sku) window.CUR_SKU = sku;
     var go = b.getAttribute('data-go');
     if (go) location.hash = go;
+    var copy = b.getAttribute('data-copy');
+    if (copy) copyText(decodeURIComponent(copy));
   });
 
   window.onhashchange = render;
