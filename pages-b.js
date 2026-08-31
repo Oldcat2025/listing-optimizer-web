@@ -255,7 +255,7 @@ page('rev-ledger', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('站点词库',['全部','US','GB']), sel('去向',['全部','进标题','进亮点','进五点/后台','被拒绝'])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
+    var el = toolbar([sel('全部',['US','GB']), sel('全部',['进标题','进亮点','进五点/后台','被拒绝'])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
     setTimeout(function(){
             function loadLedger(){
         var root = document.getElementById('rev-ledger-root');
@@ -433,7 +433,7 @@ page('data-kw', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('站点',['US','GB']), sel('词库快照',['全部'])], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    var el = toolbar([sel('US',['GB']), sel('全部',[])], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
@@ -498,7 +498,7 @@ page('data-ppc', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('站点',['US','GB']), sel('报表日期',['全部'])], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
+    var el = toolbar([sel('US',['GB']), sel('全部',[])], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
     setTimeout(function(){
             function loadPpc(){
         var root = document.getElementById('data-ppc-root');
