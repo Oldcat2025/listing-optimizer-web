@@ -843,6 +843,17 @@ page('gen-queue', {
   },
     body:function(){
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='PROCESSING') return 'run'; if (s==='PENDING') return 'neutral'; if (s==='FAILED') return 'fail'; return 'neutral'; }
+    function toLocal(iso){
+      if (!iso) return '—';
+      var s = String(iso);
+      var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s);
+      if (!m) return s.slice(0,16).replace('T',' ');
+      var d = new Date(s);
+      if (isNaN(d.getTime())) return s.slice(0,16).replace('T',' ');
+      var u = new Date(d.getTime() + 8*3600*1000);
+      function p(n){ return (n<10?'0':'')+n; }
+      return u.getUTCFullYear()+'-'+p(u.getUTCMonth()+1)+'-'+p(u.getUTCDate())+' '+p(u.getUTCHours())+':'+p(u.getUTCMinutes());
+    }
     var el = '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {}, 200).then(function(r){
@@ -851,6 +862,7 @@ page('gen-queue', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var q = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'PENDING' || s === 'PROCESSING'; });
+        q.sort(function(a,b){ var pa=parseInt(a['优先级']||'0')||0, pb=parseInt(b['优先级']||'0')||0; if (pa!==pb) return pa-pb; return String(a['创建时间']||'').localeCompare(String(b['创建时间']||'')); });
         if (!q.length){ root.innerHTML = callout('warn','暂无数据','当前没有排队中或处理中的任务。'); return; }
         var running = q.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'PROCESSING'; }).length;
         var pending = q.length - running;
@@ -860,16 +872,35 @@ page('gen-queue', {
             ['排队等待', pending, 'PENDING', '', false],
           ], 2) +
           panel('队列（' + q.length + ' 条）', pagedTable(
-            ['SKU','产品族','站点','处理状态','更新时间',''],
+            ['SKU','产品族','站点','处理状态','优先级','更新时间',''],
             q.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
               chip(x['处理状态']||'', toneOf(x['处理状态'])),
-              '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
-              btn('取消','btn--danger','','','','取消任务功能暂未开放')
+              (x['优先级'] ? '<span class="chip chip--run">优先</span>' : '—'),
+              '<span class="m">' + toLocal(x['更新时间']) + '</span>',
+              '<button class="btn btn--ghost" data-qa="priority" data-rid="'+encodeURIComponent(x['记录ID']||'')+'">优先</button> <button class="btn btn--danger" data-qa="cancel" data-rid="'+encodeURIComponent(x['记录ID']||'')+'">取消</button>'
             ]; })
           ), {flush:true});
+        root.addEventListener('click', function(e){
+          var b = e.target.closest('button[data-qa]');
+          if (!b) return;
+          var rid = decodeURIComponent(b.getAttribute('data-rid')||'');
+          var act = b.getAttribute('data-qa');
+          if (act === 'cancel'){
+            if (!confirm('确认取消该任务？取消后不再排队，已花费用不退。')) return;
+            API.queueManage({action:'cancel', recordId: rid}).then(function(rr){
+              if (rr && rr.ok && rr.data && rr.data.success){ toast('已取消'); setTimeout(function(){ location.reload(); }, 500); }
+              else { toast('取消失败：'+((rr&&rr.data&&rr.data.error)||'请重试')); }
+            });
+          } else if (act === 'priority'){
+            API.queueManage({action:'priority', recordId: rid}).then(function(rr){
+              if (rr && rr.ok && rr.data && rr.data.success){ toast('已置顶'); setTimeout(function(){ location.reload(); }, 500); }
+              else { toast('置顶失败：'+((rr&&rr.data&&rr.data.error)||'请重试')); }
+            });
+          }
+        });
       });
     }, 0);
     return el;

@@ -34,6 +34,7 @@ var API = {
   saveProvider: function(p){ return this._post('/proj28/api/providers/save', p, true); },
   listProviders: function(){ return this._post('/proj28/api/providers/list', {}, true); },
   importForbidden: function(f){ return this._post('/proj28/api/forbidden/import', f, true); },
+  queueManage: function(q){ return this._post('/proj28/api/queue/manage', q, true); },
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
