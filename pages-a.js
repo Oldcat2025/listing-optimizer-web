@@ -112,7 +112,7 @@ page('dash-todo', {
 page('dash-runs', {
   roles:['运营','审核','管理员'],
   guide:[
-    '上面四个数字是<b>此刻</b>的运行情况，不是今天累计。',
+    '下面几个数字是<b>此刻</b>的运行情况，不是今天累计。',
     '「正在运行」表里能看到每条任务<b>跑到第几步</b>，点「详情」看完整流程图。',
     '下面「今天失败的」已经<b>按原因归好类</b>了——同一个原因的可以一起重跑，不用一条条点。'
   ],
@@ -143,9 +143,9 @@ page('dash-runs', {
             ['已完成', completed, '', 'ok', false],
             ['失败', failed, '', 'fail', false],
           ], 5) +
-          panel('全部任务（' + rows.length + ' 条）', table(
+          panel('全部任务（' + rows.length + ' 条）', pagedTable(
             ['SKU','站点','状态','更新时间',''],
-            rows.slice(0, 30).map(function(x){
+            rows.map(function(x){
               var sku = x['SKU']||'';
               var st = String(x['处理状态']||'').toUpperCase();
               return [
@@ -200,9 +200,9 @@ page('dash-quality', {
             ['全部通过', passed + ' 份', '', 'ok', false],
             ['未通过', failed + ' 份', '', 'fail', false],
           ], 4) +
-          panel('未通过明细（全部通过 = 否）', failedRows.length ? table(
+          panel('未通过明细（全部通过 = 否）', failedRows.length ? pagedTable(
             ['SKU','站点','结论','生成时间',''],
-            failedRows.slice(0, 30).map(function(x){ return [
+            failedRows.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['目标市场'] || '—',
               chip('未通过','fail'),
@@ -242,29 +242,46 @@ page('dash-flow', {
     setTimeout(function(){
       Promise.all([
         API.table('SKU_输入表', {}, 200),
+        API.table('商品事实表', {}, 200),
         API.table('站点词库_US', {}, 200),
-        API.table('定稿输出表', {}, 200),
-        API.table('证书表', {}, 200)
+        API.table('候选台账', {}, 200),
+        API.table('证书表', {}, 200),
+        API.table('定稿输出表', {}, 200)
       ]).then(function(rs){
         var root = document.getElementById('dash-flow-root');
         if (!root) return;
         for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
         function cnt(r, key){ if (r && r.data && r.data.total !== undefined && r.data.total !== null) return r.data.total; var rows = (r && r.data && r.data.data) || []; return rows.filter(function(x){ return x && x[key]; }).length; }
         function fmt(n){ n = Number(n || 0); try { return n.toLocaleString(); } catch(e){ return String(n); } }
-        var skuN = cnt(rs[0], 'SKU'), kwN = cnt(rs[1], '关键词'), finN = cnt(rs[2], 'SKU'), certN = cnt(rs[3], '运行ID');
+        var skuN = cnt(rs[0], 'SKU'), factN = cnt(rs[1], 'SKU'), kwN = cnt(rs[2], '关键词'), ledgerN = cnt(rs[3], '候选ID'), certN = cnt(rs[4], '运行ID'), finN = cnt(rs[5], 'SKU');
         root.innerHTML =
           stats([
             ['商品累计', fmt(skuN), 'SKU_输入表', '', false],
             ['关键词累计', fmt(kwN), '站点词库_US', 'ok', false],
-            ['定稿累计', fmt(finN), '定稿输出表', '', false],
-            ['证书累计', fmt(certN), '证书表', 'ok', false],
+            ['候选词累计', fmt(ledgerN), '候选台账', '', false],
+            ['定稿累计', fmt(finN), '定稿输出表', 'ok', false],
           ], 4) +
-          panel('四道工序的数据底子（系统启用以来的累计值）', kv([
-            ['① 收商品资料 · SKU_输入表', fmt(skuN) + ' 条'],
-            ['② 处理关键词表 · 站点词库_US', fmt(kwN) + ' 行'],
-            ['③ 出定稿文案 · 定稿输出表', fmt(finN) + ' 套'],
-            ['④ 出检查报告 · 证书表', fmt(certN) + ' 份'],
-          ]), {flush:true, note:'这四个数字就是系统「越用越好」的底子：<b>每一次生成都往这些表里沉淀记录</b>。数据越多，词评级、意图标注和参数版本越准。'});
+          panel('① 资料与识别段（工序 1-2）', flow([
+          {t:'商品事实表录入', s:'SKU_输入表 · ' + fmt(skuN) + ' 条', go:'sku-detail'},
+          {t:'Product DNA 识别', s:'商品事实表 · ' + fmt(factN) + ' 条', go:'sku-dna'}
+        ]), {flush:true}) +
+        panel('② 数据摄取与机会发现段（工序 3-6）', flow([
+          {t:'卖家精灵全表', s:'站点词库_US · ' + fmt(kwN) + ' 行', go:'data-kw'},
+          {t:'12 类分类', s:'机会清单 · ' + fmt(ledgerN) + ' 条', go:'data-opp'},
+          {t:'PPC/SQP 归因', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-ppc'},
+          {t:'Reverse ASIN 入口簇', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-aba'}
+        ]), {flush:true}) +
+        panel('③ 生成与审核段（工序 7-12）', flow([
+          {t:'字段路由准入', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
+          {t:'四层入口组合', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
+          {t:'仲裁顺序', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
+          {t:'八项质量门禁', s:'证书表 · ' + fmt(certN) + ' 份', go:'rev-audit'},
+          {t:'审核放行', s:'定稿输出表 · ' + fmt(finN) + ' 套', go:'rev-list'},
+          {t:'上架记录', s:'上线跟踪', go:'fb-publish'}
+        ]), {flush:true}) +
+        panel('↻ 回流段（持续迭代）', flow([
+          {t:'ASIN 登记', s:'周表现 → 词升降级 → 版本迭代', go:'fb-publish'}
+        ]), {flush:true, note:'这就是系统「越用越好」的底子：<b>每一次生成都往这些工序里沉淀记录</b>，数据越多，词评级、意图标注和参数版本越准。'});
       });
     }, 0);
     return el;
@@ -539,9 +556,9 @@ page('sku-dna', {
             ['禁止声明', first['禁止声明']||'—'],
           ])) +
           '</div>' +
-          panel('逐条事实（商品事实表 · 共 ' + rows.length + ' 条）', table(
+          panel('逐条事实（商品事实表 · 共 ' + rows.length + ' 条）', pagedTable(
             ['SKU','产品实体','尺寸','数量','材质','工艺','结构','功能','数据完整性'],
-            rows.slice(0, 30).map(function(x){ return [
+            rows.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品实体']||'—',
               x['尺寸']||'—',
@@ -691,9 +708,9 @@ page('gen-queue', {
             ['处理中', running, 'PROCESSING', 'run', false],
             ['排队等待', pending, 'PENDING', '', false],
           ], 2) +
-          panel('队列（' + q.length + ' 条）', table(
+          panel('队列（' + q.length + ' 条）', pagedTable(
             ['SKU','产品族','站点','处理状态','更新时间',''],
-            q.slice(0, 30).map(function(x){ return [
+            q.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
@@ -747,9 +764,9 @@ page('gen-run', {
             ['失败', fail, '', 'fail', false],
             ['需人工', revw, '', 'warn', false],
           ], 4) +
-          panel('运行列表（' + rows.length + ' 条）', table(
+          panel('运行列表（' + rows.length + ' 条）', pagedTable(
             ['运行ID','SKU','站点','耗时(秒)','最终状态','开始时间',''],
-            rows.slice(0, 30).map(function(x){ return [
+            rows.map(function(x){ return [
               '<span class="m">' + (x['运行ID']||'—') + '</span>',
               x['SKU']||'—',
               x['目标市场']||'—',
@@ -795,9 +812,9 @@ page('gen-retry', {
         var failed = rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'FAILED'; });
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
-          panel('失败任务（处理状态 = FAILED · 共 ' + failed.length + ' 条）', table(
+          panel('失败任务（处理状态 = FAILED · 共 ' + failed.length + ' 条）', pagedTable(
             ['SKU','产品族','站点','错误信息','处理时间',''],
-            failed.slice(0, 30).map(function(x){ return [
+            failed.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
