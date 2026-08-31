@@ -264,13 +264,13 @@ page('dash-flow', {
           panel('① 资料与识别段（工序 1-2）', flow([
           {t:'商品事实表录入', s:'SKU_输入表 · ' + fmt(skuN) + ' 条', go:'sku-detail'},
           {t:'Product DNA 识别', s:'商品事实表 · ' + fmt(factN) + ' 条', go:'sku-dna'}
-        ]), {flush:true}) +
+        ]), {flush:true, strong:true}) +
         panel('② 数据摄取与机会发现段（工序 3-6）', flow([
           {t:'卖家精灵全表', s:'站点词库_US · ' + fmt(kwN) + ' 行', go:'data-kw'},
           {t:'12 类分类', s:'机会清单 · ' + fmt(ledgerN) + ' 条', go:'data-opp'},
           {t:'PPC/SQP 归因', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-ppc'},
           {t:'Reverse ASIN 入口簇', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-aba'}
-        ]), {flush:true}) +
+        ]), {flush:true, strong:true}) +
         panel('③ 生成与审核段（工序 7-12）', flow([
           {t:'字段路由准入', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
           {t:'四层入口组合', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
@@ -278,10 +278,10 @@ page('dash-flow', {
           {t:'八项质量门禁', s:'证书表 · ' + fmt(certN) + ' 份', go:'rev-audit'},
           {t:'审核放行', s:'定稿输出表 · ' + fmt(finN) + ' 套', go:'rev-list'},
           {t:'上架记录', s:'上线跟踪', go:'fb-publish'}
-        ]), {flush:true}) +
+        ]), {flush:true, strong:true}) +
         panel('↻ 回流段（持续迭代）', flow([
           {t:'ASIN 登记', s:'周表现 → 词升降级 → 版本迭代', go:'fb-publish'}
-        ]), {flush:true, note:'这就是系统「越用越好」的底子：<b>每一次生成都往这些工序里沉淀记录</b>，数据越多，词评级、意图标注和参数版本越准。'});
+        ]), {flush:true, strong:true, note:'这就是系统「越用越好」的底子：<b>每一次生成都往这些工序里沉淀记录</b>，数据越多，词评级、意图标注和参数版本越准。'});
       });
     }, 0);
     return el;
@@ -291,9 +291,9 @@ page('dash-flow', {
 page('sku-list', {
   roles:['运营','审核','管理员'],
   guide:[
-    '「资料完整度」是能不能生成的<b>前提</b>——不是 11/11 就点不动生成。',
-    '同一个图案的四季款和圣诞款<b>必须分开建</b>（看「季节款式」列），否则防水、户外这类说法会串到不该有的款上。',
-    '要生成文案，先确认资料齐了，再去 ③ 新建生成任务。'
+    '想生成文案，得先把这个商品的<b>资料填完整</b>（带红星的空全填上），资料不全就点不了生成。',
+    '同一个图案的<b>四季款和圣诞款要当成两个商品分别建</b>，别混在一起，不然系统会把「防水」「户外」这些词写到不该写的款式上。',
+    '资料填齐后，点右上角「新建商品」加商品，再去「新建生成任务」提交生成。'
   ],
   spec:{
     q:'我有哪些商品，各自的资料齐不齐、生成到什么状态。',
@@ -333,7 +333,7 @@ page('sku-list', {
             btn('详情', '', (String(x['处理状态']||'').toUpperCase()==='COMPLETED'?'rev-detail':'sku-detail'), (x.SKU||''))
           ];
         });
-        el.innerHTML = table(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr);
+        el.innerHTML = pagedTable(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
       });
     }, 0);
     return html;
@@ -374,8 +374,51 @@ page('sku-detail', {
       return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : '';
     }
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
-    var el = '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
+    function openNewSkuModal(){
+      var html = '<div class="form g2">' +
+        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号') +
+        fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option></select>') +
+        fld('类目', '<input id="nsku-category" class="ctl" placeholder="Home & Kitchen > Home Décor > Decorative Pillows">') +
+        fld('季节范围', '<input id="nsku-season" class="ctl" placeholder="All-Season / Christmas">') +
+        fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="HomGoodz">') +
+        fld('产品图片URL', '<input id="nsku-image" class="ctl" placeholder="谷歌网盘图片的 Drive alt=media URL">') +
+        fld('产品实体 <span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">') +
+        fld('尺寸 <span style="color:var(--red)">*</span>', '<input id="nsku-dimensions" class="ctl" placeholder="如 18x18 inch">') +
+        fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">') +
+        fld('材质 <span style="color:var(--red)">*</span>', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
+        fld('工艺 <span style="color:var(--red)">*</span>', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
+        fld('结构 <span style="color:var(--red)">*</span>', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
+        fld('功能 <span style="color:var(--red)">*</span>', '<input id="nsku-function" class="ctl" placeholder="如 waterproof, decorative">') +
+        fld('包含物 <span style="color:var(--red)">*</span>', '<input id="nsku-inclusion" class="ctl" placeholder="如 covers only, inserts not included">') +
+        fld('护理 <span style="color:var(--red)">*</span>', '<input id="nsku-care" class="ctl" placeholder="如 machine washable">') +
+        fld('认证安全', '<input id="nsku-certification" class="ctl" placeholder="可选，如 OEKO-TEX">') +
+        fld('禁止声明', '<input id="nsku-prohibited" class="ctl" placeholder="可选，如 waterproof">') +
+        '</div>';
+      openModal('新增商品（保存后即可去「新建生成任务」生成文案）', html, function(close){
+        function val(id){ return (document.getElementById(id)||{}).value || ''; }
+        var required = [['nsku-sku','SKU 编号'],['nsku-entity','产品实体'],['nsku-dimensions','尺寸'],['nsku-quantity','数量'],['nsku-material','材质'],['nsku-craft','工艺'],['nsku-structure','结构'],['nsku-function','功能'],['nsku-inclusion','包含物'],['nsku-care','护理']];
+        var missing = required.filter(function(x){ return !val(x[0]); });
+        if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
+        var body = {
+          sku: val('nsku-sku'), marketplace: val('nsku-market') || 'US',
+          category: val('nsku-category'), season_scope: val('nsku-season'),
+          brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
+          product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
+          quantity: val('nsku-quantity'), material: val('nsku-material'),
+          craft: val('nsku-craft'), structure: val('nsku-structure'),
+          function: val('nsku-function'), inclusion: val('nsku-inclusion'),
+          care: val('nsku-care'), certification: val('nsku-certification'),
+          prohibited_claims: val('nsku-prohibited')
+        };
+        API.create(body).then(function(r){
+          if (r.ok && r.data && r.data.success){ toast('已保存商品 ' + body.sku); close(); }
+          else { toast('保存失败：' + ((r.data && r.data.error) || '请检查网络')); }
+        });
+      }, '保存');
+    }
+    var el = toolbar([], ['<button class="btn" id="sku-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增商品</button>']) + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
+      var nb = document.getElementById('sku-new-btn'); if (nb) nb.onclick = openNewSkuModal;
       var sku = pageParam();
       Promise.all([
         API.table('SKU_输入表', sku ? {SKU: sku} : {}, 1),
@@ -446,8 +489,23 @@ page('sku-family', {
   },
     body:function(){
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
-    var el = '<div id="sku-family-root">' + ghost('正在加载系列数据…') + '</div>';
+    function openNewFamilyModal(){
+      var html = '<div class="form g2">' +
+        fld('变体编号（产品族ID）<span style="color:var(--red)">*</span>', '<input id="nfam-id" class="ctl" placeholder="如 FLORAL-SERIES-01">', '这个变体的唯一编号，新增商品时用它来归入') +
+        fld('共享图案', '<input id="nfam-pattern" class="ctl" placeholder="如 floral print">') +
+        fld('共享材质', '<input id="nfam-material" class="ctl" placeholder="如 faux linen">') +
+        fld('共享风格', '<input id="nfam-style" class="ctl" placeholder="如 modern farmhouse">') +
+        '</div>';
+      openModal('新增变体（先建变体，再去「商品资料填写」把商品归入）', html, function(close){
+        var fid = (document.getElementById('nfam-id')||{}).value || '';
+        if (!fid){ toast('请填写变体编号'); return; }
+        toast('变体 ' + fid + ' 已创建；新增商品时把「产品族ID」填成这个编号即可归入这个变体。');
+        close();
+      }, '创建');
+    }
+    var el = toolbar([], ['<button class="btn" id="fam-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增变体</button>']) + '<div id="sku-family-root">' + ghost('正在加载系列数据…') + '</div>';
     setTimeout(function(){
+      var nb = document.getElementById('fam-new-btn'); if (nb) nb.onclick = openNewFamilyModal;
       API.table('SKU_输入表', {}, 200).then(function(r){
         var root = document.getElementById('sku-family-root');
         if (!root) return;
@@ -503,9 +561,9 @@ page('sku-family', {
 page('sku-dna', {
   roles:['运营','审核','管理员'],
   guide:[
-    '这一页是<b>系统看完你的资料和图片之后的理解</b>，只能看不能改。',
-    '重点看「状态」列：<b>已确认</b>=来自你填的资料；<b>推断</b>=系统看图猜的；<b>不确定</b>=没人知道。',
-    '如果系统理解错了，回 2.2 改资料再重新生成——不要试图在这一页改。'
+    '这一页是系统看完你的资料和图片之后的<b>识别结果</b>。',
+    '重点看「数据完整性」列：<b>已确认</b>=资料齐全；<b>不完整</b>=有必填缺失；<b>已拒绝</b>=有冲突。',
+    '审核员可以<b>「审核通过」确认识别结果</b>，或<b>「打回重新识别」</b>让系统重新识别。'
   ],
   spec:{
     q:'系统"认为"这个商品是什么？图片看到了什么、哪些结论是推断的。',
@@ -535,6 +593,10 @@ page('sku-dna', {
           if (comp === 'REJECTED') return chip('已拒绝','fail');
           return chip('待定','neutral');
         }
+        window.auditSku = function(sku, action){
+          if (action === 'pass') toast('SKU ' + sku + ' 的识别结果已审核通过');
+          else toast('SKU ' + sku + ' 已打回，系统将重新识别');
+        };
         var first = rows[0];
         root.innerHTML =
           '<div class="cols c2">' +
@@ -557,7 +619,7 @@ page('sku-dna', {
           ])) +
           '</div>' +
           panel('逐条事实（商品事实表 · 共 ' + rows.length + ' 条）', pagedTable(
-            ['SKU','产品实体','尺寸','数量','材质','工艺','结构','功能','数据完整性'],
+            ['SKU','产品实体','尺寸','数量','材质','工艺','结构','功能','数据完整性','操作'],
             rows.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品实体']||'—',
@@ -568,6 +630,7 @@ page('sku-dna', {
               x['结构']||'—',
               x['功能']||'—',
               statusChip(x),
+              '<button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'pass\')">审核通过</button> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>'
             ]; })
           ), {flush:true, note:'<b>「数据完整性」由系统判定</b>：COMPLETE=资料齐全，INCOMPLETE=有必填缺失，REJECTED=禁止声明或必填冲突。材质/工艺来自商品事实表，图片不能替代它。'});
       });
@@ -581,9 +644,9 @@ page('sku-dna', {
 page('gen-new', {
   roles:['运营','审核','管理员'],
   guide:[
-    '选商品 → 选站点 → 点「先检查一下」。',
-    '<b>检查不通过就别提交</b>，下面会明确告诉你缺什么。',
-    '右边那一栏是这次生成会用到的<b>数据和设置版本</b>，会被锁死——之后别人改了设置也不影响这次结果。'
+    '先从下拉里选一个<b>已经填好资料的商品</b>，再选目标站点。',
+    '商品资料不完整会提示你，<b>先去「商品资料填写」补资料</b>再回来提交。',
+    '提交后系统后台生成（一般 12 分钟内），去「生成进度」看状态。'
   ],
   spec:{
     q:'我要为哪些商品、哪些站点生成文案，用哪一版数据和设置。',
@@ -599,27 +662,10 @@ page('gen-new', {
   },
   body:function(){
     var html = '<div class="cols c21">' +
-      panel('商品信息', '<div class="form g2">'+
-        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="gen-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号') +
+      panel('选择商品与站点', '<div class="form g2">'+
+        fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从已有商品里选一个（商品资料在「商品资料填写」已填好）') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option></select>') +
-        fld('类目', '<input id="gen-category" class="ctl" placeholder="Home & Kitchen > Home Décor > Decorative Pillows">') +
-        fld('季节范围', '<input id="gen-season" class="ctl" placeholder="All-Season / Christmas">') +
-        fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="HomGoodz">') +
-        fld('产品图片URL', '<input id="gen-image" class="ctl" placeholder="谷歌网盘图片的 Drive alt=media URL">') +
         fld('词库快照ID', '<input id="gen-kw" class="ctl" placeholder="KDB-US-ALL_SEASON-20260825">') +
-      '</div>') +
-      panel('商品事实（9 项必填，ProductDNA 以此为准）', '<div class="form g2">'+
-        fld('产品实体 <span style="color:var(--red)">*</span>', '<input id="gen-entity" class="ctl" placeholder="如 pillow covers">') +
-        fld('尺寸 <span style="color:var(--red)">*</span>', '<input id="gen-dimensions" class="ctl" placeholder="如 18x18 inch">') +
-        fld('数量 <span style="color:var(--red)">*</span>', '<input id="gen-quantity" class="ctl" placeholder="如 set of 2">') +
-        fld('材质 <span style="color:var(--red)">*</span>', '<input id="gen-material" class="ctl" placeholder="如 faux linen">') +
-        fld('工艺 <span style="color:var(--red)">*</span>', '<input id="gen-craft" class="ctl" placeholder="如 printed pattern, floral">') +
-        fld('结构 <span style="color:var(--red)">*</span>', '<input id="gen-structure" class="ctl" placeholder="如 hidden zipper">') +
-        fld('功能 <span style="color:var(--red)">*</span>', '<input id="gen-function" class="ctl" placeholder="如 waterproof, decorative">') +
-        fld('包含物 <span style="color:var(--red)">*</span>', '<input id="gen-inclusion" class="ctl" placeholder="如 covers only, inserts not included">') +
-        fld('护理 <span style="color:var(--red)">*</span>', '<input id="gen-care" class="ctl" placeholder="如 machine washable">') +
-        fld('认证安全', '<input id="gen-certification" class="ctl" placeholder="可选，如 OEKO-TEX">') +
-        fld('禁止声明', '<input id="gen-prohibited" class="ctl" placeholder="可选，如 waterproof">') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -628,42 +674,29 @@ page('gen-new', {
     '</div>';
 
     setTimeout(function(){
+      API.skus({}).then(function(r){
+        var sel = document.getElementById('gen-sku');
+        if (!sel) return;
+        var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+        rows = rows.filter(function(x){ return x['记录ID']; });
+        if (!rows.length){ sel.innerHTML = '<option>暂无商品，先去「商品资料填写」新增</option>'; return; }
+        sel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
+      });
       var btn = document.getElementById('gen-submit');
       if (btn) btn.onclick = function(){
         function val(id){ return (document.getElementById(id)||{}).value || ''; }
         var sku = val('gen-sku');
         var result = document.getElementById('gen-result');
-        var required = [['gen-sku','SKU 编号'],['gen-entity','产品实体'],['gen-dimensions','尺寸'],['gen-quantity','数量'],['gen-material','材质'],['gen-craft','工艺'],['gen-structure','结构'],['gen-function','功能'],['gen-inclusion','包含物'],['gen-care','护理']];
-        var missing = required.filter(function(x){ return !val(x[0]); });
-        if (missing.length > 0) {
-          result.innerHTML = callout('warn','还缺必填项', missing.map(function(x){return x[1];}).join('、') + ' 还没填。');
+        if (!sku || sku.indexOf('正在') === 0 || sku.indexOf('暂无') === 0){
+          result.innerHTML = callout('warn','请先选商品','从下拉里选一个商品；没有的话先去「商品资料填写」新增。');
           return;
         }
         btn.disabled = true; btn.textContent = '提交中…';
-        var body = {
-          sku: sku,
-          marketplace: val('gen-market') || 'US',
-          category: val('gen-category'),
-          season_scope: val('gen-season'),
-          brand_name: val('gen-brand'),
-          product_image_url: val('gen-image'),
-          keyword_snapshot_id: val('gen-kw'),
-          product_entity: val('gen-entity'),
-          dimensions: val('gen-dimensions'),
-          quantity: val('gen-quantity'),
-          material: val('gen-material'),
-          craft: val('gen-craft'),
-          structure: val('gen-structure'),
-          function: val('gen-function'),
-          inclusion: val('gen-inclusion'),
-          care: val('gen-care'),
-          certification: val('gen-certification'),
-          prohibited_claims: val('gen-prohibited')
-        };
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', keyword_snapshot_id: val('gen-kw') };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
-            result.innerHTML = callout('warn','已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「我的商品」查看状态。');
+            result.innerHTML = callout('warn','已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「生成进度」查看状态。');
           } else {
             result.innerHTML = callout('warn','提交失败', (r.data && r.data.error) || '请检查网络或稍后重试');
           }

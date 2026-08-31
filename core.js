@@ -75,8 +75,8 @@ const NAV = [
   ]},
   { g:'②', n:'2', t:'我的商品', k:'sku', items:[
     ['2.1','商品列表','sku-list','SKU List'],
-    ['2.2','商品资料填写','sku-detail','商品事实表 Product Truth'],
-    ['2.3','系列与变体','sku-family','产品族 Family Router'],
+    ['2.2','系列与变体','sku-family','产品族 Family Router'],
+    ['2.3','商品资料填写','sku-detail','商品事实表 Product Truth'],
     ['2.4','系统识别结果','sku-dna','Product DNA'],
   ]},
   { g:'③', n:'3', t:'生成文案', k:'gen', items:[
@@ -166,7 +166,7 @@ function panel(title, inner, opt){
   var sub  = opt.sub  ? '<span class="sub">'+opt.sub+'</span>' : '';
   var note = opt.note ? '<div class="pnl__note">'+opt.note+'</div>' : '';
   var bd   = '<div class="pnl__bd'+(opt.flush?' flush':'')+'">'+inner+'</div>';
-  return '<section class="pnl"><div class="pnl__hd"><h3>'+title+'</h3>'+sub+'</div>'+bd+note+'</section>';
+  return '<section class="pnl"><div class="pnl__hd'+(opt.strong?' pnl__hd--strong':'')+'"><h3>'+title+'</h3>'+sub+'</div>'+bd+note+'</section>';
 }
 
 function toolbar(filters, actions){
@@ -264,6 +264,20 @@ function tabs(list){
 }
 
 function ghost(t){ return '<div class="ghost">'+t+'</div>'; }
+
+/* ─── 通用弹窗 ─── */
+function openModal(title, html, onOK, okLabel){
+  var mask = document.createElement('div');
+  mask.className = 'modal-mask';
+  mask.innerHTML = '<div class="modal"><div class="modal__hd"><h3>'+title+'</h3><button class="modal__x" type="button">×</button></div><div class="modal__bd">'+html+'</div><div class="modal__ft"><button class="btn btn--ghost modal__cancel" type="button">取消</button><button class="btn modal__ok" type="button">'+(okLabel||'确定')+'</button></div></div>';
+  document.body.appendChild(mask);
+  var close = function(){ if (mask.parentNode) document.body.removeChild(mask); };
+  mask.querySelector('.modal__x').onclick = close;
+  mask.querySelector('.modal__cancel').onclick = close;
+  mask.onclick = function(e){ if (e.target === mask) close(); };
+  mask.querySelector('.modal__ok').onclick = function(){ if (onOK) onOK(close); };
+  return mask;
+}
 
 /* ─── 证据字母符号：F 事实 / A 市场 / S 账户 / R 反查 ─── */
 var EV_MAP = {
