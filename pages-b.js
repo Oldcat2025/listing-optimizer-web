@@ -781,6 +781,26 @@ page('data-import', {
     limits:['原始文件<b>必须保留</b>，用于事后复核解析器是否改错了口径']
   },
   body:function(){
-    return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。');
+    var el = '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
+    setTimeout(function(){
+      var root = document.getElementById('data-import-root');
+      if (!root) return;
+      Promise.all([
+        API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200),
+        API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200)
+      ]).then(function(rs){
+        var items = [
+          ['关键词库','US','站点词库_US',(rs[0].ok&&rs[0].data)?(rs[0].data.total||0):0,'data-kw'],
+          ['关键词库','GB','站点词库_GB',(rs[1].ok&&rs[1].data)?(rs[1].data.total||0):0,'data-kw'],
+          ['PPC 出单词','US','PPC出单词_US',(rs[2].ok&&rs[2].data)?(rs[2].data.total||0):0,'data-ppc'],
+          ['PPC 出单词','GB','PPC出单词_GB',(rs[3].ok&&rs[3].data)?(rs[3].data.total||0):0,'data-ppc']
+        ];
+        root.innerHTML = panel('导入历史（' + items.length + ' 个数据源）', table(
+          ['数据类型','站点','数据表','记录数',''],
+          items.map(function(it){ return [it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>', btn('查看','',it[4])]; })
+        ), {flush:true, note:'关键词库和 PPC 数据各自按站点导入，查看详情请点右侧「查看」进入对应页面。'});
+      });
+    }, 0);
+    return el;
   }
 });
