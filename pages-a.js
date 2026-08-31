@@ -330,7 +330,7 @@ page('sku-list', {
             x['目标市场']||'—',
             chip(x['处理状态']||'待处理', toneOf(x['处理状态'])),
             (x['处理时间']||'—').slice(0,10),
-            btn('详情', '', (String(x['处理状态']||'').toUpperCase()==='COMPLETED'?'rev-detail':'sku-detail'), (x.SKU||''))
+            btn('详情', '', 'sku-dna', (x.SKU||''))
           ];
         });
         el.innerHTML = pagedTable(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
@@ -376,43 +376,49 @@ page('sku-detail', {
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
     function openNewSkuModal(){
       var html = '<div class="form g2">' +
-        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号') +
-        fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option></select>') +
-        fld('类目', '<input id="nsku-category" class="ctl" placeholder="Home & Kitchen > Home Décor > Decorative Pillows">') +
-        fld('季节范围', '<input id="nsku-season" class="ctl" placeholder="All-Season / Christmas">') +
-        fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="HomGoodz">') +
+        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
+        fld('商品是什么（英文核心词）<span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">', '写进标题的第一个词，比如 pillow covers') +
+        fld('尺寸 <span style="color:var(--red)">*</span>', '<select id="nsku-dimensions" class="ctl"><option>16x16 inch</option><option>18x18 inch</option><option>20x20 inch</option><option>24x24 inch</option><option>26x26 inch</option></select>') +
+        fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">', '一套几个，比如 set of 2') +
+        fld('类目', '<select id="nsku-category" class="ctl"><option>抱枕（Home Décor > Decorative Pillows）</option><option>桌旗（Kitchen & Dining > Table Runners）</option><option>婴童床笠（Nursery > Crib Sheets）</option></select>') +
+        fld('季节范围', '<select id="nsku-season" class="ctl"><option>四季通用</option><option>春夏</option><option>秋冬</option><option>圣诞节</option><option>感恩节</option></select>') +
+        fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
+        fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
         fld('产品图片URL', '<input id="nsku-image" class="ctl" placeholder="谷歌网盘图片的 Drive alt=media URL">') +
-        fld('产品实体 <span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">') +
-        fld('尺寸 <span style="color:var(--red)">*</span>', '<input id="nsku-dimensions" class="ctl" placeholder="如 18x18 inch">') +
-        fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">') +
-        fld('材质 <span style="color:var(--red)">*</span>', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
-        fld('工艺 <span style="color:var(--red)">*</span>', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
-        fld('结构 <span style="color:var(--red)">*</span>', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
-        fld('功能 <span style="color:var(--red)">*</span>', '<input id="nsku-function" class="ctl" placeholder="如 waterproof, decorative">') +
-        fld('包含物 <span style="color:var(--red)">*</span>', '<input id="nsku-inclusion" class="ctl" placeholder="如 covers only, inserts not included">') +
-        fld('护理 <span style="color:var(--red)">*</span>', '<input id="nsku-care" class="ctl" placeholder="如 machine washable">') +
-        fld('认证安全', '<input id="nsku-certification" class="ctl" placeholder="可选，如 OEKO-TEX">') +
-        fld('禁止声明', '<input id="nsku-prohibited" class="ctl" placeholder="可选，如 waterproof">') +
+        fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
+        fld('工艺（可选）', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
+        fld('结构（可选）', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
+        fld('卖点功能（可选）', '<input id="nsku-function" class="ctl" placeholder="如 waterproof, decorative">', '有就填，这是主要卖点；没有就留空') +
+        fld('包含物（可选）', '<input id="nsku-inclusion" class="ctl" placeholder="如 covers only, inserts not included">') +
+        fld('护理（可选）', '<input id="nsku-care" class="ctl" placeholder="如 machine washable">') +
+        fld('认证安全（可选）', '<input id="nsku-certification" class="ctl" placeholder="如 OEKO-TEX">') +
+        fld('禁止声明（可选）', '<input id="nsku-prohibited" class="ctl" placeholder="如 waterproof（不想让系统说的词）">') +
         '</div>';
       openModal('新增商品（保存后即可去「新建生成任务」生成文案）', html, function(close){
         function val(id){ return (document.getElementById(id)||{}).value || ''; }
-        var required = [['nsku-sku','SKU 编号'],['nsku-entity','产品实体'],['nsku-dimensions','尺寸'],['nsku-quantity','数量'],['nsku-material','材质'],['nsku-craft','工艺'],['nsku-structure','结构'],['nsku-function','功能'],['nsku-inclusion','包含物'],['nsku-care','护理']];
+        var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-dimensions','尺寸'],['nsku-quantity','数量']];
         var missing = required.filter(function(x){ return !val(x[0]); });
         if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
-        var body = {
-          sku: val('nsku-sku'), marketplace: val('nsku-market') || 'US',
-          category: val('nsku-category'), season_scope: val('nsku-season'),
-          brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
-          product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
-          quantity: val('nsku-quantity'), material: val('nsku-material'),
-          craft: val('nsku-craft'), structure: val('nsku-structure'),
-          function: val('nsku-function'), inclusion: val('nsku-inclusion'),
-          care: val('nsku-care'), certification: val('nsku-certification'),
-          prohibited_claims: val('nsku-prohibited')
-        };
-        API.create(body).then(function(r){
-          if (r.ok && r.data && r.data.success){ toast('已保存商品 ' + body.sku); close(); }
-          else { toast('保存失败：' + ((r.data && r.data.error) || '请检查网络')); }
+        var sku = val('nsku-sku');
+        API.table('SKU_输入表', {SKU: sku}, 1).then(function(r){
+          var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+          var exists = rows.some(function(x){ return x['SKU'] === sku; });
+          if (exists){ toast('SKU ' + sku + ' 已经存在，请换一个编号'); return; }
+          var body = {
+            sku: sku, marketplace: val('nsku-market') || 'US',
+            category: val('nsku-category'), season_scope: val('nsku-season'),
+            brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
+            product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
+            quantity: val('nsku-quantity'), material: val('nsku-material'),
+            craft: val('nsku-craft'), structure: val('nsku-structure'),
+            function: val('nsku-function'), inclusion: val('nsku-inclusion'),
+            care: val('nsku-care'), certification: val('nsku-certification'),
+            prohibited_claims: val('nsku-prohibited')
+          };
+          API.create(body).then(function(r2){
+            if (r2.ok && r2.data && r2.data.success){ toast('已保存商品 ' + sku); close(); }
+            else { toast('保存失败：' + ((r2.data && r2.data.error) || '请检查网络')); }
+          });
         });
       }, '保存');
     }
@@ -529,7 +535,7 @@ page('sku-family', {
               m['类目']||'—',
               m['季节范围']||'—',
               chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
-              btn('详情', '', (String(m['处理状态']||'').toUpperCase()==='COMPLETED'?'rev-detail':'sku-detail'), (m['SKU']||''))
+              btn('详情', '', 'sku-dna', (m['SKU']||''))
             ]; })
           ), {flush:true});
         }
@@ -578,9 +584,17 @@ page('sku-dna', {
     ]
   },
     body:function(){
+    function pageParam(){
+      var h = (location.hash || '').replace(/^#/, '');
+      var idx = h.indexOf('?');
+      if (idx >= 0){ var q = h.slice(idx+1); var ps = q.split('&'); for (var i=0;i<ps.length;i++){ var kvp = ps[i].split('='); if (kvp[0]==='sku') return decodeURIComponent((kvp[1]||'').replace(/\+/g,' ')); } return ''; }
+      idx = h.indexOf('/');
+      return idx >= 0 ? decodeURIComponent(h.slice(idx+1)) : '';
+    }
+    var sku = pageParam();
     var el = '<div id="sku-dna-root">' + ghost('正在加载系统识别结果…') + '</div>';
     setTimeout(function(){
-      API.table('商品事实表', {}, 200).then(function(r){
+      API.table('商品事实表', sku ? {SKU: sku} : {}, 200).then(function(r){
         var root = document.getElementById('sku-dna-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
@@ -630,7 +644,9 @@ page('sku-dna', {
               x['结构']||'—',
               x['功能']||'—',
               statusChip(x),
-              '<button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'pass\')">审核通过</button> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>'
+              (String(x['数据完整性']||'').toUpperCase() === 'COMPLETE'
+                ? '<span style="color:var(--t-4);font-size:12px">已确认</span> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>'
+                : '<button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'pass\')">审核通过</button> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>')
             ]; })
           ), {flush:true, note:'<b>「数据完整性」由系统判定</b>：COMPLETE=资料齐全，INCOMPLETE=有必填缺失，REJECTED=禁止声明或必填冲突。材质/工艺来自商品事实表，图片不能替代它。'});
       });
@@ -664,8 +680,8 @@ page('gen-new', {
     var html = '<div class="cols c21">' +
       panel('选择商品与站点', '<div class="form g2">'+
         fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从已有商品里选一个（商品资料在「商品资料填写」已填好）') +
-        fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option></select>') +
-        fld('词库快照ID', '<input id="gen-kw" class="ctl" placeholder="KDB-US-ALL_SEASON-20260825">') +
+        fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
+        fld('词库快照', '<select id="gen-kw" class="ctl"><option>正在加载词库…</option></select>', '从数据管理里导入的关键词版本，选最新一版') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -674,6 +690,10 @@ page('gen-new', {
     '</div>';
 
     setTimeout(function(){
+      API.table('站点词库_US', {}, 200).then(function(r){
+        var ksel = document.getElementById('gen-kw');
+        if (ksel){ var krows = (r.ok && r.data && r.data.data) ? r.data.data : []; var snap = {}; krows.forEach(function(x){ if (x['词库快照ID']) snap[x['词库快照ID']] = 1; }); var ids = Object.keys(snap); ksel.innerHTML = ids.length ? ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('') : '<option>暂无词库，先去数据管理导入</option>'; }
+      });
       API.skus({}).then(function(r){
         var sel = document.getElementById('gen-sku');
         if (!sel) return;
@@ -778,6 +798,8 @@ page('gen-run', {
     ]
   },
     body:function(){
+    function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
+    var runParam = pageParam();
     var el = '<div id="gen-run-root">' + ghost('正在加载运行详情…') + '</div>';
     setTimeout(function(){
       API.table('运行日志表', {}, 200).then(function(r){
@@ -787,6 +809,23 @@ page('gen-run', {
         var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID']; });
         if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return ''; }
+        if (runParam){
+          var row = rows.filter(function(x){ return x['运行ID'] === runParam; })[0];
+          if (!row){ root.innerHTML = callout('warn','未找到该任务','运行ID ' + runParam + ' 不存在。'); return; }
+          root.innerHTML =
+            panel('任务详情 · ' + runParam, kv([
+              ['SKU', row['SKU']||'—'],
+              ['站点', row['目标市场']||'—'],
+              ['最终状态', chip(row['最终状态']||'', t(row['最终状态']))],
+              ['耗时', (row['耗时秒']||'—') + ' 秒'],
+              ['开始时间', String(row['开始时间']||'').slice(0,16).replace('T',' ')],
+            ]), {flush:true}) +
+            panel('12 步链路', phaseFlow([
+              {no:'①', t:'资料与识别段', s:'工序 1-2', state:'done', steps:[['done','1. 商品事实录入','',''],['done','2. Product DNA 识别','','']]},
+              {no:'②', t:'数据摄取与机会发现段', s:'工序 3-6', state:'done', steps:[['done','3. 卖家精灵数据','',''],['done','4. 12类分类','',''],['done','5. PPC/SQP 归因','',''],['done','6. Reverse ASIN','','']]},
+              {no:'③', t:'生成与审核段', s:'工序 7-12', state:'done', steps:[['done','7. 字段路由','',''],['done','8. 四层入口组合','',''],['done','9. 仲裁顺序','',''],['done','10. 八项质量门禁','',''],['done','11. 审核放行','',''],['done','12. 上架登记','','']]},
+            ]), {flush:true, note:'绿色步骤已完成。12 步状态由后端返回，当前为占位展示。'});
+        } else {
         var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
         var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
@@ -806,9 +845,10 @@ page('gen-run', {
               x['耗时秒']||'—',
               chip(x['最终状态']||'', t(x['最终状态'])),
               '<span class="m">' + String(x['开始时间']||'').slice(0,16).replace('T',' ') + '</span>',
-              btn('详情', '', 'rev-detail', (x['SKU']||''))
+              btn('详情', '', 'gen-run', (x['运行ID']||''))
             ]; })
           ), {flush:true});
+        }
       });
     }, 0);
     return el;
@@ -818,9 +858,9 @@ page('gen-run', {
 page('gen-retry', {
   roles:['运营','审核','管理员'],
   guide:[
-    '哪个字段失败就<b>只重做那个字段</b>，已经写好的不会被推翻重来。',
-    '每个字段<b>最多重做 3 次</b>，超过就自动转人工——这是防止无限试错烧钱。',
-    '怎么修不用你想，系统按固定规则给出修复动作。'
+    '这里是<b>失败和需要人工审核</b>的任务清单。',
+    '点「重新提交」会让系统重新生成一遍，<b>已经写好的部分不会白费</b>。',
+    '重新提交前，先回「商品资料填写」把资料改对。'
   ],
   spec:{
     q:'哪个字段失败了、按规则该怎么修、还剩几次机会。',
@@ -835,6 +875,12 @@ page('gen-retry', {
     ]
   },
     body:function(){
+    window.retrySku = function(sku){
+      API.generate({sku: sku}).then(function(r){
+        if (r.ok && r.data && r.data.success) toast('SKU ' + sku + ' 已重新提交生成');
+        else toast('重新提交失败：' + ((r.data && r.data.error) || '请检查网络'));
+      });
+    };
     var el = '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {}, 200).then(function(r){
@@ -842,10 +888,10 @@ page('gen-retry', {
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        var failed = rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'FAILED'; });
+        var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
-          panel('失败任务（处理状态 = FAILED · 共 ' + failed.length + ' 条）', pagedTable(
+          panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
             ['SKU','产品族','站点','错误信息','处理时间',''],
             failed.map(function(x){ return [
               '<span class="m">' + (x['SKU']||'—') + '</span>',
@@ -853,7 +899,7 @@ page('gen-retry', {
               x['目标市场']||'—',
               x['错误信息']||'—',
               '<span class="m">' + String(x['处理时间']||'').slice(0,16).replace('T',' ') + '</span>',
-              btn('重做','btn','','','','重做功能暂未开放')
+              '<button class="btn btn--ghost" onclick="retrySku(\''+(x['SKU']||'')+'\')">重新提交</button>'
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
       });
