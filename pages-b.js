@@ -42,7 +42,7 @@ page('rev-list', {
             '<span class="m">'+(t.length>42 ? t.slice(0,42)+'…' : t)+'</span>',
             '<span class="num">'+String(x.backend||'').length+'</span>',
             chip(x.status||'pending', toneOf(x.status)),
-            x.created_at||'—',
+            String(x.created_at||'—').slice(0,10),
             btn('详情', '', 'rev-detail')
           ];
         });
@@ -201,7 +201,7 @@ page('rev-audit', {
             ['全部通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
             ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—'), '', '', false],
             ['证书数量', String(certCols.length), '', '', false],
-            ['生成时间', String(x['生成时间']||'—').slice(0,16), '', '', false],
+            ['生成时间', String(x['生成时间']||'—').slice(0,16).replace('T',' '), '', '', false],
           ], 4) +
           certCols.map(function(col){ return panel(col, verdict(x[col]), {flush:true}); }).join('');
       });
@@ -249,9 +249,9 @@ page('rev-ledger', {
             ['下沉到五点/后台', intoBackend, '', ' ', false],
             ['被拒绝', rejected, '每条都有理由', '', false],
           ], 5) +
-          panel('候选词台账（'+rows.length+' 条）', table(
+          panel('候选词台账（'+rows.length+' 条）', pagedTable(
             ['候选词','类型','任务角色','字段决策','目的地理由','最终状态'],
-            rows.slice(0,50).map(function(x){ return [
+            rows.map(function(x){ return [
               '<span class="m">'+(x['表面文本']||'')+'</span>',
               x['候选类型']||'—',
               x['任务角色']||'—',
@@ -302,7 +302,7 @@ page('rev-action', {
               fld('打回哪个字段（选了打回才需要填）', pick(['—','标题','亮点','五点描述','后台搜索词'])) +
               fld('审核意见', '<textarea class="ctl" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
             '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn','','','','提交结论功能暂未开放')+'</div>') +
-            panel('待审核列表', table(['SKU','站点','定稿版本',''], rows.slice(0,10).map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn','rev-action',(x['SKU']||''))]; })), {flush:true}) +
+            panel('待审核列表', pagedTable(['SKU','站点','定稿版本',''], rows.map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn','rev-action',(x['SKU']||''))]; })), {flush:true}) +
           '</div>' +
           callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
       });
@@ -346,7 +346,7 @@ page('rev-manual', {
                 (x['SKU']||'—')+' / '+(x['目标市场']||'—'),
                 chip(x['处理状态']||'', 'warn'),
                 x['错误信息']||'—',
-                '<span class="m">'+String(x['更新时间']||x['处理时间']||'').slice(0,16)+'</span>',
+                '<span class="m">'+String(x['更新时间']||x['处理时间']||'').slice(0,16).replace('T',' ')+'</span>',
                 btn('认领','btn','','','','认领功能暂未开放')
               ];
             })
@@ -395,9 +395,9 @@ page('data-kw', {
             ['本页展示', rows.length],
             ['示例关键词', (rows[0]&&rows[0]['关键词'])||'—'],
           ])) +
-          panel('关键词列表（'+rows.length+' 条）', table(
+          panel('关键词列表（'+rows.length+' 条）', pagedTable(
             ['关键词','关键词翻译','月搜索量','购买率','相关度','需供比'],
-            rows.slice(0,50).map(function(x){ return [
+            rows.map(function(x){ return [
               '<span class="m">'+(x['关键词']||'')+'</span>',
               x['关键词翻译']||'—',
               x['月搜索量']||'—',
@@ -451,9 +451,9 @@ page('data-ppc', {
             ['订单合计', orders],
             ['花费合计', '$' + spend.toFixed(2)],
           ])) +
-          panel('出单词列表（'+rows.length+' 条）', table(
+          panel('出单词列表（'+rows.length+' 条）', pagedTable(
             ['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'],
-            rows.slice(0,50).map(function(x){ return [
+            rows.map(function(x){ return [
               '<span class="m">'+(x['客户搜索词']||'')+'</span>',
               x['广告活动名称']||'—',
               x['曝光']||'—',
@@ -493,9 +493,9 @@ page('data-adgroup', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data||[]).filter(function(x){ return x && x['广告活动名称']; });
         root.innerHTML =
-          panel('广告组对应关系（'+rows.length+' 条）', table(
+          panel('广告组对应关系（'+rows.length+' 条）', pagedTable(
             ['广告活动名称','广告组名称','SKU列表','SKU数量','站点','映射置信度','核对日期'],
-            rows.slice(0,50).map(function(x){ return [
+            rows.map(function(x){ return [
               x['广告活动名称']||'—',
               x['广告组名称']||'—',
               '<span class="m">'+(x['SKU列表']||'')+'</span>',

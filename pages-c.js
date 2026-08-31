@@ -153,7 +153,7 @@ page('cfg-rules', {
           rows.map(function(x, i){ return [
             '<span class="m">' + (x['类目']||'—') + '</span>',
             '<span class="m">' + (x['配置版本']||'—') + '</span>',
-            '<span class="m">' + String(x['更新时间']||'—').slice(0,16) + '</span>',
+            '<span class="m">' + String(x['更新时间']||'—').slice(0,16).replace('T',' ') + '</span>',
             '<button class="btn btn--ghost" data-idx="'+i+'">查看</button>'
            ]; })
         ), {flush:true}) + '<div id="cfg-rules-detail" style="margin-top:14px"></div>';
@@ -343,7 +343,7 @@ page('fb-publish', {
             x['目标市场'] || '—',
             '<span class="m">' + (x['定稿版本号']||'—') + '</span>',
             chip(x['处理状态']||'—', 'ok'),
-            '<span class="m">' + String(x['更新时间']||'—').slice(0,16) + '</span>',
+            '<span class="m">' + String(x['更新时间']||'—').slice(0,16).replace('T',' ') + '</span>',
             btn('登记 ASIN','','','','','登记 ASIN 功能暂未开放')
            ]; })
         ), {flush:true});
@@ -532,7 +532,7 @@ page('adm-audit', {
             x['目标市场'] || '—',
             x['执行人'] || '—',
             chip(x['最终状态']||'—', ftone(x['最终状态'])),
-            '<span class="m">' + String(x['开始时间']||'—').slice(0,16) + '</span>',
+            '<span class="m">' + String(x['开始时间']||'—').slice(0,16).replace('T',' ') + '</span>',
             btn('详情', '', 'rev-detail', (x['SKU']||''))
            ]; })
         ), {flush:true});

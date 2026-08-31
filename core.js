@@ -140,6 +140,27 @@ function table(cols, rows){
   return '<div class="tw"><table class="t"><thead><tr>'+h+'</tr></thead><tbody>'+b+'</tbody></table></div>';
 }
 
+/* 分页表格：超过 pageSize 自动分页，key 用于记住当前页（缺省自动按列名生成） */
+var PAGE_STATE = {};
+function pagedTable(cols, rows, pageSize, key){
+  pageSize = pageSize || 20;
+  if (!rows || !rows.length) return table(cols, []);
+  var totalPages = Math.ceil(rows.length / pageSize);
+  var k = key || cols.join('|');
+  var cur = PAGE_STATE[k] || 1;
+  if (cur > totalPages) cur = totalPages;
+  if (cur < 1) cur = 1;
+  PAGE_STATE[k] = cur;
+  var t = table(cols, rows.slice((cur-1)*pageSize, (cur-1)*pageSize + pageSize));
+  if (totalPages <= 1) return t;
+  var pager = '<div style="display:flex;align-items:center;gap:12px;margin-top:12px;justify-content:flex-end;font-size:13px;color:var(--t-3)">' +
+    '<button class="btn btn--ghost" data-pg="'+k+'" data-p="'+(cur-1)+'"'+(cur<=1?' disabled':'')+' style="padding:4px 12px">‹ 上一页</button>' +
+    '<span>第 '+cur+' / '+totalPages+' 页 · 共 '+rows.length+' 条</span>' +
+    '<button class="btn btn--ghost" data-pg="'+k+'" data-p="'+(cur+1)+'"'+(cur>=totalPages?' disabled':'')+' style="padding:4px 12px">下一页 ›</button>' +
+    '</div>';
+  return t + pager;
+}
+
 function panel(title, inner, opt){
   opt = opt || {};
   var sub  = opt.sub  ? '<span class="sub">'+opt.sub+'</span>' : '';
@@ -465,6 +486,12 @@ function BOOT(){
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest ? e.target.closest('.btn') : null;
     if (!b) return;
+    var pg = b.getAttribute('data-pg');
+    if (pg && !b.disabled){
+      PAGE_STATE[pg] = parseInt(b.getAttribute('data-p'), 10);
+      render();
+      return;
+    }
     var sku = b.getAttribute('data-sku');
     if (sku) window.CUR_SKU = sku;
     var go = b.getAttribute('data-go');

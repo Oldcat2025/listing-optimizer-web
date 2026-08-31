@@ -5,7 +5,7 @@
 page('dash-todo', {
   roles:['运营','审核','管理员'],
   guide:[
-    '<b>先看上面的大数字</b>，知道今天整体有多少事。',
+    '<b>先看下面的大数字</b>，知道今天整体有多少事。',
     '<b>再看中间的流程图</b>——那是你这个角色从头到尾要做的几件事，哪个环节有数字，就点哪个。',
     '<b>最后看下面的清单</b>，逐条处理。处理完这里会自动消失。'
   ],
@@ -41,7 +41,7 @@ page('dash-todo', {
         var failed = cnt(sku,'处理状态','FAILED');
         var skuRows = sku.filter(function(x){ return x && x['SKU']; });
         function rowList(rows, actionTxt, btnCls){
-          return rows.slice(0,20).map(function(x){
+          return rows.map(function(x){
             var sku = x['SKU']||'';
             var st = String(x['处理状态']||'').toUpperCase();
             var go = (actionTxt === '去审核') ? 'rev-action'
@@ -51,7 +51,7 @@ page('dash-todo', {
               '<span class="m">'+sku+'</span>',
               x['目标市场']||'—',
               chip(x['处理状态']||'', st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))),
-              String(x['更新时间']||'').slice(0,16),
+              String(x['更新时间']||'').slice(0,16).replace('T',' '),
               btn(actionTxt, btnCls||'', go, sku)
             ];
           });
@@ -70,7 +70,7 @@ page('dash-todo', {
             {t:'看待审文案', s:'系统给一套定稿', n:review, tone:'run', go:'rev-list'},
             {t:'复制上架', s:'四段文案复制到亚马逊', n:completed, tone:'ok', go:'rev-list'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('我的商品（'+skuRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情')), {flush:true});
+          panel('我的商品（'+skuRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-my-sku'), {flush:true});
         } else if (R === '审核'){
           var reviewRows = skuRows.filter(function(x){ return String(x['处理状态']||'').toUpperCase()==='REVIEW_REQUIRED'; });
           html = stats([
@@ -84,7 +84,7 @@ page('dash-todo', {
             {t:'放行或打回', s:'打回指定字段', n:review, go:'rev-action'},
             {t:'处理疑难', s:'系统修不了的', n:failed, tone:'fail', go:'rev-manual'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('待审核商品（'+reviewRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn')), {flush:true});
+          panel('待审核商品（'+reviewRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn'), 20, 'dash-my-review'), {flush:true});
         } else {
           html = stats([
             ['待生成', pending, '', '', false],
@@ -100,7 +100,7 @@ page('dash-todo', {
             {t:'已完成', s:'可上架', n:completed, tone:'ok', go:'rev-list'},
             {t:'失败', s:'按原因归类重跑', n:failed, tone:'fail', go:'gen-retry'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('全部任务（'+skuRows.length+' 条）', table(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情')), {flush:true});
+          panel('全部任务（'+skuRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-all-task'), {flush:true});
         }
         root.innerHTML = html;
       });
@@ -152,7 +152,7 @@ page('dash-runs', {
                 '<span class="m">' + sku + '</span>',
                 x['目标市场'] || '—',
                 chip(x['处理状态']||'', tone(x['处理状态'])),
-                '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
+                '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
                 btn('详情', '', (st === 'COMPLETED' ? 'rev-detail' : 'sku-detail'), sku)
               ];
             })
@@ -206,7 +206,7 @@ page('dash-quality', {
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['目标市场'] || '—',
               chip('未通过','fail'),
-              '<span class="m">' + String(x['生成时间']||'').slice(0,16) + '</span>',
+              '<span class="m">' + String(x['生成时间']||'').slice(0,16).replace('T',' ') + '</span>',
               btn('查看报告','','rev-audit',(x['SKU']||''))
             ]; })
           ) : callout('ok','全部通过','当前所有证书全部通过，没有失败明细。'), {flush:true});
@@ -380,7 +380,7 @@ page('sku-detail', {
           ['品牌名', input['品牌名']||'—'],
           ['词库快照ID', input['词库快照ID']||'—'],
           ['处理状态', chip(input['处理状态']||'待处理', toneOf(input['处理状态']))],
-          ['处理时间', String(input['处理时间']||'—').slice(0,16)],
+          ['处理时间', String(input['处理时间']||'—').slice(0,16).replace('T',' ')],
           ['运行ID', input['运行ID']||'—'],
         ] : [];
         var factPairs = fact ? [
@@ -698,7 +698,7 @@ page('gen-queue', {
               x['产品族ID']||'—',
               x['目标市场']||'—',
               chip(x['处理状态']||'', toneOf(x['处理状态'])),
-              '<span class="m">' + String(x['更新时间']||'').slice(0,16) + '</span>',
+              '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
               btn('取消','btn--danger','','','','取消任务功能暂未开放')
             ]; })
           ), {flush:true});
@@ -755,7 +755,7 @@ page('gen-run', {
               x['目标市场']||'—',
               x['耗时秒']||'—',
               chip(x['最终状态']||'', t(x['最终状态'])),
-              '<span class="m">' + String(x['开始时间']||'').slice(0,16) + '</span>',
+              '<span class="m">' + String(x['开始时间']||'').slice(0,16).replace('T',' ') + '</span>',
               btn('详情', '', 'rev-detail', (x['SKU']||''))
             ]; })
           ), {flush:true});
@@ -802,7 +802,7 @@ page('gen-retry', {
               x['产品族ID']||'—',
               x['目标市场']||'—',
               x['错误信息']||'—',
-              '<span class="m">' + String(x['处理时间']||'').slice(0,16) + '</span>',
+              '<span class="m">' + String(x['处理时间']||'').slice(0,16).replace('T',' ') + '</span>',
               btn('重做','btn','','','','重做功能暂未开放')
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
