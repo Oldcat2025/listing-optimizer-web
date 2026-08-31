@@ -374,8 +374,8 @@ page('sku-detail', {
       return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : '';
     }
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
-    function openNewSkuModal(){
-      var html = '<div class="form g2">' +
+    function skuFormHtml(){
+      return '<div class="form g2">' +
         fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
         fld('商品是什么（英文核心词）<span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">', '写进标题的第一个词，比如 pillow covers') +
         fld('尺寸 <span style="color:var(--red)">*</span>', '<select id="nsku-dimensions" class="ctl"><option>16x16 inch</option><option>18x18 inch</option><option>20x20 inch</option><option>24x24 inch</option><option>26x26 inch</option></select>') +
@@ -384,7 +384,7 @@ page('sku-detail', {
         fld('季节范围', '<select id="nsku-season" class="ctl"><option>四季通用</option><option>春夏</option><option>秋冬</option><option>圣诞节</option><option>感恩节</option></select>') +
         fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
         fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
-fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
+        fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
         fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
         fld('工艺（可选）', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
         fld('结构（可选）', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
@@ -394,33 +394,39 @@ fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input
         fld('认证安全（可选）', '<input id="nsku-certification" class="ctl" placeholder="如 OEKO-TEX">') +
         fld('禁止声明（可选）', '<input id="nsku-prohibited" class="ctl" placeholder="如 waterproof（不想让系统说的词）">') +
         '</div>';
-      openModal('新增商品（保存后即可去「新建生成任务」生成文案）', html, function(close){
-        function val(id){ return (document.getElementById(id)||{}).value || ''; }
-        var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-dimensions','尺寸'],['nsku-quantity','数量']];
-        var missing = required.filter(function(x){ return !val(x[0]); });
-        if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
-        var sku = val('nsku-sku');
-        API.table('SKU_输入表', {SKU: sku}, 1).then(function(r){
-          var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
-          var exists = rows.some(function(x){ return x['SKU'] === sku; });
-          if (exists){ toast('SKU ' + sku + ' 已经存在，请换一个编号'); return; }
-          var body = {
-            sku: sku, marketplace: val('nsku-market') || 'US',
-            category: val('nsku-category'), season_scope: val('nsku-season'),
-            brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
-            product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
-            quantity: val('nsku-quantity'), material: val('nsku-material'),
-            craft: val('nsku-craft'), structure: val('nsku-structure'),
-            function: val('nsku-function'), inclusion: val('nsku-inclusion'),
-            care: val('nsku-care'), certification: val('nsku-certification'),
-            prohibited_claims: val('nsku-prohibited')
-          };
-          API.create(body).then(function(r2){
-            if (r2.ok && r2.data && r2.data.success){ toast('已保存商品 ' + sku); close(); }
-            else { toast('保存失败：' + ((r2.data && r2.data.error) || '请检查网络')); }
-          });
+    }
+    function submitNewSku(){
+      function val(id){ return (document.getElementById(id)||{}).value || ''; }
+      var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-dimensions','尺寸'],['nsku-quantity','数量']];
+      var missing = required.filter(function(x){ return !val(x[0]); });
+      if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
+      var sku = val('nsku-sku');
+      API.table('SKU_输入表', {SKU: sku}, 1).then(function(r){
+        var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+        var exists = rows.some(function(x){ return x['SKU'] === sku; });
+        if (exists){ toast('SKU ' + sku + ' 已经存在，请换一个编号'); return; }
+        var body = {
+          sku: sku, marketplace: val('nsku-market') || 'US',
+          category: val('nsku-category'), season_scope: val('nsku-season'),
+          brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
+          product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
+          quantity: val('nsku-quantity'), material: val('nsku-material'),
+          craft: val('nsku-craft'), structure: val('nsku-structure'),
+          function: val('nsku-function'), inclusion: val('nsku-inclusion'),
+          care: val('nsku-care'), certification: val('nsku-certification'),
+          prohibited_claims: val('nsku-prohibited')
+        };
+        API.create(body).then(function(r2){
+          if (r2.ok && r2.data && r2.data.success){
+            toast('已保存商品 ' + sku + '，可去「新建生成任务」生成文案');
+            ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
+            var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
+          }
+          else { toast('保存失败：' + ((r2.data && r2.data.error) || '请检查网络')); }
         });
-      }, '保存');
+      });
+    }
+    function bindSkuUpload(){
       setTimeout(function(){
         var upBtn = document.getElementById('nsku-upload-btn');
         var fileIn = document.getElementById('nsku-file');
@@ -449,10 +455,18 @@ fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input
         }
       }, 300);
     }
-    var el = toolbar([], ['<button class="btn" id="sku-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增商品</button>']) + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
+    var skuParam = pageParam();
+    var formPart = '';
+    if (!skuParam){
+      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button></div>');
+    }
+    var el = formPart + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
-      var nb = document.getElementById('sku-new-btn'); if (nb) nb.onclick = openNewSkuModal;
-      var sku = pageParam();
+      if (!skuParam){
+        var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
+        bindSkuUpload();
+      }
+      var sku = skuParam;
       Promise.all([
         API.table('SKU_输入表', sku ? {SKU: sku} : {}, 1),
         API.table('商品事实表', sku ? {SKU: sku} : {}, 1)
