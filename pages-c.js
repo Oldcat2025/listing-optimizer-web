@@ -22,7 +22,7 @@ page('cfg-category', {
     ]
   },
     body:function(){
-    var el = '<div id="cfg-category-root">' + ghost('正在加载类目规则…') + '</div>';
+    var el = toolbar([], [btn('新增类目','btn','','','','cfg-cat-add')]) + '<div id="cfg-category-root">' + ghost('正在加载类目规则…') + '</div>';
     setTimeout(function(){
       API.table('类目配置', {}, 200).then(function(r){
         var root = document.getElementById('cfg-category-root');
@@ -53,10 +53,30 @@ page('cfg-category', {
             var x = rows[i];
             var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
               .map(function(k){ return [k, x[k]]; });
-            document.getElementById('cfg-cat-detail').innerHTML = panel('完整配置 · ' + (x['类目']||''), kv(pairs), {sub:'该行全部字段'});
+            var grp = [['类目','Title最大字符','Title目标最小','Title目标最大'],['Highlights格式','Highlights短语最小数','Highlights短语最大数'],['Bullet条数','人群守卫方向','配置版本','更新时间']];
+            var inner = grp.map(function(g){ var pairs = g.filter(function(k){ return String(x[k]||'').trim()!==''; }).map(function(k){ return ['<span class="m">'+k+'</span>', x[k]]; }); return table(['配置项','值'], pairs); }).join('<div style="height:12px"></div>');
+            document.getElementById('cfg-cat-detail').innerHTML = panel('完整配置 · ' + (x['类目']||''), inner, {sub:'按组展示，更紧凑'});
           };
         });
       });
+      function openCategoryModal(){
+        var fields = [
+          fld('类目', '<input class="ctl" id="cat-name" placeholder="如 抱枕套">'),
+          fld('Title 最大字符', '<input class="ctl" id="cat-tmax" type="number" value="150">'),
+          fld('Title 目标区间', '<div style="display:flex;gap:8px;align-items:center"><input class="ctl" id="cat-tmin" type="number" placeholder="最小" style="flex:1"><span>~</span><input class="ctl" id="cat-tmax2" type="number" placeholder="最大" style="flex:1"></div>'),
+          fld('Highlights 格式', '<select class="ctl" id="cat-hfmt"><option>要点式</option><option>短语式</option></select>'),
+          fld('Highlights 短语数区间', '<div style="display:flex;gap:8px;align-items:center"><input class="ctl" id="cat-hmin" type="number" placeholder="最小" style="flex:1"><span>~</span><input class="ctl" id="cat-hmax" type="number" placeholder="最大" style="flex:1"></div>'),
+          fld('Bullet 条数', '<input class="ctl" id="cat-bullet" type="number" value="5">'),
+          fld('人群守卫方向', '<select class="ctl" id="cat-gdir"><option value="">无</option><option value="INFANT_ONLY">INFANT_ONLY · 只准婴儿语汇</option><option value="ADULT_ONLY">ADULT_ONLY · 只准成人语汇</option></select>')
+        ];
+        openModal('新增类目规则', fields.join(''), function(close){
+          var name = (document.getElementById('cat-name')||{}).value || '';
+          if (!name){ toast('请填写类目名'); return; }
+          toast('新增类目配置暂未接入后端接口');
+          close();
+        }, '保存');
+      }
+      var catAdd = document.querySelector('#cfg-category-root .btn'); if (!catAdd) catAdd = document.querySelector('.tb .btn'); if (catAdd) catAdd.onclick = openCategoryModal;
     }, 0);
     return el;
   }
@@ -82,7 +102,7 @@ page('cfg-market', {
     ]
   },
     body:function(){
-    var el = '<div id="cfg-market-root">' + ghost('正在加载站点规则…') + '</div>';
+    var el = toolbar([], [btn('新增站点','btn','','','','cfg-mkt-add')]) + '<div id="cfg-market-root">' + ghost('正在加载站点规则…') + '</div>';
     setTimeout(function(){
       API.table('站点配置', {}, 200).then(function(r){
         var root = document.getElementById('cfg-market-root');
@@ -111,10 +131,29 @@ page('cfg-market', {
             var x = rows[i];
             var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
               .map(function(k){ return [k, x[k]]; });
-            document.getElementById('cfg-market-detail').innerHTML = panel('完整配置 · ' + (x['站点']||''), kv(pairs), {sub:'该行全部字段'});
+            var grp = [['站点','语言区域','语言名称','Backend最大字节','Backend编码'],['Title标点策略','分词配置','复合词处理'],['站点禁用词','人口属性禁用词'],['词库表名','合规规则版本','合规规则核对日期']];
+            var inner = grp.map(function(g){ var pairs = g.filter(function(k){ return String(x[k]||'').trim()!==''; }).map(function(k){ return ['<span class="m">'+k+'</span>', x[k]]; }); return table(['配置项','值'], pairs); }).join('<div style="height:12px"></div>');
+            document.getElementById('cfg-market-detail').innerHTML = panel('完整配置 · ' + (x['站点']||''), inner, {sub:'按组展示，更紧凑'});
           };
         });
       });
+      function openMarketModal(){
+        var fields = [
+          fld('站点', '<select class="ctl" id="mkt-code"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option><option>DE</option></select>'),
+          fld('语言区域', '<input class="ctl" id="mkt-lang" placeholder="如 en_US">'),
+          fld('Backend 最大字节', '<input class="ctl" id="mkt-bytes" type="number" value="250">'),
+          fld('Title 标点策略', '<select class="ctl" id="mkt-punc"><option>无句末标点</option><option>保留逗号</option><option>全角标点</option></select>'),
+          fld('分词配置', '<input class="ctl" id="mkt-token" placeholder="如 空格分词">'),
+          fld('复合词处理', '<input class="ctl" id="mkt-compound" placeholder="如 保留复合词">'),
+          fld('词库表名', '<input class="ctl" id="mkt-table" placeholder="如 站点词库_US">')
+        ];
+        openModal('新增站点规则', fields.join(''), function(close){
+          var code = (document.getElementById('mkt-code')||{}).value || '';
+          toast('新增站点配置暂未接入后端接口');
+          close();
+        }, '保存');
+      }
+      var mktAdd = document.querySelector('.tb .btn'); if (mktAdd) mktAdd.onclick = openMarketModal;
     }, 0);
     return el;
   }
@@ -125,6 +164,7 @@ page('cfg-rules', {
   guide:[
     '亚马逊的规则<b>会变</b>，所以这里存的是「某一天核对过的规则快照」，不是固定不变的常量。',
     '复核时把官方页面存档进来，系统会记录版本号和日期。',
+    '和 6.1「类目规则」是两回事：6.1 是我们<b>内部给每个类目定的写作目标</b>（字数/优先入口），这里存的是<b>亚马逊官方平台规则</b>（标题上限、图片要求等，会变、要核对）。',
     '<b>规则变了不会自动重写已上架的文案</b>——系统只给你一张「受影响清单」，改不改你定。'
   ],
   spec:{
@@ -142,30 +182,22 @@ page('cfg-rules', {
     body:function(){
     var el = '<div id="cfg-rules-root">' + ghost('正在加载规则版本…') + '</div>';
     setTimeout(function(){
-      API.table('类目配置', {}, 200).then(function(r){
+      API.table('合规规则', {}, 200).then(function(r){
         var root = document.getElementById('cfg-rules-root');
         if (!root) return;
-        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['配置版本']; });
-        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
-        root.innerHTML = panel('规则版本（' + rows.length + ' 条）', table(
-          ['类目','规则版本','更新时间',''],
-          rows.map(function(x, i){ return [
-            '<span class="m">' + (x['类目']||'—') + '</span>',
-            '<span class="m">' + (x['配置版本']||'—') + '</span>',
-            '<span class="m">' + String(x['更新时间']||'—').slice(0,16).replace('T',' ') + '</span>',
-            '<button class="btn btn--ghost" data-idx="'+i+'">查看</button>'
-           ]; })
-        ), {flush:true}) + '<div id="cfg-rules-detail" style="margin-top:14px"></div>';
-        Array.prototype.forEach.call(document.querySelectorAll('#cfg-rules-root .btn[data-idx]'), function(el){
-          el.onclick = function(){
-            var i = parseInt(el.getAttribute('data-idx'), 10);
-            var x = rows[i];
-            var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
-              .map(function(k){ return [k, x[k]]; });
-            document.getElementById('cfg-rules-detail').innerHTML = panel('完整配置 · ' + (x['类目']||'') + ' · ' + (x['配置版本']||''), kv(pairs), {sub:'该版本全部字段'});
-          };
-        });
+        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('warn','暂无平台规则','平台规则数据源尚未接入（合规规则表），请联系管理员。'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && (x['规则']||x['规则名称']||x['标题']); });
+        if (!rows.length) { root.innerHTML = callout('warn','暂无平台规则','还没有平台规则快照，核对亚马逊官方规则后录入。'); return; }
+        root.innerHTML = panel('平台规则快照（' + rows.length + ' 条）', table(
+          ['规则','内容/要求','核对日期','版本',''],
+          rows.map(function(x){ return [
+            '<span class="m">' + (x['规则']||x['规则名称']||x['标题']||'—') + '</span>',
+            x['内容']||x['要求']||x['描述']||'—',
+            '<span class="m">' + String(x['核对日期']||x['更新日期']||'—').slice(0,10) + '</span>',
+            x['版本']||'—',
+            btn('查看','')
+          ]; })
+        ), {flush:true, note:'这是亚马逊官方平台规则的快照（会过期，需定期核对）。规则变更只产出受影响清单，不自动重写已上架文案。'});
       });
     }, 0);
     return el;
@@ -188,29 +220,49 @@ page('cfg-forbidden', {
     limits:['<b>部分匹配是陷阱</b>：bra 会命中 embrace，必须按完整单词匹配','停用词条不删除，保留历史以便复现旧任务的判定']
   },
     body:function(){
-    var el = '<div id="cfg-forbidden-root">' + ghost('正在加载违禁词…') + '</div>';
+    var el = toolbar([sel('全部平台',['通用','US','GB','FR','IT','ES']), sel('全部版本',['全部'])], []) + '<div id="cfg-forbidden-root">' + ghost('正在加载违禁词…') + '</div>';
     setTimeout(function(){
-      API.table('违禁词库', {}, 200).then(function(r){
+            function loadForbidden(){
         var root = document.getElementById('cfg-forbidden-root');
-        if (!root) return;
-        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['词条']; });
-        if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
-
-        function ftone(t){ var u=String(t||'').toUpperCase(); return u==='COMPLIANCE'?'fail':(u==='TRADEMARK'?'warn':''); }
-        root.innerHTML = panel('违禁词（' + rows.length + ' 条）', table(
-          ['词条','类型','站点','语言','禁用原因','添加日期','添加人'],
-          rows.map(function(x){ return [
-            '<span class="m">' + (x['词条']||'—') + '</span>',
-            chip(x['类型']||'—', ftone(x['类型'])),
-            x['站点'] || '通用',
-            x['语言'] || '全部',
-            x['禁用原因'] || '—',
-            '<span class="m">' + String(x['添加日期']||'—').slice(0,10) + '</span>',
-            x['添加人'] || '—'
-           ]; })
-        ), {flush:true});
-      });
+        if (root) root.innerHTML = ghost('正在加载违禁词…');
+        var sels = document.querySelectorAll('.tb .sel');
+        var plat = (sels[0]||{}).value || '全部平台';
+        var ver = (sels[1]||{}).value || '全部版本';
+        API.table('违禁词库', {}, 200).then(function(r){
+          if (!root) return;
+          if (!r.ok || !r.data || r.data.success === false) {
+            root.innerHTML = callout('warn','暂无违禁词','违禁词库还是空的（空表），先在数据管理导入违禁词，或联系管理员。'); return;
+          }
+          var all = (r.data.data||[]).filter(function(x){ return x && x['词条']; });
+          if (!all.length){ root.innerHTML = callout('warn','暂无违禁词','违禁词库还是空的，先在数据管理导入违禁词。'); return; }
+          // 版本（添加日期）去重
+          var vers = {};
+          all.forEach(function(x){ var d = String(x['添加日期']||'').slice(0,10); if (d) vers[d] = 1; });
+          var vlist = Object.keys(vers);
+          var sel2 = sels[1];
+          if (sel2){ sel2.innerHTML = '<option value="全部版本">全部版本（'+vlist.length+' 个）</option>' + vlist.map(function(d){ return '<option value="'+d+'"'+(d===ver?' selected':'')+'>'+d+'</option>'; }).join(''); }
+          var rows = all;
+          if (plat && plat !== '全部平台'){ rows = rows.filter(function(x){ return (x['站点']||'通用') === plat || (plat==='通用' && !x['站点']); }); }
+          if (ver && ver !== '全部版本'){ rows = rows.filter(function(x){ return String(x['添加日期']||'').slice(0,10) === ver; }); }
+          if (!rows.length){ root.innerHTML = callout('warn','该筛选下没有违禁词','换个平台或版本试试。'); return; }
+          function ftone(t){ var u=String(t||'').toUpperCase(); return u==='COMPLIANCE'?'fail':(u==='TRADEMARK'?'warn':''); }
+          root.innerHTML = panel('违禁词（' + rows.length + ' 条）', pagedTable(
+            ['词条','类型','站点','语言','禁用原因','添加日期','添加人'],
+            rows.map(function(x){ return [
+              '<span class="m">' + (x['词条']||'—') + '</span>',
+              chip(x['类型']||'—', ftone(x['类型'])),
+              x['站点'] || '通用',
+              x['语言'] || '全部',
+              x['禁用原因'] || '—',
+              '<span class="m">' + String(x['添加日期']||'—').slice(0,10) + '</span>',
+              x['添加人'] || '—'
+            ]; })
+          ), {flush:true});
+        });
+      }
+      loadForbidden();
+      var fbs = document.querySelectorAll('.tb .sel');
+      Array.prototype.forEach.call(fbs, function(s){ s.onchange = loadForbidden; });
     }, 0);
     return el;
   }
@@ -282,10 +334,41 @@ page('cfg-model', {
       '停用服务商前必须先解除所有环节绑定，否则拒绝停用'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
-});
-
-page('cfg-binding', {
+    body:function(){
+    var el = toolbar([], [btn('新增服务商','btn','','','','cfg-model-add')]) + '<div id="cfg-model-root">' + ghost('正在加载服务商…') + '</div>';
+    setTimeout(function(){
+      function openProviderModal(){
+        var fields = [
+          fld('服务商', '<select class="ctl" id="p-name"><option>云雾 OpenAI（GPT-4o）</option><option>云雾 Gemini</option></select>'),
+          fld('API 密钥', '<input class="ctl" id="p-key" type="password" placeholder="填一次，之后只显示后 4 位">'),
+          fld('Base URL', '<input class="ctl" id="p-url" value="https://api.openlux.ai/v1">')
+        ];
+        openModal('新增 AI 服务商', fields.join(''), function(close){
+          var key = (document.getElementById('p-key')||{}).value || '';
+          if (!key){ toast('请填写 API 密钥'); return; }
+          toast('新增服务商暂未接入后端接口（密钥需加密存储）');
+          close();
+        }, '保存');
+      }
+      var addBtn = document.querySelector('.tb .btn'); if (addBtn) addBtn.onclick = openProviderModal;
+      API.table('模型服务商', {}, 200).then(function(r){
+        var root = document.getElementById('cfg-model-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无服务商','模型服务商数据源尚未接入，请先配置云雾账号密钥。'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && (x['服务商']||x['provider']||x['name']); });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无服务商','还没有配置 AI 服务商，点右上角「新增服务商」添加云雾账号密钥。'); return; }
+        root.innerHTML = panel('AI 服务商（' + rows.length + ' 个）', table(['服务商','模型','密钥','状态','限流/超时',''], rows.map(function(x, i){
+          var name = x['服务商']||x['provider']||x['name']||'—';
+          var key = x['密钥后4位']||x['key_tail']||'••••';
+          return ['<span class="m">'+name+'</span>', x['模型']||x['model']||'—', '<span class="num">'+key+'</span>', chip(x['启用']===false?'停用':'启用', x['启用']===false?'fail':'ok'), (x['限流']||'—')+' / '+(x['超时']||'—')+'s', '<button class="btn btn--ghost" data-test="'+i+'">测试连通</button> <button class="btn btn--ghost" data-rot="'+i+'">轮换密钥</button>'];
+        })), {flush:true, note:'密钥加密存储，页面只显示后 4 位。密钥不得出现在流程代码/提示词/执行数据里。'});
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-test]'), function(el){ el.onclick = function(){ toast('测试连通暂未接入后端接口'); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-rot]'), function(el){ el.onclick = function(){ toast('轮换密钥暂未接入后端接口'); }; });
+      });
+    }, 0);
+    return el;
+  }
+});page('cfg-binding', {
   roles:['管理员'],
   guide:[
     '系统里有 <b>9 个环节会调用 AI</b>，每个环节可以单独选模型和参数——不是全局一个模型。',
@@ -452,10 +535,42 @@ page('adm-user', {
       '角色变更立即生效并记操作记录'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
-});
-
-page('adm-perm', {
+    body:function(){
+    var el = toolbar([], [btn('新增用户','btn','','','','adm-user-add')]) + '<div id="adm-user-root">' + ghost('正在加载用户…') + '</div>';
+    setTimeout(function(){
+      function openUserModal(u){
+        var isEdit = !!u;
+        var fields = [
+          fld('用户名', '<input class="ctl" id="u-name" ' + (isEdit ? 'value="'+(u.user_name||u['用户名']||'')+'"' : '') + ' placeholder="登录名">'),
+          fld('角色', '<select class="ctl" id="u-role"><option>运营</option><option>审核</option><option>管理员</option></select>'),
+          (!isEdit ? fld('初始密码', '<input class="ctl" id="u-pwd" type="password" placeholder="至少 8 位">') : '')
+        ];
+        openModal(isEdit ? '编辑用户' : '新增用户', fields.join(''), function(close){
+          var name = (document.getElementById('u-name')||{}).value || '';
+          if (!name){ toast('请填写用户名'); return; }
+          toast((isEdit?'编辑':'新增')+'用户暂未接入后端接口');
+          close();
+        }, '保存');
+      }
+      var addBtn = document.querySelector('.tb .btn'); if (addBtn) addBtn.onclick = function(){ openUserModal(null); };
+      API.table('用户', {}, 200).then(function(r){
+        var root = document.getElementById('adm-user-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无用户','用户数据源尚未接入（平台用户表），请联系管理员。'); return; }
+        var rows = (r.data.data||[]).filter(function(x){ return x && (x['user_name']||x['用户名']); });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无用户','还没有用户账号，点右上角「新增用户」创建。'); return; }
+        root.innerHTML = panel('用户（' + rows.length + ' 个）', table(['用户名','角色','状态','最近登录',''], rows.map(function(x, i){
+          var name = x['user_name']||x['用户名']||'—';
+          var active = !(x['active'] === false);
+          return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-del="'+i+'">删除</button>'];
+        })), {flush:true});
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-ed]'), function(el){ el.onclick = function(){ openUserModal(rows[parseInt(el.getAttribute('data-ed'),10)]); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ toast('删除用户暂未接入后端接口'); }; });
+      });
+    }, 0);
+    return el;
+  }
+});page('adm-perm', {
   roles:['管理员'],
   guide:[
     '这张表是<b>权限的完整说明</b>，只读。',
@@ -473,10 +588,23 @@ page('adm-perm', {
       'AI 与系统代码也是权限主体，五类结论只能由代码判定'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
-});
-
-page('adm-db', {
+    body:function(){
+    var perms = [
+      ['填写商品资料','✓','✓','✓','✓'],
+      ['生成文案','✓','—','✓','✓'],
+      ['复制文案上架','✓','—','✓','✓'],
+      ['审核放行','—','✓','✓','✓'],
+      ['人工改判选词结论','—','✓','✓','✓'],
+      ['导入数据（词库/PPC/竞品）','—','—','✓','✓'],
+      ['管理类目/站点/平台规则','—','—','✓','✓'],
+      ['管理 AI 模型与密钥','—','—','✓','—'],
+      ['管理用户与权限','—','—','✓','—'],
+      ['手动标记「可上架」','—','—','—','仅系统判定'],
+    ];
+    var rows = perms.map(function(p){ return [p[0], p[1], p[2], p[3], p[4]]; });
+    return panel('权限矩阵（角色 × 能力）', table(['能力','运营','审核','管理员','受限管理员'], rows), {flush:true, note:'「受限管理员」能管数据和规则，但碰不到密钥和用户。「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'});
+  }
+});page('adm-db', {
   roles:['管理员'],
   guide:[
     '关键词表会越攒越大，<b>旧的快照可以归档到冷存储</b>，但被任务用过的不能删。',
