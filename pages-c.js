@@ -244,7 +244,7 @@ page('cfg-forbidden', {
     limits:['<b>部分匹配是陷阱</b>：bra 会命中 embrace，必须按完整单词匹配','停用词条不删除，保留历史以便复现旧任务的判定']
   },
     body:function(){
-    var el = toolbar([sel('全部平台',['通用','US','GB','FR','IT','ES']), sel('全部版本',['全部'])], []) + '<div id="cfg-forbidden-root">' + ghost('正在加载违禁词…') + '</div>';
+    var el = toolbar([sel('全部平台',['通用','US','GB','FR','IT','ES']), sel('全部版本',['全部'])], [btn('导入违禁词','btn','','','','cfg-forb-add')]) + '<div id="cfg-forbidden-root">' + ghost('正在加载违禁词…') + '</div>';
     setTimeout(function(){
             function loadForbidden(){
         var root = document.getElementById('cfg-forbidden-root');
@@ -284,6 +284,30 @@ page('cfg-forbidden', {
           ), {flush:true});
         });
       }
+      function openForbiddenModal(){
+        var fields = [
+          fld('词条', '<input class="ctl" id="f-word" placeholder="要禁用的词，如 bra">'),
+          fld('类型', '<select class="ctl" id="f-type"><option>COMPLIANCE</option><option>TRADEMARK</option><option>OTHER</option></select>'),
+          fld('站点', '<select class="ctl" id="f-market"><option value="">通用</option><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>'),
+          fld('语言', '<input class="ctl" id="f-lang" placeholder="如 en / 全部">'),
+          fld('禁用原因', '<input class="ctl" id="f-reason" placeholder="为什么禁用这个词">')
+        ];
+        openModal('导入违禁词', fields.join(''), function(close){
+          var word = (document.getElementById('f-word')||{}).value || '';
+          if (!word){ toast('请填写词条'); return; }
+          var payload = {
+            word: word, type: (document.getElementById('f-type')||{}).value || 'COMPLIANCE',
+            market: (document.getElementById('f-market')||{}).value || '',
+            language: (document.getElementById('f-lang')||{}).value || '全部',
+            reason: (document.getElementById('f-reason')||{}).value || ''
+          };
+          API.importForbidden(payload).then(function(r){
+            if (r && r.success){ toast('违禁词已导入'); close(); loadForbidden(); }
+            else { toast((r && r.error) || '导入失败'); }
+          });
+        }, '导入');
+      }
+      var fbAdd = document.querySelector('.tb .btn'); if (fbAdd) fbAdd.onclick = openForbiddenModal;
       loadForbidden();
       var fbs = document.querySelectorAll('.tb .sel');
       Array.prototype.forEach.call(fbs, function(s){ s.onchange = loadForbidden; });
@@ -370,19 +394,22 @@ page('cfg-model', {
         openModal('新增 AI 服务商', fields.join(''), function(close){
           var key = (document.getElementById('p-key')||{}).value || '';
           if (!key){ toast('请填写 API 密钥'); return; }
-          toast('新增服务商暂未接入后端接口（密钥需加密存储）');
-          close();
+          var payload = { provider_name: (document.getElementById('p-name')||{}).value || '云雾 OpenAI', api_key: key, base_url: (document.getElementById('p-url')||{}).value || 'https://api.openlux.ai/v1' };
+          API.saveProvider(payload).then(function(r){
+            if (r && r.success){ toast('服务商已保存（密钥已加密）'); close(); }
+            else { toast((r && r.error) || '保存失败'); }
+          });
         }, '保存');
       }
       var addBtn = document.querySelector('.tb .btn'); if (addBtn) addBtn.onclick = openProviderModal;
-      API.table('模型服务商', {}, 200).then(function(r){
+      API.listProviders().then(function(r){
         var root = document.getElementById('cfg-model-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无服务商','模型服务商数据源尚未接入，请先配置云雾账号密钥。'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && (x['服务商']||x['provider']||x['name']); });
+        var rows = (r.providers||[]).filter(function(x){ return x && (x.provider_name||x['服务商']||x['name']); });
         if (!rows.length){ root.innerHTML = callout('warn','暂无服务商','还没有配置 AI 服务商，点右上角「新增服务商」添加云雾账号密钥。'); return; }
         root.innerHTML = panel('AI 服务商（' + rows.length + ' 个）', table(['服务商','模型','密钥','状态','限流/超时',''], rows.map(function(x, i){
-          var name = x['服务商']||x['provider']||x['name']||'—';
+          var name = x['provider_name']||x['服务商']||x['name']||'—';
           var key = x['密钥后4位']||x['key_tail']||'••••';
           return ['<span class="m">'+name+'</span>', x['模型']||x['model']||'—', '<span class="num">'+key+'</span>', chip(x['启用']===false?'停用':'启用', x['启用']===false?'fail':'ok'), (x['限流']||'—')+' / '+(x['超时']||'—')+'s', '<button class="btn btn--ghost" data-test="'+i+'">测试连通</button> <button class="btn btn--ghost" data-rot="'+i+'">轮换密钥</button>'];
         })), {flush:true, note:'密钥加密存储，页面只显示后 4 位。密钥不得出现在流程代码/提示词/执行数据里。'});
@@ -572,8 +599,14 @@ page('adm-user', {
         openModal(isEdit ? '编辑用户' : '新增用户', fields.join(''), function(close){
           var name = (document.getElementById('u-name')||{}).value || '';
           if (!name){ toast('请填写用户名'); return; }
-          toast((isEdit?'编辑':'新增')+'用户暂未接入后端接口');
-          close();
+          var role = (document.getElementById('u-role')||{}).value || '运营';
+          var pwd = (document.getElementById('u-pwd')||{}).value || '';
+          if (!isEdit && !pwd){ toast('请填写初始密码'); return; }
+          var payload = isEdit ? { action: 'update', user_name: name, role: role } : { action: 'create', user_name: name, role: role, password: pwd };
+          API.manageUser(payload).then(function(r){
+            if (r && r.success){ toast((isEdit?'编辑':'新增')+'用户成功'); close(); }
+            else { toast((r && r.error) || '操作失败'); }
+          });
         }, '保存');
       }
       var addBtn = document.querySelector('.tb .btn'); if (addBtn) addBtn.onclick = function(){ openUserModal(null); };
@@ -589,7 +622,7 @@ page('adm-user', {
           return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-del="'+i+'">删除</button>'];
         })), {flush:true});
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-ed]'), function(el){ el.onclick = function(){ openUserModal(rows[parseInt(el.getAttribute('data-ed'),10)]); }; });
-        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ toast('删除用户暂未接入后端接口'); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-del'),10); var u = rows[i]; if (!u) return; if (!confirm('确认停用用户 '+(u.user_name||u['用户名'])+' 吗？')) return; API.manageUser({ action:'delete', user_name: u.user_name||u['用户名'] }).then(function(r){ if (r && r.success){ toast('用户已停用'); location.reload(); } else { toast((r&&r.error)||'操作失败'); } }); }; });
       });
     }, 0);
     return el;

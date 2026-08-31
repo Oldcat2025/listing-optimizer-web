@@ -30,6 +30,11 @@ var API = {
   auditSku: function(a){ return this._post('/proj28/api/skus/audit', a, true); },
   createCategory: function(c){ return this._post('/proj28/api/categories/create', c, true); },
   createMarket: function(m){ return this._post('/proj28/api/markets/create', m, true); },
+  manageUser: function(u){ return this._post('/proj28/api/users/manage', u, true); },
+  saveProvider: function(p){ return this._post('/proj28/api/providers/save', p, true); },
+  listProviders: function(){ return this._post('/proj28/api/providers/list', {}, true); },
+  importForbidden: function(f){ return this._post('/proj28/api/forbidden/import', f, true); },
+  uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
   table: function(sheet, filter, limit){ return this._post('/proj28/api/table', {sheet:sheet, filter:filter||{}, limit:limit||50}, true); }
 };

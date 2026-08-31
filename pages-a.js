@@ -384,7 +384,7 @@ page('sku-detail', {
         fld('季节范围', '<select id="nsku-season" class="ctl"><option>四季通用</option><option>春夏</option><option>秋冬</option><option>圣诞节</option><option>感恩节</option></select>') +
         fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
         fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
-        fld('产品图片URL', '<input id="nsku-image" class="ctl" placeholder="谷歌网盘图片的 Drive alt=media URL">') +
+fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
         fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
         fld('工艺（可选）', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
         fld('结构（可选）', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
@@ -421,6 +421,33 @@ page('sku-detail', {
           });
         });
       }, '保存');
+      setTimeout(function(){
+        var upBtn = document.getElementById('nsku-upload-btn');
+        var fileIn = document.getElementById('nsku-file');
+        if (upBtn && fileIn){
+          upBtn.onclick = function(){ fileIn.click(); };
+          fileIn.onchange = function(){
+            var f = fileIn.files && fileIn.files[0];
+            if (!f) return;
+            var prog = document.getElementById('nsku-upload-progress');
+            if (prog) prog.textContent = '上传中：' + f.name + ' …';
+            var rd = new FileReader();
+            rd.onload = function(){
+              var b64 = String(rd.result).split(',')[1];
+              API.uploadImage({ base64: b64, name: f.name, mimeType: f.type || 'image/jpeg' }).then(function(r){
+                if (r && r.success){
+                  var img = document.getElementById('nsku-image');
+                  if (img) img.value = r.mediaUrl || r.driveUrl || '';
+                  if (prog) prog.textContent = '上传成功，已自动填写共享地址';
+                } else {
+                  if (prog) prog.textContent = '上传失败：' + ((r&&r.error)||'请重试');
+                }
+              });
+            };
+            rd.readAsDataURL(f);
+          };
+        }
+      }, 300);
     }
     var el = toolbar([], ['<button class="btn" id="sku-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增商品</button>']) + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
