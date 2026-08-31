@@ -505,19 +505,22 @@ page('sku-family', {
       openModal('新增变体（先建变体，再去「商品资料填写」把商品归入）', html, function(close){
         var fid = (document.getElementById('nfam-id')||{}).value || '';
         if (!fid){ toast('请填写变体编号'); return; }
-        toast('变体 ' + fid + ' 已创建；新增商品时把「产品族ID」填成这个编号即可归入这个变体。');
-        close();
+        API.createFamily({ family_id: fid, shared_pattern: (document.getElementById('nfam-pattern')||{}).value || '', shared_material: (document.getElementById('nfam-material')||{}).value || '', shared_style: (document.getElementById('nfam-style')||{}).value || '' }).then(function(r){
+          if (r.ok && r.data && r.data.success){ toast('变体 ' + fid + ' 已创建'); close(); }
+          else { toast('创建失败：' + ((r.data && r.data.error) || '请检查网络')); }
+        });
       }, '创建');
     }
     var el = toolbar([], ['<button class="btn" id="fam-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增变体</button>']) + '<div id="sku-family-root">' + ghost('正在加载系列数据…') + '</div>';
     setTimeout(function(){
       var nb = document.getElementById('fam-new-btn'); if (nb) nb.onclick = openNewFamilyModal;
-      API.table('SKU_输入表', {}, 200).then(function(r){
+      Promise.all([API.table('产品族', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
         var root = document.getElementById('sku-family-root');
         if (!root) return;
-        if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
+        for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
+        var famRows = (rs[0].data.data || []);
+        var rows = (rs[1].data.data || []).filter(function(x){ return x && x['SKU']; });
+        if (!rows.length && !famRows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         var groups = {};
         rows.forEach(function(x){ var fid = x['产品族ID'] || '（未分组）'; if (!groups[fid]) groups[fid] = []; groups[fid].push(x); });
         var fams = Object.keys(groups).map(function(fid){
@@ -539,7 +542,17 @@ page('sku-family', {
             ]; })
           ), {flush:true});
         }
-        var html = panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
+        var famListHtml = famRows.length ? table(['变体编号','共享图案','共享材质','共享风格',''],
+            famRows.map(function(f){ return [
+              '<span class="m">' + (f.family_id || '—') + '</span>',
+              f.shared_pattern || '—',
+              f.shared_material || '—',
+              f.shared_style || '—',
+              ''
+            ]; })
+          ) : callout('warn','还没有变体','点右上角「新增变体」创建第一个变体。');
+        var html = panel('变体清单（共 ' + famRows.length + ' 个）', famListHtml, {flush:true}) +
+          panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
           ['系列编号','商品数','目标市场','季节款式分布',''],
           fams.map(function(f, i){ return [
             '<span class="m">' + f.fid + '</span>',
@@ -608,8 +621,10 @@ page('sku-dna', {
           return chip('待定','neutral');
         }
         window.auditSku = function(sku, action){
-          if (action === 'pass') toast('SKU ' + sku + ' 的识别结果已审核通过');
-          else toast('SKU ' + sku + ' 已打回，系统将重新识别');
+          API.auditSku({ sku: sku, action: action }).then(function(r){
+            if (r.ok && r.data && r.data.success){ toast('SKU ' + sku + (action === 'pass' ? ' 已审核通过' : ' 已打回重新识别')); }
+            else { toast('操作失败：' + ((r.data && r.data.error) || '请检查网络')); }
+          });
         };
         var first = rows[0];
         root.innerHTML =
