@@ -419,6 +419,7 @@ page('sku-detail', {
         API.create(body).then(function(r2){
           if (r2.ok && r2.data && r2.data.success){
             toast('已保存商品 ' + sku + '，可去「新建生成任务」生成文案');
+            showGoGenBtn();
             ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
             var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
           }
@@ -454,6 +455,18 @@ page('sku-detail', {
           };
         }
       }, 300);
+    }
+    function showGoGenBtn(){
+      var old = document.getElementById('go-gen-fab');
+      if (old){ old.style.display = 'block'; return; }
+      var fab = document.createElement('button');
+      fab.id = 'go-gen-fab';
+      fab.textContent = '去生成文案 →';
+      fab.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;background:var(--g-600);color:#fff;border:none;border-radius:24px;padding:14px 24px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.25);transition:transform .15s';
+      fab.onmouseenter = function(){ fab.style.transform = 'translateY(-2px)'; };
+      fab.onmouseleave = function(){ fab.style.transform = 'none'; };
+      fab.onclick = function(){ fab.remove(); location.hash = 'gen-new'; };
+      document.body.appendChild(fab);
     }
     var skuParam = pageParam();
     var formPart = '';
