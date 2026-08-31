@@ -28,6 +28,8 @@ var API = {
   create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); },
   createFamily: function(fam){ return this._post('/proj28/api/families/create', fam, true); },
   auditSku: function(a){ return this._post('/proj28/api/skus/audit', a, true); },
+  createCategory: function(c){ return this._post('/proj28/api/categories/create', c, true); },
+  createMarket: function(m){ return this._post('/proj28/api/markets/create', m, true); },
   generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
   table: function(sheet, filter, limit){ return this._post('/proj28/api/table', {sheet:sheet, filter:filter||{}, limit:limit||50}, true); }
 };

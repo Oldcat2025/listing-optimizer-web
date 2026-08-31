@@ -72,8 +72,21 @@ page('cfg-category', {
         openModal('新增类目规则', fields.join(''), function(close){
           var name = (document.getElementById('cat-name')||{}).value || '';
           if (!name){ toast('请填写类目名'); return; }
-          toast('新增类目配置暂未接入后端接口');
-          close();
+          var payload = {
+            category: name,
+            title_max_chars: (document.getElementById('cat-tmax')||{}).value || '',
+            title_min: (document.getElementById('cat-tmin')||{}).value || '',
+            title_max: (document.getElementById('cat-tmax2')||{}).value || '',
+            highlights_format: (document.getElementById('cat-hfmt')||{}).value || '',
+            highlights_min: (document.getElementById('cat-hmin')||{}).value || '',
+            highlights_max: (document.getElementById('cat-hmax')||{}).value || '',
+            bullet_count: (document.getElementById('cat-bullet')||{}).value || '',
+            guard_direction: (document.getElementById('cat-gdir')||{}).value || ''
+          };
+          API.createCategory(payload).then(function(r){
+            if (r && r.success){ toast('类目已新增'); close(); }
+            else { toast((r && r.error) || '新增失败'); }
+          });
         }, '保存');
       }
       var catAdd = document.querySelector('#cfg-category-root .btn'); if (!catAdd) catAdd = document.querySelector('.tb .btn'); if (catAdd) catAdd.onclick = openCategoryModal;
@@ -149,8 +162,19 @@ page('cfg-market', {
         ];
         openModal('新增站点规则', fields.join(''), function(close){
           var code = (document.getElementById('mkt-code')||{}).value || '';
-          toast('新增站点配置暂未接入后端接口');
-          close();
+          var payload = {
+            site: code,
+            locale: (document.getElementById('mkt-lang')||{}).value || '',
+            backend_max_bytes: (document.getElementById('mkt-bytes')||{}).value || '',
+            title_punct: (document.getElementById('mkt-punc')||{}).value || '',
+            tokenization: (document.getElementById('mkt-token')||{}).value || '',
+            compound: (document.getElementById('mkt-compound')||{}).value || '',
+            kw_table: (document.getElementById('mkt-table')||{}).value || ''
+          };
+          API.createMarket(payload).then(function(r){
+            if (r && r.success){ toast('站点已新增'); close(); }
+            else { toast((r && r.error) || '新增失败'); }
+          });
         }, '保存');
       }
       var mktAdd = document.querySelector('.tb .btn'); if (mktAdd) mktAdd.onclick = openMarketModal;
