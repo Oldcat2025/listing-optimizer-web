@@ -527,7 +527,10 @@ page('sku-family', {
           var fid = f.family_id || '';
           return { fid: fid, pattern: f.shared_pattern, material: f.shared_material, style: f.shared_style, members: byFamily[fid] || [] };
         });
-        var orphan = byFamily[''] || [];
+        var famIdSet = {};
+        famRows.forEach(function(f){ if (f.family_id) famIdSet[f.family_id] = true; });
+        var orphan = [];
+        Object.keys(byFamily).forEach(function(fid){ if (!fid || !famIdSet[fid]){ orphan = orphan.concat(byFamily[fid]); } });
         function renderMembers(fam){
           var t = '变体 ' + fam.fid + ' 的商品（' + fam.members.length + ' 个）';
           if (!fam.members.length){ return panel(t, callout('warn','这个变体还没有商品','去「商品资料填写」新增商品时，把「产品族ID」填成 ' + fam.fid + ' 即可归入这个变体。'), {flush:true}); }
