@@ -444,7 +444,7 @@ page('sku-detail', {
           ['类目', input['类目']||'—'],
           ['季节范围', input['季节范围']||'—'],
           ['品牌名', input['品牌名']||'—'],
-          ['词库快照ID', input['词库快照ID']||'—'],
+          ['所属类目', input['所属类目']||'—'],
           ['处理状态', chip(input['处理状态']||'待处理', toneOf(input['处理状态']))],
           ['处理时间', String(input['处理时间']||'—').slice(0,16).replace('T',' ')],
           ['运行ID', input['运行ID']||'—'],
@@ -689,7 +689,7 @@ page('sku-dna', {
 page('gen-new', {
   roles:['运营','审核','管理员'],
   guide:[
-    '先从下拉里选一个<b>已经填好资料的商品</b>，再选目标站点。',
+    '下拉里只显示<b>还没生成文案的商品</b>（按 SKU 排序），选一个再选目标站点。',
     '商品资料不完整会提示你，<b>先去「商品资料填写」补资料</b>再回来提交。',
     '提交后系统后台生成（一般 12 分钟内），去「生成进度」看状态。'
   ],
@@ -708,9 +708,9 @@ page('gen-new', {
   body:function(){
     var html = '<div class="cols c21">' +
       panel('选择商品与站点', '<div class="form g2">'+
-        fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从已有商品里选一个（商品资料在「商品资料填写」已填好）') +
+        fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '只显示还没生成文案的商品，按 SKU 排序；已生成过的不会出现在这里') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
-        fld('词库快照', '<select id="gen-kw" class="ctl"><option>正在加载词库…</option></select>', '从数据管理里导入的关键词版本，选最新一版') +
+        fld('所属类目', '<select id="gen-kw" class="ctl"><option>正在加载词库…</option></select>', '根据目标市场自动加载对应的类目') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -719,17 +719,32 @@ page('gen-new', {
     '</div>';
 
     setTimeout(function(){
-      API.table('站点词库_US', {}, 200).then(function(r){
-        var ksel = document.getElementById('gen-kw');
-        if (ksel){ var krows = (r.ok && r.data && r.data.data) ? r.data.data : []; var snap = {}; krows.forEach(function(x){ if (x['词库快照ID']) snap[x['词库快照ID']] = 1; }); var ids = Object.keys(snap); ksel.innerHTML = ids.length ? ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('') : '<option>暂无词库，先去数据管理导入</option>'; }
-      });
-      API.skus({}).then(function(r){
-        var sel = document.getElementById('gen-sku');
-        if (!sel) return;
-        var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
-        rows = rows.filter(function(x){ return x['记录ID']; });
-        if (!rows.length){ sel.innerHTML = '<option>暂无商品，先去「商品资料填写」新增</option>'; return; }
-        sel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
+            var marketSel = document.getElementById('gen-market');
+      var kwSel = document.getElementById('gen-kw');
+      var skuSel = document.getElementById('gen-sku');
+      function loadKw(market){
+        var sheet = (market === 'GB') ? '站点词库_GB' : '站点词库_US';
+        if (market !== 'US' && market !== 'GB'){ kwSel.innerHTML = '<option>该市场暂无词库</option>'; return; }
+        API.table(sheet, {}, 200).then(function(r){
+          var krows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+          var snap = {};
+          krows.forEach(function(x){ if (x['所属类目']) snap[x['所属类目']] = 1; });
+          var ids = Object.keys(snap);
+          kwSel.innerHTML = ids.length ? ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('') : '<option>暂无词库，先去数据管理导入</option>';
+        });
+      }
+      loadKw(marketSel.value || 'US');
+      marketSel.onchange = function(){ loadKw(marketSel.value); };
+      Promise.all([API.skus({}), API.listings()]).then(function(rs){
+        var skuRows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
+        var listingRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
+        var done = {};
+        listingRows.forEach(function(x){ if (x['SKU']) done[x['SKU']] = 1; });
+        var rows = skuRows.filter(function(x){ return x['记录ID'] && !done[x['SKU']]; });
+        rows.sort(function(x, y){ return String(x['SKU']||'').localeCompare(String(y['SKU']||'')); });
+        if (!skuSel) return;
+        if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
+        skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
       });
       var btn = document.getElementById('gen-submit');
       if (btn) btn.onclick = function(){
