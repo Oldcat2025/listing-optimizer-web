@@ -521,16 +521,17 @@ page('sku-family', {
         var famRows = (rs[0].data.data || []);
         var rows = (rs[1].data.data || []).filter(function(x){ return x && x['SKU']; });
         if (!rows.length && !famRows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
-        var groups = {};
-        rows.forEach(function(x){ var fid = x['产品族ID'] || '（未分组）'; if (!groups[fid]) groups[fid] = []; groups[fid].push(x); });
-        var fams = Object.keys(groups).map(function(fid){
-          var members = groups[fid];
-          var seasons = {};
-          members.forEach(function(m){ var s = m['季节范围']||'—'; seasons[s] = (seasons[s]||0) + 1; });
-          return { fid: fid, members: members, seasonTxt: Object.keys(seasons).map(function(s){ return s + ' ×' + seasons[s]; }).join(' / '), markets: members.map(function(m){ return m['目标市场']||'—'; }).join(', ') };
+                var byFamily = {};
+        rows.forEach(function(x){ var fid = x['产品族ID'] || ''; if (!byFamily[fid]) byFamily[fid] = []; byFamily[fid].push(x); });
+        var famList = famRows.map(function(f){
+          var fid = f.family_id || '';
+          return { fid: fid, pattern: f.shared_pattern, material: f.shared_material, style: f.shared_style, members: byFamily[fid] || [] };
         });
+        var orphan = byFamily[''] || [];
         function renderMembers(fam){
-          return panel('系列内商品（' + fam.fid + '）', table(
+          var t = '变体 ' + fam.fid + ' 的商品（' + fam.members.length + ' 个）';
+          if (!fam.members.length){ return panel(t, callout('warn','这个变体还没有商品','去「商品资料填写」新增商品时，把「产品族ID」填成 ' + fam.fid + ' 即可归入这个变体。'), {flush:true}); }
+          return panel(t, table(
             ['SKU','目标市场','类目','季节范围','处理状态',''],
             fam.members.map(function(m){ return [
               '<span class="m">' + (m['SKU']||'—') + '</span>',
@@ -542,26 +543,36 @@ page('sku-family', {
             ]; })
           ), {flush:true});
         }
-        var famListHtml = famRows.length ? table(['变体编号','共享图案','共享材质','共享风格',''],
-            famRows.map(function(f){ return [
-              '<span class="m">' + (f.family_id || '—') + '</span>',
-              f.shared_pattern || '—',
-              f.shared_material || '—',
-              f.shared_style || '—',
-              ''
+        var famListHtml = famList.length ? table(['变体编号','共享图案','共享材质','共享风格','商品数',''],
+            famList.map(function(f, i){ return [
+              '<span class="m">' + f.fid + '</span>',
+              f.pattern || '—',
+              f.material || '—',
+              f.style || '—',
+              '<b>' + f.members.length + '</b>',
+              '<button class="btn btn--ghost" data-famx="'+i+'">展开看商品</button>'
             ]; })
           ) : callout('warn','还没有变体','点右上角「新增变体」创建第一个变体。');
-        var html = panel('变体清单（共 ' + famRows.length + ' 个）', famListHtml, {flush:true}) +
-          panel('系列（按产品族ID分组 · 共 ' + fams.length + ' 个）', table(
-          ['系列编号','商品数','目标市场','季节款式分布',''],
-          fams.map(function(f, i){ return [
-            '<span class="m">' + f.fid + '</span>',
-            f.members.length,
-            f.markets,
-            f.seasonTxt,
-            '<button class="btn btn--ghost" data-fidx="'+i+'">展开</button>'
-          ]; })
-        ), {flush:true, note:'同一系列共享图案/材质/风格，各自独享尺寸/数量。<b>季节混装</b>（同一系列跨多个季节款式）容易串词，系统会二次校验拦截。'});
+        var html = panel('变体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一变体共享图案/材质/风格，各自独享尺寸/数量。点「展开看商品」查看该变体下的所有商品。'});
+        if (orphan.length){
+          html += panel('未归入变体的商品（共 ' + orphan.length + ' 个）', table(['SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
+            '<span class="m">' + (m['SKU']||'—') + '</span>',
+            m['目标市场']||'—',
+            m['类目']||'—',
+            m['季节范围']||'—',
+            chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
+            btn('详情', '', 'sku-dna', (m['SKU']||''))
+          ]; })), {flush:true, note:'这些商品没填「产品族ID」，去「商品资料填写」补上即可归入对应变体。'});
+        }
+        html += '<div id="fam-members">' + (famList.length ? renderMembers(famList[0]) : '') + '</div>';
+        root.innerHTML = html;
+        Array.prototype.forEach.call(document.querySelectorAll('.btn[data-famx]'), function(el){
+          el.onclick = function(){
+            var i = parseInt(el.getAttribute('data-famx'), 10);
+            var fam = famList[i];
+            if (fam) document.getElementById('fam-members').innerHTML = renderMembers(fam);
+          };
+        });
         html += '<div id="fam-members">' + (fams.length ? renderMembers(fams[0]) : '') + '</div>';
         root.innerHTML = html;
         Array.prototype.forEach.call(document.querySelectorAll('.btn[data-fidx]'), function(el){
