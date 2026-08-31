@@ -84,8 +84,8 @@ page('cfg-category', {
             guard_direction: (document.getElementById('cat-gdir')||{}).value || ''
           };
           API.createCategory(payload).then(function(r){
-            if (r && r.success){ toast('类目已新增'); close(); }
-            else { toast((r && r.error) || '新增失败'); }
+            if (r && r.ok && r.data && r.data.success){ toast('类目已新增'); close(); }
+            else { toast((r && r.data && r.data.error) || '新增失败'); }
           });
         }, '保存');
       }
@@ -172,8 +172,8 @@ page('cfg-market', {
             kw_table: (document.getElementById('mkt-table')||{}).value || ''
           };
           API.createMarket(payload).then(function(r){
-            if (r && r.success){ toast('站点已新增'); close(); }
-            else { toast((r && r.error) || '新增失败'); }
+            if (r && r.ok && r.data && r.data.success){ toast('站点已新增'); close(); }
+            else { toast((r && r.data && r.data.error) || '新增失败'); }
           });
         }, '保存');
       }
@@ -302,8 +302,8 @@ page('cfg-forbidden', {
             reason: (document.getElementById('f-reason')||{}).value || ''
           };
           API.importForbidden(payload).then(function(r){
-            if (r && r.success){ toast('违禁词已导入'); close(); loadForbidden(); }
-            else { toast((r && r.error) || '导入失败'); }
+            if (r && r.ok && r.data && r.data.success){ toast('违禁词已导入'); close(); loadForbidden(); }
+            else { toast((r && r.data && r.data.error) || '导入失败'); }
           });
         }, '导入');
       }
@@ -403,14 +403,14 @@ page('cfg-model', {
             try { sa = JSON.parse(raw); } catch(e){ toast('JSON 格式错误，请检查'); return; }
             if (!sa.client_email || !sa.private_key){ toast('JSON 里必须含 client_email 和 private_key'); return; }
             API.saveServiceAccount({ saJson: raw }).then(function(r){
-              if (r && r.success){ toast('服务账号已保存'); loadSaStatus(); }
-              else { toast((r && r.error) || '保存失败'); }
+              if (r && r.ok && r.data && r.data.success){ toast('服务账号已保存'); loadSaStatus(); }
+              else { toast((r && r.data && r.data.error) || '保存失败'); }
             });
           };
         }
         function loadSaStatus(){
           API.listServiceAccounts().then(function(r){
-            renderSaPanel((r && r.accounts) || []);
+            renderSaPanel((r && r.data && r.data.accounts) || []);
           });
         }
         loadSaStatus();
@@ -426,8 +426,8 @@ page('cfg-model', {
           if (!key){ toast('请填写 API 密钥'); return; }
           var payload = { provider_name: (document.getElementById('p-name')||{}).value || '云雾 OpenAI', api_key: key, base_url: (document.getElementById('p-url')||{}).value || 'https://api.openlux.ai/v1' };
           API.saveProvider(payload).then(function(r){
-            if (r && r.success){ toast('服务商已保存（密钥已加密）'); close(); }
-            else { toast((r && r.error) || '保存失败'); }
+            if (r && r.ok && r.data && r.data.success){ toast('服务商已保存（密钥已加密）'); close(); }
+            else { toast((r && r.data && r.data.error) || '保存失败'); }
           });
         }, '保存');
       }
@@ -436,7 +436,7 @@ page('cfg-model', {
         var root = document.getElementById('cfg-model-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无服务商','模型服务商数据源尚未接入，请先配置云雾账号密钥。'); return; }
-        var rows = (r.providers||[]).filter(function(x){ return x && (x.provider_name||x['服务商']||x['name']); });
+        var rows = ((r.data && r.data.providers)||[]).filter(function(x){ return x && (x.provider_name||x['服务商']||x['name']); });
         if (!rows.length){ root.innerHTML = callout('warn','暂无服务商','还没有配置 AI 服务商，点右上角「新增服务商」添加云雾账号密钥。'); return; }
         root.innerHTML = panel('AI 服务商（' + rows.length + ' 个）', table(['服务商','模型','密钥','状态','限流/超时',''], rows.map(function(x, i){
           var name = x['provider_name']||x['服务商']||x['name']||'—';
@@ -634,8 +634,8 @@ page('adm-user', {
           if (!isEdit && !pwd){ toast('请填写初始密码'); return; }
           var payload = isEdit ? { action: 'update', user_name: name, role: role } : { action: 'create', user_name: name, role: role, password: pwd };
           API.manageUser(payload).then(function(r){
-            if (r && r.success){ toast((isEdit?'编辑':'新增')+'用户成功'); close(); }
-            else { toast((r && r.error) || '操作失败'); }
+            if (r && r.ok && r.data && r.data.success){ toast((isEdit?'编辑':'新增')+'用户成功'); close(); }
+            else { toast((r && r.data && r.data.error) || '操作失败'); }
           });
         }, '保存');
       }
@@ -652,7 +652,7 @@ page('adm-user', {
           return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-del="'+i+'">删除</button>'];
         })), {flush:true});
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-ed]'), function(el){ el.onclick = function(){ openUserModal(rows[parseInt(el.getAttribute('data-ed'),10)]); }; });
-        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-del'),10); var u = rows[i]; if (!u) return; if (!confirm('确认停用用户 '+(u.user_name||u['用户名'])+' 吗？')) return; API.manageUser({ action:'delete', user_name: u.user_name||u['用户名'] }).then(function(r){ if (r && r.success){ toast('用户已停用'); location.reload(); } else { toast((r&&r.error)||'操作失败'); } }); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-del'),10); var u = rows[i]; if (!u) return; if (!confirm('确认停用用户 '+(u.user_name||u['用户名'])+' 吗？')) return; API.manageUser({ action:'delete', user_name: u.user_name||u['用户名'] }).then(function(r){ if (r && r.ok && r.data && r.data.success){ toast('用户已停用'); location.reload(); } else { toast((r&&r.data&&r.data.error)||'操作失败'); } }); }; });
       });
     }, 0);
     return el;

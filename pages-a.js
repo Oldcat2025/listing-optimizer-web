@@ -435,12 +435,12 @@ fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input
             rd.onload = function(){
               var b64 = String(rd.result).split(',')[1];
               API.uploadImage({ base64: b64, name: f.name, mimeType: f.type || 'image/jpeg' }).then(function(r){
-                if (r && r.success){
+                if (r && r.ok && r.data && r.data.success){
                   var img = document.getElementById('nsku-image');
-                  if (img) img.value = r.mediaUrl || r.driveUrl || '';
+                  if (img) img.value = r.data.mediaUrl || r.data.driveUrl || '';
                   if (prog) prog.textContent = '上传成功，已自动填写共享地址';
                 } else {
-                  if (prog) prog.textContent = '上传失败：' + ((r&&r.error)||'请重试');
+                  if (prog) prog.textContent = '上传失败：' + ((r&&r.data&&r.data.error)||'请重试');
                 }
               });
             };
