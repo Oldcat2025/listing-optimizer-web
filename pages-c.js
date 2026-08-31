@@ -383,8 +383,38 @@ page('cfg-model', {
     ]
   },
     body:function(){
-    var el = toolbar([], [btn('新增服务商','btn','','','','cfg-model-add')]) + '<div id="cfg-model-root">' + ghost('正在加载服务商…') + '</div>';
+    var el = toolbar([], [btn('新增服务商','btn','','','','cfg-model-add')]) + '<div id="cfg-sa-panel">' + ghost('正在加载谷歌服务账号…') + '</div>' + '<div id="cfg-model-root">' + ghost('正在加载服务商…') + '</div>';
     setTimeout(function(){
+      (function(){
+        var saPanel = document.getElementById('cfg-sa-panel');
+        function renderSaPanel(accts){
+          if (!saPanel) return;
+          var cur = (accts && accts.length) ? accts[0] : null;
+          var statusHtml = cur ? ('<div style="font-size:12px;color:var(--g-600);margin-bottom:8px">当前已配置：<b>' + cur.client_email + '</b>（项目 ' + (cur.project_id||'—') + '）</div>') : '<div style="font-size:12px;color:var(--amber-600);margin-bottom:8px">尚未配置谷歌服务账号，图片上传到网盘前必须先配置。</div>';
+          saPanel.innerHTML = panel('谷歌服务账号（用于图片上传到谷歌网盘）', statusHtml +
+            '<div style="font-size:12px;color:var(--g-500);margin-bottom:6px">粘贴 Google Cloud 服务账号的 JSON 密钥（含 client_email 和 private_key），保存后加密存储，仅用于网盘上传，页面不回显明文。</div>' +
+            '<textarea class="ctl" id="sa-json" rows="5" placeholder=\'{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n...","client_email":"...@...iam.gserviceaccount.com"}\' style="width:100%;font-family:monospace;font-size:12px"></textarea>' +
+            '<div style="margin-top:8px"><button class="btn" id="sa-save-btn">保存服务账号</button></div>');
+          var sb = document.getElementById('sa-save-btn');
+          if (sb) sb.onclick = function(){
+            var raw = (document.getElementById('sa-json')||{}).value || '';
+            if (!raw.trim()){ toast('请先粘贴服务账号 JSON'); return; }
+            var sa = null;
+            try { sa = JSON.parse(raw); } catch(e){ toast('JSON 格式错误，请检查'); return; }
+            if (!sa.client_email || !sa.private_key){ toast('JSON 里必须含 client_email 和 private_key'); return; }
+            API.saveServiceAccount({ saJson: raw }).then(function(r){
+              if (r && r.success){ toast('服务账号已保存'); loadSaStatus(); }
+              else { toast((r && r.error) || '保存失败'); }
+            });
+          };
+        }
+        function loadSaStatus(){
+          API.listServiceAccounts().then(function(r){
+            renderSaPanel((r && r.accounts) || []);
+          });
+        }
+        loadSaStatus();
+      })();
       function openProviderModal(){
         var fields = [
           fld('服务商', '<select class="ctl" id="p-name"><option>云雾 OpenAI（GPT-4o）</option><option>云雾 Gemini</option></select>'),
