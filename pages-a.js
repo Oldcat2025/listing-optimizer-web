@@ -50,6 +50,7 @@ page('dash-todo', {
                    : (st === 'COMPLETED' || st === 'REVIEW_REQUIRED') ? 'rev-detail'
                    : 'sku-detail';
             return [
+              thumbHtml(x['产品图片URL']),
               '<span class="m">'+sku+'</span>',
               x['目标市场']||'—',
               chip(x['处理状态']||'', st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))),
@@ -72,7 +73,7 @@ page('dash-todo', {
             {t:'看待审文案', s:'系统给一套定稿', n:review, tone:'run', go:'rev-list'},
             {t:'复制上架', s:'四段文案复制到亚马逊', n:completed, tone:'ok', go:'rev-list'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('我的商品（'+skuRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-my-sku'), {flush:true});
+          panel('我的商品（'+skuRows.length+' 条）', pagedTable(['图片','SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-my-sku'), {flush:true});
         } else if (R === '审核'){
           var reviewRows = skuRows.filter(function(x){ return String(x['处理状态']||'').toUpperCase()==='REVIEW_REQUIRED'; });
           html = stats([
@@ -86,7 +87,7 @@ page('dash-todo', {
             {t:'放行或打回', s:'打回指定字段', n:review, go:'rev-action'},
             {t:'处理疑难', s:'系统修不了的', n:failed, tone:'fail', go:'rev-manual'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('待审核商品（'+reviewRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn'), 20, 'dash-my-review'), {flush:true});
+          panel('待审核商品（'+reviewRows.length+' 条）', pagedTable(['图片','SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn'), 20, 'dash-my-review'), {flush:true});
         } else {
           html = stats([
             ['待生成', pending, '', '', false],
@@ -102,7 +103,7 @@ page('dash-todo', {
             {t:'已完成', s:'可上架', n:completed, tone:'ok', go:'rev-list'},
             {t:'失败', s:'按原因归类重跑', n:failed, tone:'fail', go:'gen-retry'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
-          panel('全部任务（'+skuRows.length+' 条）', pagedTable(['SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-all-task'), {flush:true});
+          panel('全部任务（'+skuRows.length+' 条）', pagedTable(['图片','SKU','站点','状态','更新时间',''], rowList(skuRows,'详情'), 20, 'dash-all-task'), {flush:true});
         }
         root.innerHTML = html;
       });
@@ -148,12 +149,13 @@ page('dash-runs', {
             ['失败', failed, '', 'fail', false],
           ], 5) +
           panel('全部任务（' + rows.length + ' 条）', pagedTable(
-            ['SKU','站点','状态','更新时间',''],
+            ['图片','SKU','站点','状态','更新时间',''],
             rows.map(function(x){
               var sku = x['SKU']||'';
               var st = String(x['处理状态']||'').toUpperCase();
               return [
-                '<span class="m">' + sku + '</span>',
+                thumbHtml(x['产品图片URL']),
+              '<span class="m">' + sku + '</span>',
                 x['目标市场'] || '—',
                 chip(x['处理状态']||'', tone(x['处理状态'])),
                 '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
@@ -623,9 +625,10 @@ page('sku-family', {
           var t = '变体 ' + fam.fid + ' 的商品（' + fam.members.length + ' 个）';
           if (!fam.members.length){ return panel(t, callout('warn','这个变体还没有商品','去「商品资料填写」新增商品时，把「产品族ID」填成 ' + fam.fid + ' 即可归入这个变体。'), {flush:true}); }
           return panel(t, table(
-            ['SKU','目标市场','类目','季节范围','处理状态',''],
+            ['图片','SKU','目标市场','类目','季节范围','处理状态',''],
             fam.members.map(function(m){ return [
-              '<span class="m">' + (m['SKU']||'—') + '</span>',
+              thumbHtml(m['产品图片URL']),
+            '<span class="m">' + (m['SKU']||'—') + '</span>',
               m['目标市场']||'—',
               m['类目']||'—',
               m['季节范围']||'—',
@@ -646,7 +649,8 @@ page('sku-family', {
           ) : callout('warn','还没有变体','点右上角「新增变体」创建第一个变体。');
         var html = panel('变体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一变体共享图案/材质/风格，各自独享尺寸/数量。点「展开看商品」查看该变体下的所有商品。'});
         if (orphan.length){
-          html += panel('未归入变体的商品（共 ' + orphan.length + ' 个）', table(['SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
+          html += panel('未归入变体的商品（共 ' + orphan.length + ' 个）', table(['图片','SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
+            thumbHtml(m['产品图片URL']),
             '<span class="m">' + (m['SKU']||'—') + '</span>',
             m['目标市场']||'—',
             m['类目']||'—',
@@ -896,8 +900,9 @@ page('gen-queue', {
             ['排队等待', pending, 'PENDING', '', false],
           ], 2) +
           panel('队列（' + q.length + ' 条）', pagedTable(
-            ['SKU','产品族','站点','处理状态','优先级','更新时间',''],
+            ['图片','SKU','产品族','站点','处理状态','优先级','更新时间',''],
             q.map(function(x){ return [
+              thumbHtml(x['产品图片URL']),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
@@ -1049,8 +1054,9 @@ page('gen-retry', {
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
           panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
-            ['SKU','产品族','站点','错误信息','处理时间',''],
+            ['图片','SKU','产品族','站点','错误信息','处理时间',''],
             failed.map(function(x){ return [
+              thumbHtml(x['产品图片URL']),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
