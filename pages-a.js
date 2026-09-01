@@ -40,12 +40,14 @@ page('dash-todo', {
         var completed = cnt(sku,'处理状态','COMPLETED');
         var failed = cnt(sku,'处理状态','FAILED');
         var skuRows = sku.filter(function(x){ return x && x['SKU']; });
+        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        skuRows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         function rowList(rows, actionTxt, btnCls){
           return rows.map(function(x){
             var sku = x['SKU']||'';
             var st = String(x['处理状态']||'').toUpperCase();
             var go = (actionTxt === '去审核') ? 'rev-action'
-                   : (st === 'COMPLETED') ? 'rev-detail'
+                   : (st === 'COMPLETED' || st === 'REVIEW_REQUIRED') ? 'rev-detail'
                    : 'sku-detail';
             return [
               '<span class="m">'+sku+'</span>',
@@ -132,6 +134,8 @@ page('dash-runs', {
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        rows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         function cnt(s){ return rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === s; }).length; }
         var running = cnt('PROCESSING'), pending = cnt('PENDING'), completed = cnt('COMPLETED'), review = cnt('REVIEW_REQUIRED'), failed = cnt('FAILED');
         function tone(s){ var u = String(s||'').toUpperCase(); return u==='COMPLETED'?'ok':(u==='FAILED'||u==='REVIEW_REQUIRED'?'fail':(u==='PROCESSING'?'run':'')); }
@@ -153,7 +157,7 @@ page('dash-runs', {
                 x['目标市场'] || '—',
                 chip(x['处理状态']||'', tone(x['处理状态'])),
                 '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
-                btn('详情', '', (st === 'COMPLETED' ? 'rev-detail' : 'sku-detail'), sku)
+                btn('详情', '', ((st === 'COMPLETED' || st === 'REVIEW_REQUIRED') ? 'rev-detail' : 'sku-detail'), sku)
               ];
             })
           ), {flush:true});
@@ -305,8 +309,8 @@ page('sku-list', {
   },
   body:function(){
     var html = toolbar(
-      [inp('搜索 SKU'), sel('全部状态',['待处理','生成中','待审核','需人工','已上架'])],
-      [btn('批量导入','','','','','批量导入功能暂未开放'), btn('新建商品','btn','sku-detail')]
+      ['<input class="inp" id="sku-search" placeholder="搜索 SKU">', sel('全部状态',['待处理','生成中','待审核','需人工','已上架'])],
+      ['<button class="btn" id="sku-search-btn">搜索</button>', btn('批量导入','','','','','批量导入功能暂未开放'), btn('新建商品','btn','sku-detail')]
     ) + '<div id="sku-data" style="margin-top:14px">' + ghost('正在加载商品列表…') + '</div>';
     setTimeout(function(){
       API.skus({}).then(function(r){
@@ -314,6 +318,8 @@ page('sku-list', {
         if (!el) return;
         var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
         rows = rows.filter(function(x){ return x['记录ID']; });
+        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        rows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         if (!rows.length){ el.innerHTML = callout('warn','还没有商品','点「新建商品」添加第一个 SKU。'); return; }
         var toneOf = function(st){
           if (st==='COMPLETED'||st==='completed') return 'ok';
@@ -321,7 +327,8 @@ page('sku-list', {
           if (st==='failed'||st==='失败') return 'fail';
           return 'run';
         };
-        var tr = rows.map(function(x){
+        function renderList(list){
+          var tr = list.map(function(x){
           return [
             '<span class="m">'+(x.SKU||'—')+'</span>',
             '<span class="m">'+(x['产品族ID']||'—')+'</span>',
@@ -333,7 +340,15 @@ page('sku-list', {
             btn('详情', '', 'sku-dna', (x.SKU||''))
           ];
         });
-        el.innerHTML = pagedTable(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
+          el.innerHTML = pagedTable(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
+        }
+        renderList(rows);
+        var searchBtn = document.getElementById('sku-search-btn');
+        if (searchBtn) searchBtn.onclick = function(){
+          var q = (document.getElementById('sku-search')||{}).value || '';
+          var filtered = q ? rows.filter(function(x){ return String(x.SKU||'').toLowerCase().indexOf(q.toLowerCase()) >= 0; }) : rows;
+          renderList(filtered);
+        };
       });
     }, 0);
     return html;
@@ -764,7 +779,7 @@ page('gen-new', {
       panel('选择商品与站点', '<div class="form g2">'+
         fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '只显示还没生成文案的商品，按 SKU 排序；已生成过的不会出现在这里') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
-        fld('所属类目', '<select id="gen-kw" class="ctl"><option>正在加载词库…</option></select>', '根据目标市场自动加载对应的类目') +
+        fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -773,29 +788,18 @@ page('gen-new', {
     '</div>';
 
     setTimeout(function(){
+            var skuRows = [];
             var marketSel = document.getElementById('gen-market');
-      var kwSel = document.getElementById('gen-kw');
+      var langSel = document.getElementById('gen-lang');
       var skuSel = document.getElementById('gen-sku');
-      function loadKw(market){
-        var sheet = (market === 'GB') ? '站点词库_GB' : '站点词库_US';
-        if (market !== 'US' && market !== 'GB'){ kwSel.innerHTML = '<option>该市场暂无词库</option>'; return; }
-        API.table(sheet, {}, 200).then(function(r){
-          var krows = (r.ok && r.data && r.data.data) ? r.data.data : [];
-          var snap = {};
-          krows.forEach(function(x){ if (x['所属类目']) snap[x['所属类目']] = 1; });
-          var ids = Object.keys(snap);
-          kwSel.innerHTML = ids.length ? ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('') : '<option>暂无词库，先去数据管理导入</option>';
-        });
-      }
-      loadKw(marketSel.value || 'US');
-      marketSel.onchange = function(){ loadKw(marketSel.value); };
+      marketSel.onchange = function(){ var lmap = {US:'en-US', GB:'en-GB', FR:'fr-FR', IT:'it-IT', ES:'es-ES'}; if (langSel) langSel.value = lmap[marketSel.value] || 'en-US'; };
       Promise.all([API.skus({}), API.listings()]).then(function(rs){
-        var skuRows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
+        skuRows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
         var listingRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
         var done = {};
         listingRows.forEach(function(x){ if (x['SKU']) done[x['SKU']] = 1; });
         var rows = skuRows.filter(function(x){ return x['记录ID'] && !done[x['SKU']]; });
-        rows.sort(function(x, y){ return String(x['SKU']||'').localeCompare(String(y['SKU']||'')); });
+        rows.sort(function(x, y){ return String(y['创建时间']||y['更新时间']||'').localeCompare(String(x['创建时间']||x['更新时间']||'')); });
         if (!skuSel) return;
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
         skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
@@ -810,7 +814,8 @@ page('gen-new', {
           return;
         }
         btn.disabled = true; btn.textContent = '提交中…';
-        var body = { sku: sku, marketplace: val('gen-market') || 'US', keyword_snapshot_id: val('gen-kw') };
+        var skuInfo = skuRows.find(function(x){ return x['SKU'] === sku; }) || {};
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: skuInfo['季节范围'] || skuInfo['season_scope'] || '', brand_name: skuInfo['品牌名'] || skuInfo['brand_name'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '' };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
