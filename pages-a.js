@@ -799,6 +799,12 @@ page('gen-new', {
         fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '只显示还没生成文案的商品，按 SKU 排序；已生成过的不会出现在这里') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
         fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
+
+      '</div>' +
+      '<div class="form g3" style="margin-top:14px">' +
+        fld('竞品 ASIN 1（选填）', '<input id="gen-asin1" class="ctl" placeholder="B0XXXXXXXXX">', '填<b>该市场</b>在跑的竞品商品 ASIN（不超过 3 个），生成时系统会把竞品流量词纳入候选池') +
+        fld('竞品 ASIN 2（选填）', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
+        fld('竞品 ASIN 3（选填）', '<input id="gen-asin3" class="ctl" placeholder="B0XXXXXXXXX">') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
@@ -834,7 +840,7 @@ page('gen-new', {
         }
         btn.disabled = true; btn.textContent = '提交中…';
         var skuInfo = skuRows.find(function(x){ return x['SKU'] === sku; }) || {};
-        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: skuInfo['季节范围'] || skuInfo['season_scope'] || '', brand_name: skuInfo['品牌名'] || skuInfo['brand_name'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '' };
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: skuInfo['季节范围'] || skuInfo['season_scope'] || '', brand_name: skuInfo['品牌名'] || skuInfo['brand_name'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim() };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
