@@ -327,9 +327,15 @@ page('sku-list', {
           if (st==='failed'||st==='失败') return 'fail';
           return 'run';
         };
+        function thumbHtml(url){
+          if (!url) return '<span style="color:var(--t-3)">—</span>';
+          if (url.indexOf('http') === 0) return '<img src="'+url+'" style="width:42px;height:42px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb">';
+          return '<span style="font-size:11px;color:var(--t-3)">本地图</span>';
+        }
         function renderList(list){
           var tr = list.map(function(x){
           return [
+            thumbHtml(x['产品图片URL']),
             '<span class="m">'+(x.SKU||'—')+'</span>',
             '<span class="m">'+(x['产品族ID']||'—')+'</span>',
             x['类目']||'—',
@@ -340,7 +346,7 @@ page('sku-list', {
             btn('详情', '', 'sku-dna', (x.SKU||''))
           ];
         });
-          el.innerHTML = pagedTable(['SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
+          el.innerHTML = pagedTable(['图片','SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
         }
         renderList(rows);
         var searchBtn = document.getElementById('sku-search-btn');
@@ -530,6 +536,7 @@ page('sku-detail', {
           ['处理时间', String(input['处理时间']||'—').slice(0,16).replace('T',' ')],
           ['运行ID', input['运行ID']||'—'],
         ] : [];
+        var imgHtml = (input && input['产品图片URL']) ? (input['产品图片URL'].indexOf('http') === 0 ? '<img src="'+input['产品图片URL']+'" style="width:160px;height:160px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:12px">' : '<div style="font-size:12px;color:var(--t-3);margin-bottom:12px">本地图片（尚未上传到云端）</div>') : '';
         var factPairs = fact ? [
           ['产品实体', fact['产品实体']||'—'],
           ['尺寸', fact['尺寸']||'—'],
@@ -546,7 +553,7 @@ page('sku-detail', {
         ] : [];
         root.innerHTML =
           '<div class="cols c21">' +
-          panel('商品资料 · ' + skuName, (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。'))) +
+          panel('商品资料 · ' + skuName, imgHtml + (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。'))) +
           panel('商品事实（Product Truth）', (factPairs.length ? kv(factPairs) : callout('warn','暂无事实','该 SKU 还没有商品事实记录。')) + (fact && fact['缺失字段清单'] ? '<div style="margin-top:12px">' + callout('warn','缺失字段', fact['缺失字段清单']) + '</div>' : '')) +
           '</div>';
       });
