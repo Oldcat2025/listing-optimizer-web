@@ -668,15 +668,7 @@ page('sku-family', {
             if (fam) document.getElementById('fam-members').innerHTML = renderMembers(fam);
           };
         });
-        html += '<div id="fam-members">' + (fams.length ? renderMembers(fams[0]) : '') + '</div>';
-        root.innerHTML = html;
-        Array.prototype.forEach.call(document.querySelectorAll('.btn[data-fidx]'), function(el){
-          el.onclick = function(){
-            var i = parseInt(el.getAttribute('data-fidx'), 10);
-            var fam = fams[i];
-            if (fam) document.getElementById('fam-members').innerHTML = renderMembers(fam);
-          };
-        });
+        
       });
     }, 0);
     return el;
@@ -725,6 +717,9 @@ page('sku-dna', {
         var registry = safeParse(first['事实注册表']) || [];
         var visual = safeParse(first['视觉选择原型']) || {};
         function intentCn(it){ var m={'OUTDOOR_LIVING':'户外家居爱好者','PATIO_DECOR':'庭院/露台装饰需求者','CHRISTMAS_DECOR':'圣诞节日装饰','HOLIDAY_DECOR':'节日装饰','FARMHOUSE_STYLE':'乡村田园风爱好者','AUTUMN_DECOR':'秋季装饰','YEAR_ROUND_DECOR':'日常家居装饰','HALLOWEEN':'万圣节装饰','MINIMALIST':'简约风爱好者','SUMMER_OUTDOOR':'夏季户外','WINTER_COZY':'冬季温馨风','HOLIDAY_SPECIFIC':'节日限定'}; return m[it]||it; }
+        var fieldCn = {'entity':'产品实体','size':'尺寸','quantity':'数量','material':'材质','craft':'工艺','structure':'结构','function':'功能','inclusion':'包含物','care':'护理','certification':'认证/安全','prohibited_claims':'禁止声明'};
+        var srcCn = {'PRODUCT_FACT_SHEET':'商品资料','GEMINI_VISION':'AI 看图识别','INFERRED':'AI 推断','DEFAULT':'默认'};
+        function pct(c){ if (c === undefined || c === null || c === '') return '—'; var n = parseFloat(c); if (isNaN(n)) return String(c); return Math.round(n*100) + '%'; }
         var factVal = {};
         (registry||[]).forEach(function(f){ factVal[f.field] = f.value; });
         var primary = String(visual.primary||'');
@@ -736,11 +731,13 @@ page('sku-dna', {
         var seasonScope = String(first['季节范围']||'');
         var seasonCn = ({'SPRING_SUMMER':'春夏户外家纺','春夏':'春夏户外家纺','FALL':'秋冬装饰','秋冬':'秋冬装饰','ALL_SEASON':'全年通用'})[seasonScope] || '待补充';
         var intents = (visual.compatible_intents||[]).map(intentCn);
+        var ev = visual.evidence || {};
         var identityHtml = panel('商品识别', kv([
           ['产品身份', truth.entity||'—'],
           ['SKU', first['SKU']||'—'],
-          ['识别模型', first['识别模型']||'—'],
+          ['识别模型', ev.vision_model || first['识别模型'] || '—'],
           ['识别时间', String(first['识别时间']||'—').slice(0,16).replace('T',' ')],
+          ['图片指纹', ev.image_hash ? '<code style="font-size:11px">'+ev.image_hash+'</code>' : '—'],
         ]));
         var peopleHtml = panel('人群定位', kv([
           ['目标人群', intents.length ? intents.join('、') : '—'],
@@ -759,11 +756,16 @@ page('sku-dna', {
           ['主卖点', visual.primary],
           ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],
           ['卖点置信度', visual.confidence||'—'],
+          ['不适用场景', (visual.conflicts||[]).length ? visual.conflicts.map(intentCn).join('、') : '—'],
         ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先在「商品资料填写」补传产品图片。'));
+        var detailRows = (registry||[]).map(function(f){
+          return [ fieldCn[f.field] || f.field, String(f.value||'—'), pct(f.inferredConfidence), srcCn[f.source] || f.source || '—' ];
+        });
+        var detailHtml = panel('AI 识别的事实明细（共 ' + detailRows.length + ' 项）', detailRows.length ? table(['事实','识别值','置信度','来源'], detailRows) : '—', {flush:true});
         var chips = [];
         [['尺寸',factVal['size']],['材质',factVal['material']],['数量',factVal['quantity']],['包含',factVal['inclusion']],['护理',factVal['care']]].forEach(function(p){ if (p[1]) chips.push('<span style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:4px 12px;font-size:12px;margin:3px">'+p[0]+'：'+p[1]+'</span>'); });
         var factHtml = panel('关键事实', chips.length ? '<div>'+chips.join('')+'</div>' : '—');
-        root.innerHTML = '<div class="cols c2">' + identityHtml + peopleHtml + '</div><div class="cols c2">' + sceneHtml + styleHtml + '</div>' + sellingHtml + factHtml;
+        root.innerHTML = '<div class="cols c2">' + identityHtml + peopleHtml + '</div><div class="cols c2">' + sceneHtml + styleHtml + '</div>' + sellingHtml + detailHtml + factHtml;
       });
     }, 0);
     return el;
