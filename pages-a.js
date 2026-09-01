@@ -395,11 +395,12 @@ page('sku-detail', {
         fld('商品是什么（英文核心词）<span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">', '写进标题的第一个词，比如 pillow covers') +
         fld('尺寸 <span style="color:var(--red)">*</span>', '<select id="nsku-dimensions" class="ctl"><option>16x16 inch</option><option>18x18 inch</option><option>20x20 inch</option><option>24x24 inch</option><option>26x26 inch</option></select>') +
         fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">', '一套几个，比如 set of 2') +
+        fld('变体（产品族）', '<select id="nsku-family" class="ctl"><option>无（独立商品）</option></select>', '归入已有系列，可选') +
         fld('类目', '<select id="nsku-category" class="ctl"><option>抱枕（Home Décor > Decorative Pillows）</option><option>桌旗（Kitchen & Dining > Table Runners）</option><option>婴童床笠（Nursery > Crib Sheets）</option></select>') +
         fld('季节范围', '<select id="nsku-season" class="ctl"><option>四季通用</option><option>春夏</option><option>秋冬</option><option>圣诞节</option><option>感恩节</option></select>') +
         fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
         fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
-        fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
+        fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><img id="nsku-thumb" style="display:none;margin-top:8px;max-width:160px;max-height:160px;border-radius:8px;border:1px solid #e5e7eb"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
         fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
         fld('工艺（可选）', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
         fld('结构（可选）', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
@@ -423,6 +424,7 @@ page('sku-detail', {
         var body = {
           sku: sku, marketplace: val('nsku-market') || 'US',
           category: val('nsku-category'), season_scope: val('nsku-season'),
+          family_id: val('nsku-family'),
           brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
           product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
           quantity: val('nsku-quantity'), material: val('nsku-material'),
@@ -434,7 +436,8 @@ page('sku-detail', {
         API.create(body).then(function(r2){
           if (r2.ok && r2.data && r2.data.success){
             toast('已保存商品 ' + sku + '，可去「新建生成任务」生成文案');
-            showGoGenBtn();
+            var vd = document.getElementById('view-dna-btn'); if (vd){ vd.style.display = 'inline-block'; vd.onclick = function(){ location.hash = 'sku-dna/' + sku; }; }
+            var gg = document.getElementById('go-gen-btn'); if (gg){ gg.style.display = 'inline-block'; gg.onclick = function(){ location.hash = 'gen-new'; }; }
             ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
             var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
           }
@@ -460,6 +463,7 @@ page('sku-detail', {
                 if (r && r.ok && r.data && r.data.success){
                   var img = document.getElementById('nsku-image');
                   if (img) img.value = r.data.mediaUrl || r.data.driveUrl || '';
+                  var thumb = document.getElementById('nsku-thumb'); if (thumb){ thumb.src = rd.result; thumb.style.display = 'block'; }
                   if (prog) prog.textContent = '上传成功，已自动填写共享地址';
                 } else {
                   if (prog) prog.textContent = '上传失败：' + ((r&&r.data&&r.data.error)||'请重试');
@@ -486,13 +490,21 @@ page('sku-detail', {
     var skuParam = pageParam();
     var formPart = '';
     if (!skuParam){
-      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button></div>');
+      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="view-dna-btn" style="display:none;margin-left:8px">查看识别结果</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
     }
     var el = formPart + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
       if (!skuParam){
         var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
         bindSkuUpload();
+        API.table('产品族', {}, 200).then(function(r){
+          var famRows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+          var famSel = document.getElementById('nsku-family');
+          if (famSel && famRows.length){
+            var ids = famRows.map(function(x){ return x['family_id'] || x['产品族ID'] || ''; }).filter(function(v){ return v; });
+            famSel.innerHTML = '<option>无（独立商品）</option>' + ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('');
+          }
+        });
       }
       var sku = skuParam;
       Promise.all([
@@ -952,7 +964,8 @@ page('gen-run', {
               ['站点', row['目标市场']||'—'],
               ['最终状态', chip(row['最终状态']||'', t(row['最终状态']))],
               ['耗时', (row['耗时秒']||'—') + ' 秒'],
-              ['开始时间', String(row['开始时间']||'').slice(0,16).replace('T',' ')],
+              ['提交时间', bjTime(row['开始时间'])],
+              ['完成时间', bjTime(row['结束时间'])],
             ]), {flush:true}) +
             panel('12 步链路', phaseFlow([
               {no:'①', t:'资料与识别段', s:'工序 1-2', state:'done', steps:[['done','1. 商品事实录入','',''],['done','2. Product DNA 识别','','']]},
@@ -963,6 +976,9 @@ page('gen-run', {
         var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
         var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
+        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
+        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:((u==='SUCCESS'||u==='COMPLETED')?3:(u==='FAILED'?4:5)))); }
+        rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['最终状态']); if(ra!==rb) return ra-rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
         root.innerHTML =
           stats([
             ['运行总数', rows.length, '运行日志表', '', false],
@@ -971,15 +987,14 @@ page('gen-run', {
             ['需人工', revw, '', 'warn', false],
           ], 4) +
           panel('运行列表（' + rows.length + ' 条）', pagedTable(
-            ['运行ID','SKU','站点','耗时(秒)','最终状态','开始时间',''],
+            ['SKU','站点','最终状态','提交时间','完成时间',''],
             rows.map(function(x){ return [
-              '<span class="m">' + (x['运行ID']||'—') + '</span>',
               x['SKU']||'—',
               x['目标市场']||'—',
-              x['耗时秒']||'—',
               chip(x['最终状态']||'', t(x['最终状态'])),
-              '<span class="m">' + String(x['开始时间']||'').slice(0,16).replace('T',' ') + '</span>',
-              btn('详情', '', 'gen-run', (x['运行ID']||''))
+              '<span class="m">' + bjTime(x['开始时间']) + '</span>',
+              '<span class="m">' + bjTime(x['结束时间']) + '</span>',
+              btn('详情', '', 'gen-run/' + (x['运行ID']||''), '')
             ]; })
           ), {flush:true});
         }
@@ -1023,6 +1038,7 @@ page('gen-retry', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
+        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
           panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
@@ -1032,7 +1048,7 @@ page('gen-retry', {
               x['产品族ID']||'—',
               x['目标市场']||'—',
               x['错误信息']||'—',
-              '<span class="m">' + String(x['处理时间']||'').slice(0,16).replace('T',' ') + '</span>',
+              '<span class="m">' + bjTime(x['处理时间']) + '</span>',
               '<button class="btn btn--ghost" onclick="retrySku(\''+(x['SKU']||'')+'\')">重新提交</button>'
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
