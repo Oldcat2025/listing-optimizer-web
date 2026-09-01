@@ -724,30 +724,48 @@ page('sku-dna', {
         var truth = safeParse(first['真相身份']) || {};
         var registry = safeParse(first['事实注册表']) || [];
         var visual = safeParse(first['视觉选择原型']) || {};
-        var forbidden = safeParse(first['禁止注册表']) || [];
-        var identityHtml = panel('系统认定的商品身份（AI 识别）', kv([
+        function intentCn(it){ var m={'OUTDOOR_LIVING':'户外家居爱好者','PATIO_DECOR':'庭院/露台装饰需求者','CHRISTMAS_DECOR':'圣诞节日装饰','HOLIDAY_DECOR':'节日装饰','FARMHOUSE_STYLE':'乡村田园风爱好者','AUTUMN_DECOR':'秋季装饰','YEAR_ROUND_DECOR':'日常家居装饰','HALLOWEEN':'万圣节装饰','MINIMALIST':'简约风爱好者','SUMMER_OUTDOOR':'夏季户外','WINTER_COZY':'冬季温馨风','HOLIDAY_SPECIFIC':'节日限定'}; return m[it]||it; }
+        var factVal = {};
+        (registry||[]).forEach(function(f){ factVal[f.field] = f.value; });
+        var primary = String(visual.primary||'');
+        var pm = primary.match(/^([a-z]+) pattern/i);
+        var patternText = pm ? pm[1] : (primary.indexOf('pattern')>=0 ? '特色图案' : '—');
+        var sceneText = '—';
+        (visual.secondary||[]).forEach(function(s2){ var m2 = String(s2).match(/staged scene: ([a-z]+)/i); if (m2) sceneText = m2[1]; });
+        var sceneCn = ({outdoor:'户外（花园/露台/阳台）',garden:'花园',living:'客厅',bedroom:'卧室',office:'办公室',patio:'露台',porch:'门廊'})[sceneText] || (sceneText==='—'?'—':sceneText);
+        var seasonScope = String(first['季节范围']||'');
+        var seasonCn = ({'SPRING_SUMMER':'春夏户外家纺','春夏':'春夏户外家纺','FALL':'秋冬装饰','秋冬':'秋冬装饰','ALL_SEASON':'全年通用'})[seasonScope] || '待补充';
+        var intents = (visual.compatible_intents||[]).map(intentCn);
+        var identityHtml = panel('商品识别', kv([
+          ['产品身份', truth.entity||'—'],
           ['SKU', first['SKU']||'—'],
-          ['产品实体', truth.entity||'—'],
-          ['身份锁定', truth.lock||'—'],
-          ['确认事实数', (truth.facts||[]).length],
           ['识别模型', first['识别模型']||'—'],
           ['识别时间', String(first['识别时间']||'—').slice(0,16).replace('T',' ')],
         ]));
-        var visualHtml = panel('AI 视觉提炼的精准卖点', (visual && visual.primary) ? kv([
-          ['主卖点', visual.primary||'—'],
-          ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('、') : '—'],
-          ['置信度', visual.confidence||'—'],
+        var peopleHtml = panel('人群定位', kv([
+          ['目标人群', intents.length ? intents.join('、') : '—'],
+          ['市场方向', seasonCn],
+        ]));
+        var sceneHtml = panel('使用场景', kv([
+          ['主要场景', sceneCn],
+          ['功能用途', factVal['function'] || '—'],
+        ]));
+        var styleHtml = panel('图案风格', kv([
+          ['图案', patternText==='—' ? '—' : patternText + ' 图案'],
+          ['工艺', factVal['craft'] || '—'],
+          ['结构', factVal['structure'] || '—'],
+        ]));
+        var sellingHtml = panel('精准卖点', (visual.primary) ? kv([
+          ['主卖点', visual.primary],
+          ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],
+          ['卖点置信度', visual.confidence||'—'],
         ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先在「商品资料填写」补传产品图片。'));
-        var factRows = registry.map(function(f){ return [
-          f.field||'—', String(f.value||'—'), f.status||'—', f.source||'—', f.inferredConfidence||'—'
-        ]; });
-        var factHtml = panel('事实注册表（逐条字段 + 置信度）', pagedTable(
-          ['字段','识别值','状态','来源','置信度'],
-          factRows, 20, 'sku-dna-facts'
-        ), {flush:true});
-        root.innerHTML = '<div class="cols c2">' + identityHtml + visualHtml + '</div>' + factHtml;
+        var chips = [];
+        [['尺寸',factVal['size']],['材质',factVal['material']],['数量',factVal['quantity']],['包含',factVal['inclusion']],['护理',factVal['care']]].forEach(function(p){ if (p[1]) chips.push('<span style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:4px 12px;font-size:12px;margin:3px">'+p[0]+'：'+p[1]+'</span>'); });
+        var factHtml = panel('关键事实', chips.length ? '<div>'+chips.join('')+'</div>' : '—');
+        root.innerHTML = '<div class="cols c2">' + identityHtml + peopleHtml + '</div><div class="cols c2">' + sceneHtml + styleHtml + '</div>' + sellingHtml + factHtml;
       });
-    }, 0);
+    }, 0); 0);
     return el;
   }
 });
