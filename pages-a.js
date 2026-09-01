@@ -713,63 +713,39 @@ page('sku-dna', {
     var sku = pageParam();
     var el = '<div id="sku-dna-root">' + ghost('正在加载系统识别结果…') + '</div>';
     setTimeout(function(){
-      API.table('商品事实表', sku ? {SKU: sku} : {}, 200).then(function(r){
+      API.table('产品识别结果', sku ? {SKU: sku} : {}, 200).then(function(r){
         var root = document.getElementById('sku-dna-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
-        function statusChip(x){
-          var comp = String(x['数据完整性']||'').toUpperCase();
-          if (comp === 'COMPLETE') return chip('已确认','ok');
-          if (comp === 'INCOMPLETE') return chip('不完整','warn');
-          if (comp === 'REJECTED') return chip('已拒绝','fail');
-          return chip('待定','neutral');
-        }
-        window.auditSku = function(sku, action){
-          API.auditSku({ sku: sku, action: action }).then(function(r){
-            if (r.ok && r.data && r.data.success){ toast('SKU ' + sku + (action === 'pass' ? ' 已审核通过' : ' 已打回重新识别')); }
-            else { toast('操作失败：' + ((r.data && r.data.error) || '请检查网络')); }
-          });
-        };
+        if (!rows.length){ root.innerHTML = callout('warn','暂无识别结果','该商品还没有经过「产品识别」工作流。请先在「商品资料填写」补全资料并提交生成，系统会用 Gemini 识别产品图片、提炼精准卖点。'); return; }
+        function safeParse(s){ if (!s) return null; if (typeof s === 'object') return s; try { return JSON.parse(s); } catch(e){ return null; } }
         var first = rows[0];
-        root.innerHTML =
-          '<div class="cols c2">' +
-          panel('系统认定的商品身份', kv([
-            ['SKU', first['SKU']||'—'],
-            ['产品实体', first['产品实体']||'—'],
-            ['尺寸', first['尺寸']||'—'],
-            ['数量', first['数量']||'—'],
-            ['包含物', first['包含物']||'—'],
-            ['数据完整性', statusChip(first)],
-          ])) +
-          panel('这份事实的约束', kv([
-            ['材质', first['材质']||'—'],
-            ['工艺', first['工艺']||'—'],
-            ['结构', first['结构']||'—'],
-            ['功能', first['功能']||'（留空 = 不许说）'],
-            ['护理', first['护理']||'—'],
-            ['认证安全', first['认证安全']||'—'],
-            ['禁止声明', first['禁止声明']||'—'],
-          ])) +
-          '</div>' +
-          panel('逐条事实（商品事实表 · 共 ' + rows.length + ' 条）', pagedTable(
-            ['SKU','产品实体','尺寸','数量','材质','工艺','结构','功能','数据完整性','操作'],
-            rows.map(function(x){ return [
-              '<span class="m">' + (x['SKU']||'—') + '</span>',
-              x['产品实体']||'—',
-              x['尺寸']||'—',
-              x['数量']||'—',
-              x['材质']||'—',
-              x['工艺']||'—',
-              x['结构']||'—',
-              x['功能']||'—',
-              statusChip(x),
-              (String(x['数据完整性']||'').toUpperCase() === 'COMPLETE'
-                ? '<span style="color:var(--t-4);font-size:12px">已确认</span> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>'
-                : '<button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'pass\')">审核通过</button> <button class="btn btn--ghost" style="padding:3px 10px" onclick="auditSku(\''+(x['SKU']||'')+'\',\'reject\')">打回重新识别</button>')
-            ]; })
-          ), {flush:true, note:'<b>「数据完整性」由系统判定</b>：COMPLETE=资料齐全，INCOMPLETE=有必填缺失，REJECTED=禁止声明或必填冲突。材质/工艺来自商品事实表，图片不能替代它。'});
+        var truth = safeParse(first['真相身份']) || {};
+        var registry = safeParse(first['事实注册表']) || [];
+        var visual = safeParse(first['视觉选择原型']) || {};
+        var forbidden = safeParse(first['禁止注册表']) || [];
+        var identityHtml = panel('系统认定的商品身份（AI 识别）', kv([
+          ['SKU', first['SKU']||'—'],
+          ['产品实体', truth.entity||'—'],
+          ['身份锁定', truth.lock||'—'],
+          ['确认事实数', (truth.facts||[]).length],
+          ['识别模型', first['识别模型']||'—'],
+          ['识别时间', String(first['识别时间']||'—').slice(0,16).replace('T',' ')],
+        ]));
+        var visualHtml = panel('AI 视觉提炼的精准卖点', (visual && visual.primary) ? kv([
+          ['主卖点', visual.primary||'—'],
+          ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('、') : '—'],
+          ['置信度', visual.confidence||'—'],
+        ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先在「商品资料填写」补传产品图片。'));
+        var factRows = registry.map(function(f){ return [
+          f.field||'—', String(f.value||'—'), f.status||'—', f.source||'—', f.inferredConfidence||'—'
+        ]; });
+        var factHtml = panel('事实注册表（逐条字段 + 置信度）', pagedTable(
+          ['字段','识别值','状态','来源','置信度'],
+          factRows, 20, 'sku-dna-facts'
+        ), {flush:true});
+        root.innerHTML = '<div class="cols c2">' + identityHtml + visualHtml + '</div>' + factHtml;
       });
     }, 0);
     return el;
