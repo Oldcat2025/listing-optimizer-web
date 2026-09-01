@@ -143,7 +143,7 @@ const NAV = [
 /* ═══ 渲染助手 ═══ */
 
 function chip(t, tone){ return '<span class="chip chip--'+(tone||'neutral')+'">'+t+'</span>'; }
-function thumbHtml(url, size){ size = size || 40; if (!url) return '<span style="color:var(--t-3)">—</span>'; if (String(url).indexOf('http') === 0) return '<img src="'+url+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block">'; return '<span style="font-size:11px;color:var(--t-3)">本地图</span>'; }
+function thumbHtml(url, size){ size = size || 40; if (!url) return '<span style="color:var(--t-3)">—</span>'; var u = String(url); var m = u.match(/drive\/v3\/files\/([^?/]+)/); if (m) u = 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w400'; if (u.indexOf('http') === 0) return '<img src="'+u+'" style="width:'+size+'px;height:'+size+'px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block" loading="lazy">'; return '<span style="font-size:11px;color:var(--t-3)">本地图</span>'; }
 
 function table(cols, rows){
   var h = cols.map(function(c){ return '<th>'+c+'</th>'; }).join('');
