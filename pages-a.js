@@ -765,7 +765,7 @@ page('sku-dna', {
         var factHtml = panel('关键事实', chips.length ? '<div>'+chips.join('')+'</div>' : '—');
         root.innerHTML = '<div class="cols c2">' + identityHtml + peopleHtml + '</div><div class="cols c2">' + sceneHtml + styleHtml + '</div>' + sellingHtml + factHtml;
       });
-    }, 0); 0);
+    }, 0);
     return el;
   }
 });
