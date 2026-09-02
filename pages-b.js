@@ -42,7 +42,7 @@ page('rev-list', {
             '<span class="m">'+(t.length>40 ? t.slice(0,40)+'…' : t)+'</span>',
             x['目标市场']||'—',
             st,
-            String(x['生成时间']||'—').slice(0,16).replace('T',' '),
+            bjTime(x['生成时间']),
             btn('详情','','rev-detail',(x['SKU']||''))
           ];
         });
@@ -155,7 +155,7 @@ page('rev-detail', {
                 ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—')],
                 ['任务编号', x['运行ID']||'—'],
                 ['文案版本', x['定稿版本号']||'—'],
-                ['生成时间', x['生成时间']||'—'],
+                ['生成时间', bjTime(x['生成时间'])],
               ]), {sub:'出问题时按这几项就能复现'}) +
               panel('中文对照（仅供核对，不要上架）', '<div style="font-size:13px;color:var(--t-2);line-height:1.7">' +
                 '<b>标题</b>：'+(x['Title中文对照']||'—')+'<br><br>' +
@@ -264,7 +264,7 @@ page('rev-audit', {
               ['证书数量', String(certCols.length), '', '', false],
               ['站点', x['目标市场']||'—', '', '', false],
               ['商品名称', '<span style="font-size:12px;font-weight:400">'+(x['SKU']||'—')+'</span>', '', '', false],
-              ['生成时间', '<span style="font-size:12px;font-weight:400">'+String(x['生成时间']||'—').slice(0,16).replace('T',' ')+'</span>', '', '', false],
+              ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
             ], 5) +
             toolbar([inp('搜索 SKU') + ' ' + sel('全部站点',['US','GB','FR','IT','ES']) + ' <button class="btn" id="rd-audit-search" style="margin-left:6px">查询</button>'], []) +
             panel('证书通过概况（通过数 / 总数）', table(['证书','结论','通过 / 总数'], passSummary), {flush:true}) +

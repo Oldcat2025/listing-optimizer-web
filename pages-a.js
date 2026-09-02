@@ -1011,7 +1011,11 @@ page('gen-run', {
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
         function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
         function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:((u==='SUCCESS'||u==='COMPLETED')?3:(u==='FAILED'?4:5)))); }
-        rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['最终状态']); if(ra!==rb) return ra-rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
+        
+        (function(){ var m = {}; rows.forEach(function(x){ var rid = x['运行ID'] || ('SKU:'+x['SKU']); var cur = m[rid];
+          if (!cur || statusRank(x['最终状态']) < statusRank(cur['最终状态']) || (statusRank(x['最终状态']) === statusRank(cur['最终状态']) && String(x['结束时间']||'') > String(cur['结束时间']||''))) m[rid] = x; });
+          rows = Object.keys(m).map(function(k){ return m[k]; }); })();
+rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['最终状态']); if(ra!==rb) return ra-rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
         root.innerHTML =
           stats([
             ['运行总数', rows.length, '运行日志表', '', false],
