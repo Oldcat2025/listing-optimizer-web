@@ -748,22 +748,49 @@ page('adm-user', {
     ]
   },
     body:function(){
-    var perms = [
-      ['填写商品资料','✓','✓','✓','✓'],
-      ['生成文案','✓','—','✓','✓'],
-      ['复制文案上架','✓','—','✓','✓'],
-      ['审核放行','—','✓','✓','✓'],
-      ['人工改判选词结论','—','✓','✓','✓'],
-      ['导入数据（词库/PPC/竞品）','—','—','✓','✓'],
-      ['管理类目/站点/平台规则','—','—','✓','✓'],
-      ['管理 AI 模型与密钥','—','—','✓','—'],
-      ['管理用户与权限','—','—','✓','—'],
-      ['手动标记「可上架」','—','—','—','仅系统判定'],
-    ];
-    var rows = perms.map(function(p){ return [p[0], p[1], p[2], p[3], p[4]]; });
-    return panel('权限矩阵（角色 × 能力）', table(['能力','运营','审核','管理员','受限管理员'], rows), {flush:true, note:'「受限管理员」能管数据和规则，但碰不到密钥和用户。「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'});
+    var el = '<div id="adm-perm-root">' + ghost('正在加载权限…') + '</div>';
+    setTimeout(function(){
+      API.table('角色权限', {}, 50).then(function(r){
+        var root = document.getElementById('adm-perm-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据，请联系管理员初始化。'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['能力']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据。'); return; }
+        var roles = ['运营','审核','管理员','受限管理员'];
+        var tr = rows.map(function(x){
+          var name = x['能力'] || '—';
+          return ['<span class="m">'+name+'</span>'].concat(roles.map(function(role){
+            var val = String(x[role]||'').toUpperCase() === 'TRUE';
+            return '<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" data-perm="'+encodeURIComponent(name)+'" data-role="'+role+'" '+(val?'checked':'')+' style="vertical-align:middle"> <span style="font-size:12px">'+(val?'允许':'—')+'</span></label>';
+          }));
+        });
+        root.innerHTML = panel('权限矩阵（角色 × 能力，打勾 / 取消后点保存）', table(['能力'].concat(roles), tr), {flush:true, note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
+          '<div style="margin-top:12px"><button class="btn" id="perm-save-btn" style="background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">保存权限</button> <span id="perm-save-msg" style="margin-left:10px;font-size:12px;color:var(--t-3)"></span></div>';
+        var sb = document.getElementById('perm-save-btn');
+        if (sb) sb.onclick = function(){
+          var out = rows.map(function(x){
+            var name = x['能力'] || '';
+            var row = {'能力': name};
+            roles.forEach(function(role){
+              var cb = document.querySelector('input[data-perm="'+encodeURIComponent(name)+'"][data-role="'+role+'"]');
+              row[role] = (cb && cb.checked) ? 'TRUE' : 'FALSE';
+            });
+            return row;
+          });
+          var msg = document.getElementById('perm-save-msg');
+          if (msg) msg.textContent = '保存中…';
+          API.permSave(out).then(function(r2){
+            if (r2 && r2.ok && r2.data && r2.data.success){ if (msg){ msg.textContent = '✓ 已保存 ' + r2.data.count + ' 条权限'; msg.style.color = 'var(--g-600)'; } }
+            else { if (msg){ msg.textContent = '保存失败：' + ((r2 && r2.data && r2.data.error) || '未知错误'); msg.style.color = 'var(--red)'; } }
+          });
+        };
+      });
+    }, 0);
+    return el;
   }
-});page('adm-db', {
+});
+
+page('adm-db', {
   roles:['管理员'],
   guide:[
     '关键词表会越攒越大，<b>旧的快照可以归档到冷存储</b>，但被任务用过的不能删。',

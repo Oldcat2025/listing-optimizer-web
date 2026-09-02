@@ -439,8 +439,8 @@ page('rev-manual', {
                 '<span class="m">'+(x['运行ID']||'—')+'</span>',
                 (x['SKU']||'—')+' / '+(x['目标市场']||'—'),
                 chip('需人工处理','warn'),
-                x['错误详情']||'—',
-                '<span class="m">'+String(x['结束时间']||'').slice(0,16).replace('T',' ')+'</span>',
+                '<span style="font-size:12px">' + errorCn(x['错误详情']) + '</span>',
+                '<span class="m">'+bjTime(x['结束时间'])+'</span>',
                 btn('认领','btn','','','','认领功能暂未开放')
               ];
             })
@@ -475,12 +475,15 @@ page('data-kw', {
     ]
   },
     body:function(){
-    var el = toolbar(['<span style="font-size:12px;color:var(--t-3)">平台站点 </span><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<select class="sel" style="max-width:260px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
+    var preMkt = pageParam();
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
         if (root) root.innerHTML = ghost('正在加载词库…');
         var sels = document.querySelectorAll('.tb .sel');
+        if (preMkt && sels[0]) sels[0].value = preMkt;
         var mkt = (sels[0]||{}).value || 'US';
         var snapId = (sels[1]||{}).value || '全部';
         var sheet = (mkt === 'GB') ? '站点词库_GB' : '站点词库_US';
@@ -540,12 +543,15 @@ page('data-ppc', {
     ]
   },
     body:function(){
-    var el = toolbar(['<span style="font-size:12px;color:var(--t-3)">平台站点 </span><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<span style="font-size:12px;color:var(--t-3)">数据周期 </span><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
+    function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
+    var preMkt = pageParam();
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
     setTimeout(function(){
             function loadPpc(){
         var root = document.getElementById('data-ppc-root');
         if (root) root.innerHTML = ghost('正在加载 PPC 数据…');
         var sels = document.querySelectorAll('.tb .sel');
+        if (preMkt && sels[0]) sels[0].value = preMkt;
         var mkt = (sels[0]||{}).value || 'US';
         var date = (sels[1]||{}).value || '全部';
         var sheet = (mkt === 'GB') ? 'PPC出单词_GB' : 'PPC出单词_US';

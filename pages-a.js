@@ -844,7 +844,8 @@ page('gen-new', {
         }
         btn.disabled = true; btn.textContent = '提交中…';
         var skuInfo = skuRows.find(function(x){ return x['SKU'] === sku; }) || {};
-        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: skuInfo['季节范围'] || skuInfo['season_scope'] || '', brand_name: skuInfo['品牌名'] || skuInfo['brand_name'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim() };
+        var sess = (typeof session === 'function') ? session() : null;
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: skuInfo['季节范围'] || skuInfo['season_scope'] || '', brand_name: skuInfo['品牌名'] || skuInfo['brand_name'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '' };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {

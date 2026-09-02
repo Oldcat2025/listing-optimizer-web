@@ -35,6 +35,7 @@ var API = {
   listProviders: function(){ return this._post('/proj28/api/providers/list', {}, true); },
   importForbidden: function(f){ return this._post('/proj28/api/forbidden/import', f, true); },
   queueManage: function(q){ return this._post('/proj28/api/queue/manage', q, true); },
+  permSave: function(rows){ return this._post('/proj28/api/perms/save', {rows: rows}, true); },
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
@@ -194,6 +195,31 @@ function inp(ph){ return '<input class="inp" placeholder="'+ph+'">'; }
 function btn(t, cls, go, sku, copy, todo){
   var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '') + (copy ? ' data-copy="'+encodeURIComponent(copy)+'"' : '') + (todo ? ' data-todo="'+todo+'"' : '');
   return '<button class="btn '+(cls||'btn--ghost')+'"'+a+'>'+t+'</button>';
+}
+function bjTime(t){
+  if (!t) return '—';
+  var d = new Date(t);
+  if (isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' ');
+  var bj = new Date(d.getTime() + 8*3600*1000);
+  var p = function(n){ return (n<10?'0':'')+n; };
+  return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes());
+}
+function errorCn(e){
+  var m = String(e||'');
+  if (!m) return '—';
+  var map = {
+    'SUBFLOW_ERROR': '生成子流程执行失败（商品资料不全或词库数据缺失，请编辑补全后重提）',
+    'CERTIFICATE_FAIL': '质量检查未通过（去 4.3 看具体哪项不通过）',
+    'semantic.A2.1': '产品识别失败（未识别出商品实体，请检查商品图片是否清晰）',
+    'A2.5': '禁用词检查未通过（标题/卖点出现了禁词）',
+    'FAIL_MIXED_MARKET': '批次混了多个市场，请分市场提交',
+    'TIMEOUT': '生成超时（图片太大或网络慢，重试一次）',
+    'VALIDATION_ERROR': '参数校验失败（必填项缺失，请编辑补全）',
+    'NOT_FOUND': '记录不存在（可能已被删除或清理）',
+    'CONCURRENT_MODIFICATION': '记录被其他流程修改，状态冲突（重试一次）'
+  };
+  for (var k in map){ if (m.indexOf(k) >= 0) return map[k]; }
+  return m;
 }
 function copyText(t){
   function fallback(s){
