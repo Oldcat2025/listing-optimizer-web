@@ -721,6 +721,7 @@ page('sku-dna', {
           var truth = safeParse(row['真相身份']) || {};
           var registry = safeParse(row['事实注册表']) || [];
           var visual = safeParse(row['视觉选择原型']) || {};
+          var rich = visual.rich || {};
           var factVal = {};
           (registry||[]).forEach(function(f){ factVal[f.field] = f.value; });
           var primary = String(visual.primary||'');
@@ -740,10 +741,32 @@ page('sku-dna', {
             ['识别时间', String(row['识别时间']||'—').slice(0,16).replace('T',' ')],
             ['图片指纹', ev.image_hash ? '<code style="font-size:11px">'+ev.image_hash+'</code>' : '—'],
           ]));
-          var peopleHtml = panel('人群定位', kv([['目标人群', intents.length ? intents.join('、') : '—'],['市场方向', seasonCn]]));
-          var sceneHtml = panel('使用场景', kv([['主要场景', sceneCn],['功能用途', factVal['function'] || '—']]));
-          var styleHtml = panel('图案风格', kv([['图案', patternText==='—' ? '—' : patternText + ' 图案'],['工艺', factVal['craft'] || '—'],['结构', factVal['structure'] || '—']]));
-          var sellingHtml = panel('精准卖点', (visual.primary) ? kv([['主卖点', visual.primary],['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],['卖点置信度', visual.confidence||'—'],['不适用场景', (visual.conflicts||[]).length ? visual.conflicts.map(intentCn).join('、') : '—']]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先补传产品图片。'));
+          var peopleHtml = panel('人群定位', kv([
+            ['目标人群', visual.target_audience || (intents.length ? intents.join('、') : '—')],
+            ['家居风格', (rich.home_styles||[]).length ? rich.home_styles.join('、') : '—'],
+            ['季节/节日', (rich.season_holiday||[]).length ? rich.season_holiday.join('、') : seasonCn],
+          ]));
+          var sceneHtml = panel('使用场景', kv([
+            ['摆放场景', (rich.use_scenes||[]).length ? rich.use_scenes.join('、') : (sceneCn==='—' ? '—':sceneCn)],
+            ['场景情绪', rich.home_emotion || '—'],
+            ['礼品场景', (rich.gift_scenes||[]).length ? rich.gift_scenes.join('、') : '—'],
+          ]));
+          var styleHtml = panel('图案风格', kv([
+            ['风格', rich.art_style || (patternText==='—' ? '—':patternText)],
+            ['图案元素', (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : (patternText==='—' ? '—':patternText+' 图案')],
+            ['色调体系', rich.color_system || '—'],
+            ['主色板', (rich.color_palette||[]).length ? rich.color_palette.join('、') : '—'],
+            ['构图', rich.visual_composition || '—'],
+          ]));
+          var sellingHtml = panel('精准卖点', (visual.primary) ? kv([
+            ['主卖点', visual.primary],
+            ['差异化卖点', rich.differentiation || '—'],
+            ['材质触感', rich.texture_feel || factVal['material'] || '—'],
+            ['搭配建议', rich.style_pairing || '—'],
+            ['购买驱动', rich.buyer_aspiration || '—'],
+            ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],
+            ['卖点置信度', visual.confidence||'—'],
+          ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先补传产品图片。'));
           var detailRows = (registry||[]).map(function(f){ return [ fieldCn[f.field] || f.field, String(f.value||'—'), pct(f.inferredConfidence), srcCn[f.source] || f.source || '—' ]; });
           var detailHtml = panel('AI 识别的事实明细（共 ' + detailRows.length + ' 项）', detailRows.length ? table(['事实','识别值','置信度','来源'], detailRows) : '—', {flush:true});
           var chips = [];
