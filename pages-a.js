@@ -444,7 +444,6 @@ page('sku-detail', {
         API.create(body).then(function(r2){
           if (r2.ok && r2.data && r2.data.success){
             toast('已保存商品 ' + sku + '，可去「新建生成任务」生成文案');
-            var vd = document.getElementById('view-dna-btn'); if (vd){ vd.style.display = 'inline-block'; vd.onclick = function(){ location.hash = 'sku-dna/' + sku; }; }
             var gg = document.getElementById('go-gen-btn'); if (gg){ gg.style.display = 'inline-block'; gg.onclick = function(){ location.hash = 'gen-new'; }; }
             ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
             var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
@@ -498,7 +497,7 @@ page('sku-detail', {
     var skuParam = window.CUR_SKU || pageParam();
     var formPart = '';
     if (!skuParam){
-      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="view-dna-btn" style="display:none;margin-left:8px">查看识别结果</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
+      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
     }
     var el = formPart + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
