@@ -448,7 +448,10 @@ function renderSide(cur){
   Array.prototype.forEach.call(document.querySelectorAll('.sitem'), function(el){
     el.onclick = function(){
       if (el.classList.contains('lock')) return;
-      location.hash = el.getAttribute('data-id');
+      var g = el.getAttribute('data-id');
+      // [fix 09-02] 从菜单进「商品资料填写」= 新增意图，清残留 CUR_SKU，避免误进编辑(新增产品模块消失)
+      if (g === 'sku-detail') window.CUR_SKU = undefined;
+      location.hash = g;
     };
   });
 }
@@ -550,7 +553,11 @@ function BOOT(){
     var sku = b.getAttribute('data-sku');
     if (sku) window.CUR_SKU = sku;
     var go = b.getAttribute('data-go');
-    if (go) location.hash = go;
+    if (go) {
+      // [fix 09-02] 跳「商品资料填写」且不带 data-sku = 新建意图 → 清残留 CUR_SKU，避免误进编辑模式(新增产品模块消失)
+      if (go.indexOf('sku-detail') === 0 && !sku) window.CUR_SKU = undefined;
+      location.hash = go;
+    }
     var copy = b.getAttribute('data-copy');
     if (copy) copyText(decodeURIComponent(copy));
     var todo = b.getAttribute('data-todo');
