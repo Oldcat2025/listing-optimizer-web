@@ -794,9 +794,11 @@ page('gen-new', {
     ]
   },
   body:function(){
+    function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
+    var preSku = pageParam();
     var html = '<div class="cols c21">' +
       panel('选择商品与站点', '<div class="form g2">'+
-        fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '只显示还没生成文案的商品，按 SKU 排序；已生成过的不会出现在这里') +
+        fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从失败重做进来会预选该商品；正常提交只显示还没生成文案的商品') +
         fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
         fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
 
@@ -823,7 +825,9 @@ page('gen-new', {
         var listingRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
         var done = {};
         listingRows.forEach(function(x){ if (x['SKU']) done[x['SKU']] = 1; });
-        var rows = skuRows.filter(function(x){ return x['记录ID'] && !done[x['SKU']]; });
+        var rows = (preSku && skuRows.filter(function(x){ return x['SKU'] === preSku; }).length)
+          ? skuRows.filter(function(x){ return x['SKU'] === preSku; })
+          : skuRows.filter(function(x){ return x['记录ID'] && !done[x['SKU']]; });
         rows.sort(function(x, y){ return String(y['创建时间']||y['更新时间']||'').localeCompare(String(x['创建时间']||x['更新时间']||'')); });
         if (!skuSel) return;
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
@@ -844,7 +848,7 @@ page('gen-new', {
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
-            result.innerHTML = callout('warn','已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「生成进度」查看状态。');
+            result.innerHTML = callout('warn', preSku ? '已重新提交，正在生成' : '已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「生成进度」查看状态。');
           } else {
             result.innerHTML = callout('warn','提交失败', (r.data && r.data.error) || '请检查网络或稍后重试');
           }
@@ -966,7 +970,7 @@ page('gen-run', {
         var root = document.getElementById('gen-run-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID']; });
+        var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID'] && x['SKU']; });
         if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return ''; }
         if (runParam){
@@ -1008,7 +1012,7 @@ page('gen-run', {
               chip(x['最终状态']||'', t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
-              btn('详情', '', 'gen-run/' + (x['运行ID']||''), '')
+              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-action'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
             ]; })
           ), {flush:true});
         }
@@ -1053,6 +1057,23 @@ page('gen-retry', {
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
         function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
+                function errorCn(e){
+          var m = String(e||'');
+          if (!m) return '—';
+          var map = {
+            'SUBFLOW_ERROR': '生成子流程执行失败（商品资料不全或词库数据缺失，请编辑补全后重提）',
+            'CERTIFICATE_FAIL': '质量检查未通过（去 4.3 看具体哪项不通过）',
+            'semantic.A2.1': '产品识别失败（未识别出商品实体，请检查商品图片是否清晰）',
+            'A2.5': '禁用词检查未通过（标题/卖点出现了禁词）',
+            'FAIL_MIXED_MARKET': '批次混了多个市场，请分市场提交',
+            'TIMEOUT': '生成超时（图片太大或网络慢，重试一次）',
+            'VALIDATION_ERROR': '参数校验失败（必填项缺失，请编辑补全）',
+            'NOT_FOUND': '记录不存在（可能已被删除或清理）',
+            'CONCURRENT_MODIFICATION': '记录被其他流程修改，状态冲突（重试一次）'
+          };
+          for (var k in map){ if (m.indexOf(k) >= 0) return map[k]; }
+          return m;
+        }
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
           panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
@@ -1062,9 +1083,9 @@ page('gen-retry', {
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
               x['目标市场']||'—',
-              x['错误信息']||'—',
+              '<span style="font-size:12px">' + errorCn(x['错误信息']) + '</span>',
               '<span class="m">' + bjTime(x['处理时间']) + '</span>',
-              '<button class="btn btn--ghost" onclick="retrySku(\''+(x['SKU']||'')+'\')">重新提交</button>'
+              btn('编辑并重新提交', '', 'gen-new', (x['SKU']||''))
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
       });

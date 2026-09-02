@@ -26,10 +26,12 @@ page('rev-list', {
       [btn('导出 Excel','','','','','导出功能暂未开放')]
     ) + '<div id="rev-data" style="margin-top:14px">' + ghost('正在加载文案列表…') + '</div>';
     setTimeout(function(){
-      function renderList(list){
+      function renderList(list, pendingRev){
         var el = document.getElementById('rev-data');
         if (!el) return;
-        if (!list.length){ el.innerHTML = callout('warn','没有匹配的文案','换个关键词试试。'); return; }
+        list = list || [];
+        pendingRev = pendingRev || [];
+        if (!list.length && !pendingRev.length){ el.innerHTML = callout('warn','没有匹配的文案','换个关键词试试。'); return; }
         list.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
         var tr = list.map(function(x){
           var t = x['Title']||'';
@@ -44,19 +46,35 @@ page('rev-list', {
             btn('详情','','rev-detail',(x['SKU']||''))
           ];
         });
-        el.innerHTML = pagedTable(['记录ID','标题','站点','状态','生成时间',''], tr, 20, 'rev-list-all');
+        pendingRev.forEach(function(x){
+          tr.unshift([
+            '<span class="num mut">待处理</span>',
+            '<span class="m">'+(x['SKU']||'')+'</span><div class="dim" style="font-size:11px;color:var(--t-4)">生成未完成，去补全资料后重提</div>',
+            x['目标市场']||'—',
+            chip('待处理','warn'),
+            String(x['处理时间']||'—').slice(0,16).replace('T',' '),
+            btn('编辑重提','','gen-new',(x['SKU']||''))
+          ]);
+        });
+        var note = pendingRev.length ? '顶部 ' + pendingRev.length + ' 条为生成未完成的任务（去「编辑重提」补全资料后重新生成）。' : '';
+        el.innerHTML = pagedTable(['记录ID','标题','站点','状态','时间',''], tr, 20, 'rev-list-all') + (note ? '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">' + note + '</div>' : '');
       }
-      API.table('定稿输出表', {}, 200).then(function(r){
+      Promise.all([API.table('定稿输出表', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
         var el = document.getElementById('rev-data');
         if (!el) return;
-        var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+        var rows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
         rows = rows.filter(function(x){ return x && x['记录ID']; });
-        if (!rows.length){ el.innerHTML = callout('warn','还没有文案','生成任务完成后，文案会出现在这里。'); return; }
-        renderList(rows);
+        var skuRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
+        var doneSku = {};
+        rows.forEach(function(x){ if (x['SKU']) doneSku[x['SKU']] = 1; });
+        var pendingRev = skuRows.filter(function(x){ var st = String(x['处理状态']||'').toUpperCase(); return (st === 'REVIEW_REQUIRED' || st === 'FAILED') && x['SKU'] && !doneSku[x['SKU']]; });
+        if (!rows.length && !pendingRev.length){ el.innerHTML = callout('warn','还没有文案','生成任务完成后，文案会出现在这里。'); return; }
+        renderList(rows, pendingRev);
         var sb = document.getElementById('rev-search-btn');
         if (sb) sb.onclick = function(){
           var q = ((document.querySelector('.tb .inp')||{}).value || '').trim().toLowerCase();
-          renderList(q ? rows.filter(function(x){ return String(x['Title']||'').toLowerCase().indexOf(q)>=0 || String(x['SKU']||'').toLowerCase().indexOf(q)>=0; }) : rows);
+          var pr = pendingRev.filter(function(x){ return !q || String(x['SKU']||'').toLowerCase().indexOf(q)>=0; });
+          renderList(q ? rows.filter(function(x){ return String(x['Title']||'').toLowerCase().indexOf(q)>=0 || String(x['SKU']||'').toLowerCase().indexOf(q)>=0; }) : rows, pr);
         };
       });
     }, 0);
@@ -175,7 +193,7 @@ page('rev-audit', {
     ]
   },
   body:function(){
-    var el = toolbar([inp('搜索 SKU') + ' ' + sel('全部站点',['US','GB','FR','IT','ES']) + ' <button class="btn" id="rd-audit-search" style="margin-left:6px">查询</button>'], []) + '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
+    var el = '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
     setTimeout(function(){
       function verdict(v){
         var o = v;
@@ -223,7 +241,13 @@ page('rev-audit', {
           rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
           var x = rows[0];
           var certCols = Object.keys(x).filter(function(k){ return k.indexOf('证书') >= 0 && k !== '全部通过'; });
-          var certTitles = {'完整性证书':'① 完整性检查','处理证书':'② 处理与合规检查','字段证书':'③ 字段检查','质量证书':'④ 质量检查','审计证书':'⑤ 审计与来源检查'};
+          var certTitles = {
+            '完整性证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">① 完整性检查</span>',
+            '处理证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">② 处理与合规检查</span>',
+            '字段证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">③ 字段检查</span>',
+            '质量证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">④ 质量检查</span>',
+            '审计证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">⑤ 审计与来源检查</span>'
+          };
           var passed = String(x['全部通过']||'').toUpperCase() === 'TRUE';
           var passSummary = certCols.map(function(col){
             var v = x[col];
@@ -236,11 +260,13 @@ page('rev-audit', {
           });
           root.innerHTML =
             stats([
-              ['全部通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
-              ['商品 / 站点', '<span style="font-size:12px">'+(x['SKU']||'—')+' / '+(x['目标市场']||'—')+'</span>', '', '', false],
+              ['是否通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
               ['证书数量', String(certCols.length), '', '', false],
-              ['生成时间', '<span style="font-size:12px">'+String(x['生成时间']||'—').slice(0,16).replace('T',' ')+'</span>', '', '', false],
-            ], 4) +
+              ['站点', x['目标市场']||'—', '', '', false],
+              ['商品名称', '<span style="font-size:12px;font-weight:400">'+(x['SKU']||'—')+'</span>', '', '', false],
+              ['生成时间', '<span style="font-size:12px;font-weight:400">'+String(x['生成时间']||'—').slice(0,16).replace('T',' ')+'</span>', '', '', false],
+            ], 5) +
+            toolbar([inp('搜索 SKU') + ' ' + sel('全部站点',['US','GB','FR','IT','ES']) + ' <button class="btn" id="rd-audit-search" style="margin-left:6px">查询</button>'], []) +
             panel('证书通过概况（通过数 / 总数）', table(['证书','结论','通过 / 总数'], passSummary), {flush:true}) +
             certCols.map(function(col){ return panel(certTitles[col] || col, verdict(x[col]), {flush:true}); }).join('');
         });
@@ -449,7 +475,7 @@ page('data-kw', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('US',['GB']), sel('全部',[])], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    var el = toolbar(['<span style="font-size:12px;color:var(--t-3)">平台站点 </span><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<select class="sel" style="max-width:260px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
@@ -514,7 +540,7 @@ page('data-ppc', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('US',['GB']), sel('全部',[])], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
+    var el = toolbar(['<span style="font-size:12px;color:var(--t-3)">平台站点 </span><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<span style="font-size:12px;color:var(--t-3)">数据周期 </span><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
     setTimeout(function(){
             function loadPpc(){
         var root = document.getElementById('data-ppc-root');
@@ -750,31 +776,29 @@ page('data-grade', {
     ]
   },
   body:function(){
-    var el = '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
+    var el = '<div id="data-grade-root">' + ghost('正在加载评级数据…') + '</div>';
     setTimeout(function(){
-      var root = document.getElementById('data-import-root');
+      var root = document.getElementById('data-grade-root');
       if (!root) return;
       Promise.all([
-        API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200),
-        API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200)
+        API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200)
       ]).then(function(rs){
         var kwUS = (rs[0].ok && rs[0].data) ? (rs[0].data.total||0) : 0;
         var kwGB = (rs[1].ok && rs[1].data) ? (rs[1].data.total||0) : 0;
-        var ppcUS = (rs[2].ok && rs[2].data) ? (rs[2].data.total||0) : 0;
-        var ppcGB = (rs[3].ok && rs[3].data) ? (rs[3].data.total||0) : 0;
-        var items = [
-          ['关键词库', 'US', '站点词库_US', kwUS, 'data-kw'],
-          ['关键词库', 'GB', '站点词库_GB', kwGB, 'data-kw'],
-          ['PPC 出单词', 'US', 'PPC出单词_US', ppcUS, 'data-ppc'],
-          ['PPC 出单词', 'GB', 'PPC出单词_GB', ppcGB, 'data-ppc'],
-        ];
-        root.innerHTML = panel('导入历史（' + items.length + ' 个数据源）', table(
-          ['数据类型','站点','数据表','记录数',''],
-          items.map(function(it){ return [
-            it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>',
-            btn('查看','','',null,null,it[4])
-          ]; })
-        ), {flush:true, note:'关键词库和 PPC 数据各自按站点导入，查看详情请点右侧「查看」进入对应页面。'});
+        root.innerHTML =
+          stats([
+            ['词库词数', kwUS + kwGB, 'US+GB 合计', '', false],
+            ['US 词', kwUS, '', '', false],
+            ['GB 词', kwGB, '', '', false],
+            ['评级记录', 0, '反馈闭环尚未运行', 'warn', false],
+          ], 4) +
+          callout('warn','关键词效果评级待数据','评级功能依赖「反馈闭环（周）」产出表现数据。当前闭环尚未运行，暂无升降级建议。闭环跑过之后，这里会展示：哪些词被真实表现验证过、哪些该降级。') +
+          panel('词库入口', table(['数据类型','站点','记录数',''],
+            [
+              ['关键词库','US','<span class="num">'+kwUS+'</span>', btn('查看词库','','data-kw')],
+              ['关键词库','GB','<span class="num">'+kwGB+'</span>', btn('查看词库','','data-kw')],
+            ]
+          ), {flush:true, note:'查看词库内容请点右侧「查看词库」，进入 5.1 词库数据页。'});
       });
     }, 0);
     return el;
