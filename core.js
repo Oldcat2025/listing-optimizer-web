@@ -472,7 +472,9 @@ function renderSpec(def, nv){
 }
 
 function render(){
-  var id = location.hash.replace('#','') || 'dash-todo';
+  // [fix 09-02] 支持带参 hash：'sku-dna/P28' 或 'sku-dna?sku=P28' → 页面 id 取 '/' 与 '?' 之前的部分
+  var _h = (location.hash || '').replace('#', '');
+  var id = String(_h).split('/')[0].split('?')[0] || 'dash-todo';
   if (!window.PAGES[id]) id = 'dash-todo';
   CUR = id;
   var def = window.PAGES[id];

@@ -495,7 +495,7 @@ page('sku-detail', {
       fab.onclick = function(){ fab.remove(); location.hash = 'gen-new'; };
       document.body.appendChild(fab);
     }
-    var skuParam = pageParam();
+    var skuParam = window.CUR_SKU || pageParam();
     var formPart = '';
     if (!skuParam){
       formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="view-dna-btn" style="display:none;margin-left:8px">查看识别结果</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
@@ -702,7 +702,7 @@ page('sku-dna', {
       idx = h.indexOf('/');
       return idx >= 0 ? decodeURIComponent(h.slice(idx+1)) : '';
     }
-    var sku = pageParam();
+    var sku = window.CUR_SKU || pageParam();
     var el = '<div id="sku-dna-root">' + ghost('正在加载系统识别结果…') + '</div>';
     setTimeout(function(){
       API.table('产品识别结果', sku ? {SKU: sku} : {}, 200).then(function(r){
@@ -795,7 +795,7 @@ page('gen-new', {
   },
   body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
-    var preSku = pageParam();
+    var preSku = window.CUR_SKU || pageParam();
     var html = '<div class="cols c21">' +
       panel('选择商品与站点', '<div class="form g2">'+
         fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从失败重做进来会预选该商品；正常提交只显示还没生成文案的商品') +
