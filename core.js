@@ -256,9 +256,9 @@ function stats(items, n){
   return '<div class="stats s'+(n||items.length)+'">'+items.map(function(i){
     var tone = (i[3]||'').trim();
     return '<div class="st'+(tone?' st--'+tone:'')+'">'+
-      '<div class="st__v'+(i[4]?' sm':'')+'">'+i[1]+'</div>'+
+      '<div class="st__v'+(i[4]?' sm':'')+'" style="white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.25">'+i[1]+'</div>'+
       '<div class="st__tx">'+
-        '<div class="st__k">'+i[0]+'</div>'+
+        '<div class="st__k" style="white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.2">'+i[0]+'</div>'+
         (i[2]?'<div class="st__n">'+i[2]+'</div>':'')+
       '</div></div>';
   }).join('')+'</div>';
