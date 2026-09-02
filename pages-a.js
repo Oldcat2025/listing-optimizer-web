@@ -755,11 +755,16 @@ page('sku-dna', {
             ['场景情绪', rich.home_emotion || '—'],
             ['礼品场景', (rich.gift_scenes||[]).length ? rich.gift_scenes.join('、') : '—'],
           ]));
+          // [fix] 从 primary 提取完整图案描述（如 'festive highland cow portrait'），避免 'other'/'—'
+          var patFull = '';
+          var _pi = String(visual.primary||'').indexOf(' pattern ');
+          if (_pi > 0) patFull = String(visual.primary).slice(0, _pi).trim();
+          if (!patFull && patternText && patternText!=='—' && patternText.toLowerCase()!=='other') patFull = patternText;
           var artStyle = rich.art_style || '';
-          var motifTxt = (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : ((patternText && patternText!=='—' && patternText.toLowerCase()!=='other') ? patternText : (rich.differentiation || '—'));
+          var motifTxt = (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : (patFull || rich.differentiation || '—');
           var colorSys = rich.color_system || ((rich.color_palette||[]).length ? ('色调: ' + rich.color_palette.join('、')) : '—');
           var styleHtml = panel('图案风格', kv([
-            ['风格', artStyle || (patternText && patternText.toLowerCase()!=='other' && patternText!=='—' ? patternText : '—')],
+            ['风格', artStyle || (patFull ? patFull + ' 风' : '—')],
             ['图案元素', motifTxt],
             ['色调体系', colorSys],
             ['主色板', (rich.color_palette||[]).length ? rich.color_palette.join('、') : '—'],
