@@ -43,18 +43,18 @@ page('cfg-category', {
             '<span class="num">' + (x['Bullet条数']||'—') + '</span>',
             chip(x['人群守卫方向']||'未配置', gdir(x['人群守卫方向'])),
             x['配置版本'] || '—',
-            '<span class="m">' + String(x['更新时间']||'—').slice(0,10) + '</span>',
+            '<span class="m">' + bjTime(x['更新时间']) + '</span>',
             '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true}) + '<div id="cfg-cat-detail" style="margin-top:14px"></div>';
+        ), {flush:true}) + '<div id="cfg-cat-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每种商品类目的文案规格 —— 标题最长多少字符、卖点短语几条、五点描述几条、用词有没有人群限制。<br><b>范例：</b>类目 PILLOW_COVER 配置 Title 最大 150 字符、Highlights 6~8 短语、Bullet 5 条、人群守卫「无」。<br><b>和 6.2 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」（语言、标点、词库表）。</div>', {flush:true});
         Array.prototype.forEach.call(document.querySelectorAll('#cfg-category-root .btn[data-idx]'), function(el){
           el.onclick = function(){
             var i = parseInt(el.getAttribute('data-idx'), 10);
             var x = rows[i];
             var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
               .map(function(k){ return [k, x[k]]; });
-            var grp = [['类目','Title最大字符','Title目标最小','Title目标最大'],['Highlights格式','Highlights短语最小数','Highlights短语最大数'],['Bullet条数','人群守卫方向','配置版本','更新时间']];
-            var inner = grp.map(function(g){ var pairs = g.filter(function(k){ return String(x[k]||'').trim()!==''; }).map(function(k){ return ['<span class="m">'+k+'</span>', x[k]]; }); return table(['配置项','值'], pairs); }).join('<div style="height:12px"></div>');
+            var keys = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; });
+            var inner = table(['配置项','值'], keys.map(function(k){ return ['<span style="font-size:12px">'+k+'</span>', '<span style="font-size:12px">'+x[k]+'</span>']; }));
             document.getElementById('cfg-cat-detail').innerHTML = panel('完整配置 · ' + (x['类目']||''), inner, {sub:'按组展示，更紧凑'});
           };
         });
@@ -137,15 +137,15 @@ page('cfg-market', {
             '<span class="m">' + String(x['合规规则核对日期']||'—').slice(0,10) + '</span>',
             '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true}) + '<div id="cfg-market-detail" style="margin-top:14px"></div>';
+        ), {flush:true}) + '<div id="cfg-market-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每个亚马逊站点（US/GB/DE/FR/IT/ES）的合规规则 —— 语言区域、Backend 搜索词字节上限、标点/分词/复合词策略、用哪个词库表。<br><b>范例：</b>站点 US 配置 Backend 最大 249 字节、Title 用美式标点、词库表「站点词库_US」。<br><b>和 6.1 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」。<br><b>和 5.1 的关系：</b>5.1 是往「站点词库_US」导入关键词数据，6.2 决定这个站点用哪张词库表。</div>', {flush:true});
         Array.prototype.forEach.call(document.querySelectorAll('#cfg-market-root .btn[data-idx]'), function(el){
           el.onclick = function(){
             var i = parseInt(el.getAttribute('data-idx'), 10);
             var x = rows[i];
             var pairs = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; })
               .map(function(k){ return [k, x[k]]; });
-            var grp = [['站点','语言区域','语言名称','Backend最大字节','Backend编码'],['Title标点策略','分词配置','复合词处理'],['站点禁用词','人口属性禁用词'],['词库表名','合规规则版本','合规规则核对日期']];
-            var inner = grp.map(function(g){ var pairs = g.filter(function(k){ return String(x[k]||'').trim()!==''; }).map(function(k){ return ['<span class="m">'+k+'</span>', x[k]]; }); return table(['配置项','值'], pairs); }).join('<div style="height:12px"></div>');
+            var keys = Object.keys(x).filter(function(k){ return k !== 'row_number' && String(x[k]).trim() !== ''; });
+            var inner = table(['配置项','值'], keys.map(function(k){ return ['<span style="font-size:12px">'+k+'</span>', '<span style="font-size:12px">'+x[k]+'</span>']; }));
             document.getElementById('cfg-market-detail').innerHTML = panel('完整配置 · ' + (x['站点']||''), inner, {sub:'按组展示，更紧凑'});
           };
         });
@@ -220,7 +220,8 @@ page('cfg-rules', {
             '<span class="m">' + String(x['核对日期']||x['更新日期']||'—').slice(0,10) + '</span>',
             x['版本']||'—',
             btn('查看','')
-          ]; })
+          ] +
+          panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>亚马逊官方规则快照（标题多长、图片要求、变体规则等），供生成时对照。<br><b>范例：</b>规则「Title 不超过 200 字符」——所有商品的标题不能超过这个限制。<br><b>和 6.2 的区别：</b>6.2 是站点自己的合规配置，这一页是平台（亚马逊）通用规则。</div>', {flush:true}); })
         ), {flush:true, note:'这是亚马逊官方平台规则的快照（会过期，需定期核对）。规则变更只产出受影响清单，不自动重写已上架文案。'});
       });
     }, 0);
@@ -280,7 +281,8 @@ page('cfg-forbidden', {
               x['禁用原因'] || '—',
               '<span class="m">' + String(x['添加日期']||'—').slice(0,10) + '</span>',
               x['添加人'] || '—'
-            ]; })
+            ] +
+          panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>不能出现在文案里的违禁词（夸大词、医疗词、平台禁用词）。<br><b>范例：</b>「waterproof」在部分站点/类目是禁词，文案里不能出现。<br><b>和 5.1 的关系：</b>5.1 是往词库导「能用的词」，这一页是「不能用的词」。</div>', {flush:true}); })
           ), {flush:true});
         });
       }
@@ -335,7 +337,30 @@ page('cfg-prompt', {
       '新版本必须回测优于基线才可设为默认'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
+    body:function(){
+    var el = '<div id="cfg-prompt-root"></div>';
+    setTimeout(function(){
+      var root = document.getElementById('cfg-prompt-root');
+      if (!root) return;
+      var versions = [
+        ['v7.1.3','基线版本（内置）','2026-08','全部 AI 环节','当前生效','ok'],
+      ];
+      root.innerHTML =
+        stats([
+          ['当前生效版本', 'v7.1.3', '内置基线', 'ok', false],
+          ['AI 环节数', '3', '识别/前端/后端生成', '', false],
+          ['指令存储', '流程内置', '数据库版本管理待接入', 'warn', false],
+          ['历史版本', '0', '尚未产生回测版本', '', false],
+        ], 4) +
+        panel('AI 指令版本（当前生效：v7.1.3 内置基线）', table(
+          ['版本','说明','发布时间','适用范围','状态',''],
+          versions.map(function(v){ return [v[0], v[1], v[2], v[3], chip(v[4], v[5]), '—']; })
+        ), {flush:true}) +
+        callout('info','当前生效的 AI 指令内容','识别（Product DNA）用 Gemini Vision 看图识别指令；前端/后端文案生成用 LLM 写作指令。这些指令目前<b>内置在流程代码</b>（规范版本 v7.1.3）。计划接入数据库版本管理后，这里会展示每一版指令的全文、改动差异、回测结果。') +
+        panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>告诉 AI「怎么写」的那段指令（Prompt）的版本管理。<br><b>当前状态：</b>指令内置在流程代码（v7.1.3），尚未抽到数据库。<br><b>接入后你能做：</b>对比新旧指令、拿历史任务回测、出问题一键退回、回答「这条文案是哪版指令写的」。</div>', {flush:true});
+    }, 0);
+    return el;
+  }
 });
 
 page('cfg-param', {
@@ -357,7 +382,9 @@ page('cfg-param', {
       '在跑的任务用锁定版本，改参数不影响它们'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
+    body:function(){
+    return callout('warn','参数配置待数据源','「阈值与权重」数据源尚未建立。接入后这里会展示：生成参数（如 Highlights 最少新信息点数）、每版参数的依据、回测对比。') + '<div style="margin-top:12px">' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>文案生成的各种阈值和权重（比如「卖点至少要有几个新信息点」「词进入标题的最低置信度」）。<br><b>和 6.1 的区别：</b>6.1 是每种商品的规格，这一页是生成算法的参数。<br><b>范例：</b>「Highlights 最少新信息点 = 2」——每条卖点至少包含 2 个新信息点，否则不算合格卖点。</div>', {flush:true}) + '</div>';
+}
 });
 
 /* ─── 模型配置两页 ─── */
@@ -471,7 +498,40 @@ page('cfg-model', {
       '降级链被触发时必须写进检查报告，不允许静默换模型'
     ]
   },
-    body:function(){ return callout('warn','暂无数据','该功能的数据源尚未建立，接入后显示实际内容。'); }
+    body:function(){
+    var el = '<div id="cfg-binding-root"></div>';
+    setTimeout(function(){
+      var root = document.getElementById('cfg-binding-root');
+      if (!root) return;
+      var steps = [
+        ['1','商品事实录入','无需 AI','表单录入'],
+        ['2','Product DNA 识别','Gemini Vision（看图识别）','gemini-2.5-flash · 云雾网关'],
+        ['3','卖家精灵数据摄取','无需 AI','表格处理'],
+        ['4','12 类分类','规则引擎','类目映射'],
+        ['5','PPC/SQP 归因','规则引擎','数据归因'],
+        ['6','Reverse ASIN','SQL 倒排','词表索引'],
+        ['7','字段路由（前端生成）','LLM 文案生成','GPT/Claude 系列（可配置）'],
+        ['8','四层入口组合','规则引擎','词源组合'],
+        ['9','仲裁顺序','规则引擎','字段优先级'],
+        ['10','八项质量门禁','规则引擎 + LLM','断言判定 + 反向理解'],
+        ['11','审核放行','人工','运营/审核操作'],
+        ['12','上架登记','无需 AI','登记跟踪'],
+      ];
+      root.innerHTML =
+        stats([
+          ['AI 环节', '3', '识别/前端/后端/质检', '', false],
+          ['规则环节', '6', '分类/归因/组合/仲裁', '', false],
+          ['人工环节', '2', '审核放行/登记', '', false],
+          ['模型服务商', '待配置', '去 6.7 添加', 'warn', false],
+        ], 4) +
+        panel('各流程使用模型（12 个环节）', table(
+          ['环节','用不用 AI','当前模型 / 方式'],
+          steps.map(function(s){ return ['<span class="num">'+s[0]+'</span> ' + s[1], s[2], s[3]]; })
+        ), {flush:true}) +
+        panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页回答：</b>整个生成流程 12 个环节，哪些用了 AI、用的什么模型。<br><b>目前：</b>识别用 Gemini Vision 看图，文案生成用 LLM（GPT/Claude），其余是规则引擎和人工。<br><b>去 6.7：</b>「AI 模型与密钥」添加服务商后，这里可以按环节绑定不同模型（如识别用 Gemini、生成用 GPT）。</div>', {flush:true});
+    }, 0);
+    return el;
+  }
 });
 
 /* ───────── ⑦ 上线跟踪 ───────── */
@@ -649,10 +709,22 @@ page('adm-user', {
         root.innerHTML = panel('用户（' + rows.length + ' 个）', table(['用户名','角色','状态','最近登录',''], rows.map(function(x, i){
           var name = x['user_name']||x['用户名']||'—';
           var active = !(x['active'] === false);
-          return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-del="'+i+'">删除</button>'];
+          return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-rp="'+i+'">重置密码</button> <button class="btn btn--ghost" data-del="'+i+'">停用</button>'];
         })), {flush:true});
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-ed]'), function(el){ el.onclick = function(){ openUserModal(rows[parseInt(el.getAttribute('data-ed'),10)]); }; });
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-del'),10); var u = rows[i]; if (!u) return; if (!confirm('确认停用用户 '+(u.user_name||u['用户名'])+' 吗？')) return; API.manageUser({ action:'delete', user_name: u.user_name||u['用户名'] }).then(function(r){ if (r && r.ok && r.data && r.data.success){ toast('用户已停用'); location.reload(); } else { toast((r&&r.data&&r.data.error)||'操作失败'); } }); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-rp]'), function(el){ el.onclick = function(){
+          var i = parseInt(el.getAttribute('data-rp'),10); var u = rows[i]; if (!u) return;
+          var name = u.user_name || u['用户名'] || '';
+          openModal('重置密码 · ' + name, fld('新密码', '<input class="ctl" id="rp-pwd" type="password" placeholder="至少 8 位">'), function(close){
+            var pwd = (document.getElementById('rp-pwd')||{}).value || '';
+            if (!pwd || pwd.length < 8){ toast('密码至少 8 位'); return; }
+            API.manageUser({ action:'reset_password', user_name: name, password: pwd }).then(function(r){
+              if (r && r.ok && r.data && r.data.success){ toast('密码已重置'); close(); }
+              else { toast((r&&r.data&&r.data.error)||'操作失败'); }
+            });
+          }, '重置');
+        }; });
       });
     }, 0);
     return el;
