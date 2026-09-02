@@ -534,10 +534,11 @@ page('sku-detail', {
           ['品牌名', input['品牌名']||'—'],
           ['所属类目', input['所属类目']||'—'],
           ['处理状态', chip(input['处理状态']||'待处理', toneOf(input['处理状态']))],
-          ['处理时间', String(input['处理时间']||'—').slice(0,16).replace('T',' ')],
+          ['处理时间', bjTime(input['处理时间'])],
           ['运行ID', input['运行ID']||'—'],
         ] : [];
         var imgHtml = (input && input['产品图片URL']) ? (input['产品图片URL'].indexOf('http') === 0 ? '<img src="'+input['产品图片URL']+'" style="width:160px;height:160px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:12px">' : '<div style="font-size:12px;color:var(--t-3);margin-bottom:12px">本地图片（尚未上传到云端）</div>') : '';
+        function factCn(a){ var m={'product_entity':'产品实体','dimensions':'尺寸','quantity':'数量','material':'材质','craft':'工艺','structure':'结构','function':'功能','inclusion':'包含物','care':'护理','certification':'认证安全'}; return String(a||'').split(',').map(function(s){ return m[s.trim()] || s.trim(); }).filter(Boolean).join('、'); }
         var factPairs = fact ? [
           ['产品实体', fact['产品实体']||'—'],
           ['尺寸', fact['尺寸']||'—'],
@@ -545,7 +546,7 @@ page('sku-detail', {
           ['材质', fact['材质']||'—'],
           ['工艺', fact['工艺']||'—'],
           ['结构', fact['结构']||'—'],
-          ['功能', fact['功能']||'（留空 = 不许说这类功能）'],
+          ['功能', fact['功能']||'—'],
           ['包含物', fact['包含物']||'—'],
           ['护理', fact['护理']||'—'],
           ['认证安全', fact['认证安全']||'—'],
@@ -555,7 +556,7 @@ page('sku-detail', {
         root.innerHTML =
           '<div class="cols c21">' +
           panel('商品资料 · ' + skuName, imgHtml + (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。'))) +
-          panel('商品事实（Product Truth）', (factPairs.length ? kv(factPairs) : callout('warn','暂无事实','该 SKU 还没有商品事实记录。')) + (fact && fact['缺失字段清单'] ? '<div style="margin-top:12px">' + callout('warn','缺失字段', fact['缺失字段清单']) + '</div>' : '')) +
+          panel('商品事实（Product Truth）', (factPairs.length ? kv(factPairs) : callout('warn','暂无事实','该 SKU 还没有商品事实记录。')) + (fact && fact['缺失字段清单'] ? '<div style="margin-top:12px">' + callout('warn','缺失字段', factCn(fact['缺失字段清单'])) + '</div>' : '')) +
           '</div>';
       });
     }, 0);
@@ -709,7 +710,10 @@ page('sku-dna', {
       Promise.all([API.table('产品识别结果', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
         var r1 = rs[0];
         if (!r1.ok || !r1.data || r1.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r1.data&&r1.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
+        var _all = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
+        // [fix 09-02] 同 SKU 可能多次识别(重提/重跑)，按 SKU 去重保留识别时间最新的一条
+        (function(){ var m = {}; _all.forEach(function(x){ var k = x['SKU']; var t = String(x['识别时间']||''); if (!m[k] || t > String(m[k]['识别时间']||'')) m[k] = x; }); rows = Object.keys(m).map(function(k){ return m[k]; }); })();
+        var rows = rows;
         var skuRows = ((rs[1] && rs[1].data && rs[1].data.data)||[]);
         if (!rows.length){ root.innerHTML = callout('warn','暂无识别结果','还没有商品完成「产品识别」。请先提交生成，系统会用 Gemini 识别产品图片、提炼精准卖点。'); return; }
         function safeParse(s){ if (!s) return null; if (typeof s === 'object') return s; try { return JSON.parse(s); } catch(e){ return null; } }
@@ -751,10 +755,13 @@ page('sku-dna', {
             ['场景情绪', rich.home_emotion || '—'],
             ['礼品场景', (rich.gift_scenes||[]).length ? rich.gift_scenes.join('、') : '—'],
           ]));
+          var artStyle = rich.art_style || '';
+          var motifTxt = (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : ((patternText && patternText!=='—' && patternText.toLowerCase()!=='other') ? patternText : (rich.differentiation || '—'));
+          var colorSys = rich.color_system || ((rich.color_palette||[]).length ? ('色调: ' + rich.color_palette.join('、')) : '—');
           var styleHtml = panel('图案风格', kv([
-            ['风格', rich.art_style || (patternText==='—' ? '—':patternText)],
-            ['图案元素', (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : (patternText==='—' ? '—':patternText+' 图案')],
-            ['色调体系', rich.color_system || '—'],
+            ['风格', artStyle || (patternText && patternText.toLowerCase()!=='other' && patternText!=='—' ? patternText : '—')],
+            ['图案元素', motifTxt],
+            ['色调体系', colorSys],
             ['主色板', (rich.color_palette||[]).length ? rich.color_palette.join('、') : '—'],
             ['构图', rich.visual_composition || '—'],
           ]));
@@ -767,7 +774,8 @@ page('sku-dna', {
             ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],
             ['卖点置信度', visual.confidence||'—'],
           ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先补传产品图片。'));
-          var detailRows = (registry||[]).map(function(f){ return [ fieldCn[f.field] || f.field, String(f.value||'—'), pct(f.inferredConfidence), srcCn[f.source] || f.source || '—' ]; });
+          function isEmptyFact(v){ var s = String(v||'').trim(); return !s || s==='—' || /^not specified/i.test(s); }
+          var detailRows = (registry||[]).filter(function(f){ return !isEmptyFact(f.value); }).map(function(f){ return [ fieldCn[f.field] || f.field, String(f.value), pct(f.inferredConfidence), srcCn[f.source] || f.source || '—' ]; });
           var detailHtml = panel('AI 识别的事实明细（共 ' + detailRows.length + ' 项）', detailRows.length ? table(['事实','识别值','置信度','来源'], detailRows) : '—', {flush:true});
           var chips = [];
           [['尺寸',factVal['size']],['材质',factVal['material']],['数量',factVal['quantity']],['包含',factVal['inclusion']],['护理',factVal['care']]].forEach(function(p){ if (p[1]) chips.push('<span style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:4px 12px;font-size:12px;margin:3px">'+p[0]+'：'+p[1]+'</span>'); });
