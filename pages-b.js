@@ -724,14 +724,19 @@ page('data-opp', {
     ]
   },
     body:function(){
-    var el = toolbar([inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
+    function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
+    var preMkt = pageParam();
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:130px"><option>US</option><option>DE</option><option>GB</option></select>', inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
     setTimeout(function(){
             var sortCol = '查询总量', sortDesc = true;
       function loadOpp(){
         var root = document.getElementById('data-opp-root');
         if (root) root.innerHTML = ghost('正在加载 ASIN 份额数据…');
+        var sels = document.querySelectorAll('.tb .sel');
+        if (preMkt && sels[0]) sels[0].value = preMkt;
+        var mkt = (sels[0]||{}).value || 'US';
         var q = ((document.querySelector('.tb .inp')||{}).value || '').trim();
-        API.table('SQP_ASIN_US', {}, 200).then(function(r){
+        API.table(mkt === 'US' ? 'SQP_ASIN_US' : (mkt === 'DE' ? 'SQP_ASIN_DE' : 'SQP_ASIN_GB'), {}, 200).then(function(r){
           if (!root) return;
           if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
           var rows = (r.data.data||[]).filter(function(x){ return x && x['搜索查询']; });
@@ -740,7 +745,7 @@ page('data-opp', {
           rows.sort(function(x,y){ var vx = parseFloat(x[sortCol])||0, vy = parseFloat(y[sortCol])||0; return sortDesc ? vy-vx : vx-vy; });
           function f3(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
           var cols = ['搜索查询','查询总量','ASIN曝光份额','ASIN购买份额','ASIN'];
-          root.innerHTML = panel('ASIN 份额（SQP_ASIN_US · 共 ' + rows.length + ' 条）', pagedTable(cols,
+          root.innerHTML = panel('ASIN 份额（' + mkt + ' · 共 ' + rows.length + ' 条）', pagedTable(cols,
             rows.map(function(x){ return [
               '<span class="m">'+(x['搜索查询']||'—')+'</span>',
               '<span class="num">'+String(x['查询总量']||'—')+'</span>',
@@ -757,6 +762,8 @@ page('data-opp', {
       }
       loadOpp();
       var opi = document.querySelector('.tb .inp'); if (opi) opi.onchange = loadOpp;
+      var ops = document.querySelectorAll('.tb .sel');
+      Array.prototype.forEach.call(ops, function(s){ s.onchange = loadOpp; });
     }, 0);
     return el;
   }
