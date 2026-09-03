@@ -566,9 +566,14 @@ page('data-ppc', {
           var html = '';
           // ── PPC 面板 ──
           if (ppc && ppc.noPpc) {
+            if (sels[1]) sels[1].innerHTML = '<option value="全部">全部（无 PPC 数据）</option>';
             html += callout('warn','该站点暂无 PPC 广告数据', mkt + ' 站点目前只导入了搜索表现（SQP ASIN 视图）数据。');
           } else if (ppc && ppc.ok && ppc.r.ok && ppc.r.data && ppc.r.data.success !== false) {
             var all = (ppc.r.data.data||[]).filter(function(x){ return x && x['客户搜索词']; });
+            if (!all.length) {
+              if (sels[1]) sels[1].innerHTML = '<option value="全部">全部（无 PPC 数据）</option>';
+              html += callout('warn','该站点暂无 PPC 广告数据', mkt + ' 站点暂未导入 PPC 广告报表（或 Google Sheets 授权未恢复）。');
+            } else {
             var dates = {};
             all.forEach(function(x){ if (x['报表开始日期']) dates[x['报表开始日期']] = 1; });
             var dlist = Object.keys(dates);
@@ -581,7 +586,9 @@ page('data-ppc', {
             var spend = rows.reduce(function(s,x){ return s + (parseFloat(x['花费']||'0')||0); }, 0);
             function f3(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
             html += panel('PPC 出单词（' + mkt + ' · ' + dlist.length + ' 个日期）', '<div style="font-size:13px;color:var(--t-2)">广告报告：上方下拉选报表日期，下方显示该日期出单词。当前：<b>'+date+'</b> · '+rows.length+' 词</div>' + kv([['出单词总数（当前筛选）', rows.length],['点击合计', clicks],['订单合计', orders],['花费合计', '$' + spend.toFixed(2)]]) + pagedTable(['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'], rows.map(function(x){ return ['<span class="m">'+(x['客户搜索词']||'')+'</span>', x['广告活动名称']||'—', x['曝光']||'—', x['点击']||'—', x['花费']||'—', x['订单']||'—', '<span class="num">'+f3(x['ACOS'])+'</span>']; })), {flush:true});
+            } // end if(!all.length) else
           } else {
+            if (sels[1]) sels[1].innerHTML = '<option value="全部">全部</option>';
             html += callout('warn','PPC 数据暂不可用', '读取 PPC 出单词表失败，可能尚未导入或授权过期。');
           }
           // ── SQP ASIN 份额面板 ──
@@ -594,7 +601,8 @@ page('data-ppc', {
               var bnames = Object.keys(brands);
               function f4(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
               var cols2 = ['搜索查询','查询总量','曝光总量','ASIN曝光份额','ASIN购买份额','ASIN','报表开始日期'];
-              html += panel('搜索表现 · ASIN 份额（SQP_ASIN_' + mkt + ' · ' + rows2.length + ' 条）', '<div style="font-size:13px;color:var(--t-2)">搜索查询绩效 ASIN 视图（' + (bnames.length ? bnames.join(' / ') : mkt) + '）。点表头可排序。ASIN 购买份额 > 0 = 该 ASIN 已占住的入口。</div>' + pagedTable(cols2, rows2.map(function(x){ return ['<span class="m">'+(x['搜索查询']||'—')+'</span>', '<span class="num">'+String(x['查询总量']||'—')+'</span>', '<span class="num">'+String(x['曝光总量']||'—')+'</span>', '<span class="num">'+f4(x['ASIN曝光份额'])+'</span>', '<span class="num">'+f4(x['ASIN购买份额'])+'</span>', '<span class="m">'+(x['ASIN']||'—')+'</span>', x['报表开始日期']||'—']; })), {flush:true});
+              var sqpTotal = (sqp.r.data && sqp.r.data.total) ? sqp.r.data.total : rows2.length;
+              html += panel('搜索表现 · ASIN 份额（SQP_ASIN_' + mkt + ' · 共 ' + sqpTotal + ' 条）', '<div style="font-size:13px;color:var(--t-2)">搜索查询绩效 ASIN 视图（' + (bnames.length ? bnames.join(' / ') : mkt) + '）。当前展示前 ' + rows2.length + ' 条，点表头可排序。ASIN 购买份额 > 0 = 该 ASIN 已占住的入口。</div>' + pagedTable(cols2, rows2.map(function(x){ return ['<span class="m">'+(x['搜索查询']||'—')+'</span>', '<span class="num">'+String(x['查询总量']||'—')+'</span>', '<span class="num">'+String(x['曝光总量']||'—')+'</span>', '<span class="num">'+f4(x['ASIN曝光份额'])+'</span>', '<span class="num">'+f4(x['ASIN购买份额'])+'</span>', '<span class="m">'+(x['ASIN']||'—')+'</span>', x['报表开始日期']||'—']; })), {flush:true});
             }
           } else {
             html += callout('warn','搜索表现数据暂不可用', '读取 SQP_ASIN_' + mkt + ' 失败。');
