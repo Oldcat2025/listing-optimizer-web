@@ -318,6 +318,91 @@ page('cfg-forbidden', {
   }
 });
 
+
+page('cfg-season', {
+  roles:['管理员'],
+  guide:[
+    '这里维护<b>新增商品/生成任务时可选用的季节范围</b>，比如春夏、秋冬、圣诞节。',
+    '新增商品页（2.3）和新建生成任务页（3.1）的下拉会自动跟随这里——<b>加一个这里就出现一个</b>，不用改代码。',
+    '停用的季节在商品页下拉里不再出现，但历史商品上已选的仍保留，不会丢。'
+  ],
+  spec:{
+    q:'系统里有哪些季节范围可选，新增商品的季节下拉由谁控制。',
+    acts:['新增季节','停用/启用','删除'], 
+    wf:['WH-Season-Manage 季节配置管理'],
+    reads:['season_config'],
+    writes:['season_config'],
+    limits:['停用不等于删除——历史商品保留原值','删除后无法恢复，已有商品引用会保留字符串']
+  },
+  body:function(){
+    var el = '<div id="cfg-season-root">' + ghost('正在加载季节范围…') + '</div>';
+    setTimeout(function(){
+      function loadSeasonsCfg(){
+        var root = document.getElementById('cfg-season-root');
+        if (!root) return;
+        root.innerHTML = ghost('正在加载季节范围…');
+        API.table('季节配置', {}, 50).then(function(r){
+          if (!root) return;
+          if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络'); return; }
+          var rows = (r.data.data||[]).filter(function(x){ return x && x['季节代码']; });
+          var actOn = rows.filter(function(x){ return x['启用'] !== false; }).length;
+          function st(x){ return x['启用'] === false ? '<span style="color:#999">已停用</span>' : '<span style="color:#1a7f37">启用</span>'; }
+          var btns = function(x){
+            return '<button class="btn btn--ghost" data-toggle="'+x['ID']+'" data-code="'+x['季节代码']+'">'+(x['启用']===false?'启用':'停用')+'</button> ' +
+                   '<button class="btn btn--ghost" data-del="'+x['ID']+'" data-name="'+x['季节名称']+'">删除</button>';
+          };
+          var html = panel('季节范围（' + rows.length + ' 项 · 启用 ' + actOn + '）', table(
+            ['排序','季节代码','季节名称','状态','操作'],
+            rows.map(function(x){ return [
+              '<span class="num">'+(x['排序']??'—')+'</span>',
+              '<span class="m">'+(x['季节代码']||'—')+'</span>',
+              x['季节名称']||'—',
+              st(x),
+              btns(x)
+            ]; })
+          ), {flush:true}) +
+          '<div style="margin-top:12px">' + btn('+ 新增季节','','','','','cfg-season-add') + '</div>' +
+          panel('这里管什么', '<div style="font-size:13px;line-height:1.8"><b>这一页维护「季节范围」可选项</b>：新增商品（2.3）和新建生成任务（3.1）里的季节下拉从这里读取，<b>新增/停用即时生效，无需改代码或重新部署</b>。<br><b>提醒：</b>停用只影响新选择，已经选了该季节的历史商品不受影响。</div>', {flush:true});
+          root.innerHTML = html;
+          // 绑定操作
+          Array.prototype.forEach.call(root.querySelectorAll('button[data-toggle]'), function(b){
+            b.onclick = function(){
+              API.seasonsManage({ action:'toggle', id: b.getAttribute('data-toggle') }).then(function(rr){
+                if (rr.ok && rr.data && rr.data.success){ toast('已切换'); loadSeasonsCfg(); } else { toast((rr.data&&rr.data.error)||'操作失败'); }
+              });
+            };
+          });
+          Array.prototype.forEach.call(root.querySelectorAll('button[data-del]'), function(b){
+            b.onclick = function(){
+              var nm = b.getAttribute('data-name') || '';
+              if (!confirm('确认删除季节「'+nm+'」？删除后不可恢复（已选该季节的历史商品不受影响）。')) return;
+              API.seasonsManage({ action:'del', id: b.getAttribute('data-del') }).then(function(rr){
+                if (rr.ok && rr.data && rr.data.success){ toast('已删除'); loadSeasonsCfg(); } else { toast((rr.data&&rr.data.error)||'删除失败'); }
+              });
+            };
+          });
+          var addBtn = document.querySelector('[data-todo="cfg-season-add"]');
+          if (addBtn && !addBtn.__b){ addBtn.__b = true; addBtn.onclick = function(){
+            openModal('新增季节', 
+              fld('季节代码（英文，大写）', '<input class="ctl" id="cfs-code" placeholder="如 VALENTINES" style="text-transform:uppercase">', '生成/识别链路使用的内部代码，如 SPRING_SUMMER') +
+              fld('季节名称（中文显示名）', '<input class="ctl" id="cfs-name" placeholder="如 情人节">', '商品下拉里显示的名字'), function(close){
+              var code = (document.getElementById('cfs-code')||{}).value || '';
+              var name = (document.getElementById('cfs-name')||{}).value || '';
+              if (!code || !name){ toast('代码和名称都要填'); return; }
+              API.seasonsManage({ action:'add', season_code: code, season_name: name }).then(function(rr){
+                if (rr.ok && rr.data && rr.data.success){ toast('已新增'); close(); loadSeasonsCfg(); }
+                else { toast((rr.data&&rr.data.error)||'新增失败'); }
+              });
+            }, '保存');
+          }; }
+        });
+      }
+      loadSeasonsCfg();
+    }, 0);
+    return el;
+  }
+});
+
 page('cfg-prompt', {
   roles:['管理员'],
   guide:[

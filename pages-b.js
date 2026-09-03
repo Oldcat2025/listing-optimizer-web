@@ -874,42 +874,96 @@ page('data-import', {
     limits:['原始文件<b>必须保留</b>，用于事后复核解析器是否改错了口径']
   },
       body:function(){
-    var el = toolbar([btn('+ 上传 CSV 导入','','')], []) + '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
+    var el = toolbar([btn('+ 上传 CSV 导入','','')], []) + '<div id="data-import-result" style="margin-bottom:12px"></div>' + '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
     setTimeout(function(){
       var root = document.getElementById('data-import-root');
       if (!root) return;
       // 上传弹窗
       var upBtn = document.querySelector('#data-import-root + .tb .btn, .tb .btn');
+      function showImportResult(fname, mkt, ins, skp, tot, ok, err){
+        var holder = document.getElementById('data-import-result');
+        if (!holder){ return; }
+        var color = ok ? '#1a7f37' : '#c0392b';
+        var title = ok ? (skp > 0 ? '导入完成（部分跳过）' : '导入完成') : '导入失败';
+        var rows = ok
+          ? '<tr><td style="padding:6px 10px">文件</td><td style="padding:6px 10px">'+fname+'</td></tr>' +
+            '<tr><td style="padding:6px 10px">站点</td><td style="padding:6px 10px">'+mkt+'</td></tr>' +
+            '<tr><td style="padding:6px 10px">总行数</td><td style="padding:6px 10px">'+tot+'</td></tr>' +
+            '<tr><td style="padding:6px 10px">新增入库</td><td style="padding:6px 10px;color:'+color+';font-weight:600">'+ins+' 行</td></tr>' +
+            '<tr><td style="padding:6px 10px">跳过重复</td><td style="padding:6px 10px;color:#9a6700">'+skp+' 行</td></tr>'
+          : '<tr><td style="padding:6px 10px">文件</td><td style="padding:6px 10px">'+fname+'</td></tr>' +
+            '<tr><td style="padding:6px 10px">站点</td><td style="padding:6px 10px">'+mkt+'</td></tr>' +
+            '<tr><td style="padding:6px 10px">原因</td><td style="padding:6px 10px;color:'+color+'">'+err+'</td></tr>';
+        holder.innerHTML = panel(title, '<table style="width:100%;border-collapse:collapse;font-size:13px">'+rows+'</table>' +
+          '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">下方「最近导入批次」已刷新，可查看本条记录。</div>', {flush:true});
+        holder.scrollIntoView({behavior:'smooth', block:'nearest'});
+      }
       function openImportDialog(){
         var typeSel = '<div style="margin:2px 0 2px;font-size:12px;color:var(--t-3)">数据类型</div><select class="sel" id="data-type-sel" style="width:100%"><option>搜索表现ASIN视图</option></select>';
         var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>DE</option><option>GB</option></select>';
         var brandInp = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">品牌名（可选，留空则用 CSV 内 ASIN）</div><input class="inp" id="di-brand" style="width:100%;box-sizing:border-box" placeholder="如 BIGM / KOOOLET / Dapman">';
         var fileBox = '<div style="margin:10px 0 2px;font-size:12px;color:var(--t-3)">选择亚马逊导出的 CSV 文件（搜索查询绩效 ASIN 视图 34 列格式）</div><input type="file" id="di-file" accept=".csv" style="width:100%">';
         var note = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-2,#f4f6f8);border-radius:6px;font-size:12px;color:var(--t-3)">系统会自动识别文件里的 ASIN 与季度、按列名解析入库。同一 ASIN+季度+词 已存在会自动跳过，不会重复。</div>';
+        var lastClose = null;
         openModal('上传数据 CSV', typeSel + mktSel + brandInp + fileBox + note, function(close){
+          lastClose = close;
           var brand = (document.getElementById('di-brand')||{}).value || '';
           var file = (document.getElementById('di-file')||{}).files && document.getElementById('di-file').files[0];
           if (!file){ toast('请先选择 CSV 文件'); return; }
           if (file.size > 5*1024*1024){ toast('文件超过 5MB，请拆分后再传'); return; }
           var mkt = (document.getElementById('data-mkt-sel')||{}).value || 'US';
+          var okBtn = document.querySelector('.modal__ok'); if (okBtn){ okBtn.disabled = true; okBtn.textContent = '导入中…'; }
+          var cancelBtn = document.querySelector('.modal__cancel'); if (cancelBtn) cancelBtn.style.display = 'none';
+          // 把弹窗内容换成进度条
+          var bd = document.querySelector('.modal__bd');
+          if (bd) bd.innerHTML = '<div style="padding:6px 2px"><div style="font-size:13px;color:var(--t-2);margin-bottom:10px">正在导入 <b>' + file.name + '</b> 到 <b>' + mkt + '</b> 站点…</div>' +
+            '<div style="height:8px;background:#e8eaed;border-radius:6px;overflow:hidden"><div id="di-progress" style="width:6%;height:100%;background:linear-gradient(90deg,#4f8ef7,#6db3ff);border-radius:6px;transition:width .25s"></div></div>' +
+            '<div id="di-progress-txt" style="font-size:12px;color:var(--t-3);margin-top:8px">正在读取文件…</div></div>';
           var rd = new FileReader();
+          rd.onprogress = function(ev){
+            if (ev && ev.lengthComputable){
+              var p = Math.round(ev.loaded / ev.total * 100);
+              var bar = document.getElementById('di-progress'); if (bar) bar.style.width = Math.min(90, 5 + p * 0.85) + '%';
+              var tx = document.getElementById('di-progress-txt'); if (tx) tx.textContent = '读取文件 ' + p + '%';
+            }
+          };
           rd.onload = function(){
             var csvText = String(rd.result || '');
-            if (!csvText || csvText.trim() === ''){ toast('文件内容为空'); return; }
-            var okBtn = document.querySelector('.modal__ok'); if (okBtn) okBtn.disabled = true;
-            API._post('/proj28/api/import', { data_type:'SQP_ASIN', marketplace:mkt, brand_name:brand, file_name:file.name, csv_text:csvText }, true).then(function(res){
-              if (okBtn) okBtn.disabled = false;
+            if (!csvText || csvText.trim() === ''){ toast('文件内容为空'); if(lastClose) lastClose(); return; }
+            var bar = document.getElementById('di-progress'); if (bar) bar.style.width = '90%';
+            var tx = document.getElementById('di-progress-txt'); if (tx) tx.textContent = '正在上传解析（文件较大可能需十几秒）…';
+            // 用 XHR 拿真实上传进度（API._post 是 fetch 无进度，这里专用 XHR）
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', API.base + '/proj28/api/import', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('x-api-key', API.apiKey);
+            xhr.upload.onprogress = function(ev){
+              if (ev && ev.lengthComputable){
+                var p = Math.round(ev.loaded / ev.total * 100);
+                var bar2 = document.getElementById('di-progress'); if (bar2) bar2.style.width = Math.min(96, 88 + p * 0.08) + '%';
+                var tx2 = document.getElementById('di-progress-txt'); if (tx2) tx2.textContent = '上传中 ' + p + '%（约 ' + Math.max(1, Math.round((ev.total - ev.loaded) / 2048)) + ' KB 剩余）';
+              }
+            };
+            xhr.onload = function(){
+              var res = { ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data: {} };
+              try { res.data = JSON.parse(xhr.responseText || '{}'); } catch(e){}
+              if (lastClose) lastClose();
               if (res.ok && res.data && res.data.success){
-                toast('导入完成：新增 ' + (res.data.inserted_rows||0) + ' 行，跳过重复 ' + (res.data.skipped_rows||0) + ' 行');
-                close();
+                var ins = res.data.inserted_rows || 0, skp = res.data.skipped_rows || 0, tot = res.data.total_rows || 0;
+                showImportResult(file.name, mkt, ins, skp, tot, true, '');
                 loadHistory();
               } else {
-                var msg = (res.data && res.data.error) ? res.data.error : '导入失败，请检查文件格式';
-                toast('导入失败：' + msg);
+                var msg = (res.data && res.data.error) ? res.data.error : ('HTTP ' + xhr.status);
+                showImportResult(file.name, mkt, 0, 0, 0, false, msg);
               }
-            });
+            };
+            xhr.onerror = function(){
+              if (lastClose) lastClose();
+              showImportResult(file.name, mkt, 0, 0, 0, false, '网络错误，请重试');
+            };
+            xhr.send(JSON.stringify({ data_type:'SQP_ASIN', marketplace:mkt, brand_name:brand, file_name:file.name, csv_text:csvText }));
           };
-          rd.onerror = function(){ toast('读取文件失败'); };
+          rd.onerror = function(){ toast('读取文件失败'); if(lastClose) lastClose(); };
           rd.readAsText(file, 'utf-8');
         });
       }

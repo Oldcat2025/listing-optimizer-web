@@ -419,6 +419,21 @@ page('sku-detail', {
         fld('禁止声明（可选）', '<input id="nsku-prohibited" class="ctl" placeholder="如 waterproof（不想让系统说的词）">') +
         '</div>';
     }
+    function loadSeasons(selId, keepVal){
+      API.table('季节配置', {}, 50).then(function(r){
+        var rows = (r.ok && r.data && r.data.data) ? r.data.data.filter(function(x){ return x && x['季节代码'] && x['启用'] !== false; }) : [];
+        if (!rows.length) return;
+        if (!window._SEASON_NAME2CODE) window._SEASON_NAME2CODE = {};
+        rows.forEach(function(x){ window._SEASON_NAME2CODE[x['季节名称']] = x['季节代码']; });
+        var sel = document.getElementById(selId);
+        if (!sel) return;
+        var cur = keepVal || sel.value;
+        sel.innerHTML = rows.map(function(x){
+          return '<option value="'+x['季节代码']+'">'+x['季节名称']+'</option>';
+        }).join('');
+        if (cur){ var found = rows.some(function(x){ return x['季节代码'] === cur; }); if (found) sel.value = cur; }
+      });
+    }
     function submitNewSku(){
       function val(id){ return (document.getElementById(id)||{}).value || ''; }
       var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-dimensions','尺寸'],['nsku-quantity','数量']];
@@ -504,6 +519,7 @@ page('sku-detail', {
       if (!skuParam){
         var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
         bindSkuUpload();
+        loadSeasons('nsku-season', '');
         API.table('产品族', {}, 200).then(function(r){
           var famRows = (r.ok && r.data && r.data.data) ? r.data.data : [];
           var famSel = document.getElementById('nsku-family');
@@ -866,6 +882,7 @@ page('gen-new', {
             var marketSel = document.getElementById('gen-market');
       var langSel = document.getElementById('gen-lang');
       var skuSel = document.getElementById('gen-sku');
+      loadSeasons('gen-season', '');
       marketSel.onchange = function(){ var lmap = {US:'en-US', GB:'en-GB', FR:'fr-FR', IT:'it-IT', ES:'es-ES'}; if (langSel) langSel.value = lmap[marketSel.value] || 'en-US'; };
       Promise.all([API.skus({}), API.listings()]).then(function(rs){
         skuRows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
@@ -891,8 +908,11 @@ page('gen-new', {
         }
         btn.disabled = true; btn.textContent = '提交中…';
         var skuInfo = skuRows.find(function(x){ return x['SKU'] === sku; }) || {};
-        var seasonMap = {'四季通用':'ALL_SEASON','春夏':'SPRING_SUMMER','秋冬':'AUTUMN_WINTER','圣诞节':'CHRISTMAS','感恩节':'THANKSGIVING'};
-        var _se = document.getElementById('gen-season'); if (_se) _se.value = seasonMap[skuInfo['季节范围']] || skuInfo['季节范围'] || 'ALL_SEASON';
+        var nm = skuInfo['季节范围'];
+        var nm2code = (window._SEASON_NAME2CODE || {});
+        var code = nm2code[nm] || nm || 'ALL_SEASON';
+        var _se = document.getElementById('gen-season');
+        if (_se){ var has = _se.querySelector('option[value="'+code+'"]'); if (!has){ _se.innerHTML = '<option value="'+code+'">'+(nm||code)+'</option>' + _se.innerHTML; } _se.value = code; }
         var _br = document.getElementById('gen-brand'); if (_br) _br.value = skuInfo['品牌名'] || '';
         var sess = (typeof session === 'function') ? session() : null;
         var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: val('gen-season') || skuInfo['季节范围'] || '', brand_name: val('gen-brand') || skuInfo['品牌名'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '' };

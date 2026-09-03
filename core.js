@@ -40,6 +40,7 @@ var API = {
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
   generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
+  seasonsManage: function(o){ return this._post('/proj28/api/seasons/manage', o, true); },
   table: function(sheet, filter, limit){ return this._post('/proj28/api/table', {sheet:sheet, filter:filter||{}, limit:limit||50}, true); }
 };
 
@@ -120,10 +121,11 @@ const NAV = [
     ['6.2','站点规则','cfg-market','Marketplace Config'],
     ['6.3','平台规则','cfg-rules','Amazon Compliance Rules'],
     ['6.4','违禁词','cfg-forbidden','Forbidden Word Registry'],
-    ['6.5','AI 指令版本','cfg-prompt','Prompt Version'],
-    ['6.6','参数版本','cfg-param','Param Version'],
-    ['6.7','AI 模型与密钥','cfg-model','Model Provider / Key Vault'],
-    ['6.8','各环节用哪个模型','cfg-binding','Model Profile Binding'],
+    ['6.5','季节范围','cfg-season','Season Scope Config'],
+    ['6.6','AI 指令版本','cfg-prompt','Prompt Version'],
+    ['6.7','参数版本','cfg-param','Param Version'],
+    ['6.8','AI 模型与密钥','cfg-model','Model Provider / Key Vault'],
+    ['6.9','各环节用哪个模型','cfg-binding','Model Profile Binding'],
   ]},
   { g:'⑦', n:'7', t:'上线跟踪', k:'fb', items:[
     ['7.1','上架登记','fb-publish','Publication Registry'],
