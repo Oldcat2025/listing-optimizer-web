@@ -1044,6 +1044,17 @@ page('gen-run', {
         var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID'] && x['SKU']; });
         if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return ''; }
+        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
+        // 同 run 会按阶段 append 多行（PROCESSING/SUCCESS/DRAFT_WRITTEN…），选代表行：终态优先，同态取时间最新
+        (function(){ var g = {}; rows.forEach(function(x){ var rid = x['运行ID'] || ('SKU:'+x['SKU']); (g[rid] = g[rid] || []).push(x); });
+          function isTerm(u){ var s = String(u||'').toUpperCase(); return s==='SUCCESS'||s==='COMPLETED'||s==='FAILED'||s==='REVIEW_REQUIRED'||s==='DRAFT_WRITTEN'; }
+          function tRank(u){ var s = String(u||'').toUpperCase(); if(s==='REVIEW_REQUIRED') return 0; if(s==='FAILED') return 1; if(s==='SUCCESS'||s==='COMPLETED') return 2; if(s==='DRAFT_WRITTEN') return 3; return 9; }
+          rows = Object.keys(g).map(function(rid){ var arr = g[rid];
+            var term = arr.filter(function(x){ return isTerm(x['最终状态']); });
+            var pool = term.length ? term : arr;
+            pool.sort(function(a,b){ var ra = tRank(a['最终状态']), rb = tRank(b['最终状态']); if(ra !== rb) return ra - rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
+            return pool[0];
+          }); })();
         if (runParam){
           var row = rows.filter(function(x){ return x['运行ID'] === runParam; })[0];
           if (!row){ root.innerHTML = callout('warn','未找到该任务','运行ID ' + runParam + ' 不存在。'); return; }
@@ -1065,12 +1076,8 @@ page('gen-run', {
         var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
         var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
-        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
         function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:((u==='SUCCESS'||u==='COMPLETED')?3:(u==='FAILED'?4:5)))); }
         
-        (function(){ var m = {}; rows.forEach(function(x){ var rid = x['运行ID'] || ('SKU:'+x['SKU']); var cur = m[rid];
-          if (!cur || statusRank(x['最终状态']) < statusRank(cur['最终状态']) || (statusRank(x['最终状态']) === statusRank(cur['最终状态']) && String(x['结束时间']||'') > String(cur['结束时间']||''))) m[rid] = x; });
-          rows = Object.keys(m).map(function(k){ return m[k]; }); })();
 rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['最终状态']); if(ra!==rb) return ra-rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
         root.innerHTML =
           stats([

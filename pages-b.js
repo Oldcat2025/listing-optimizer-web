@@ -38,7 +38,7 @@ page('rev-list', {
           var pub = String(x['准备发布']||'').toUpperCase();
           var st = (pub === 'TRUE') ? chip('可上架','ok') : chip('待审核','neutral');
           return [
-            '<span class="num">'+(x['记录ID']||'—')+'</span>',
+            '<span class="m">'+(x['SKU']||x['记录ID']||'—')+'</span>',
             '<span class="m">'+(t.length>40 ? t.slice(0,40)+'…' : t)+'</span>',
             x['目标市场']||'—',
             st,
@@ -57,7 +57,7 @@ page('rev-list', {
           ]);
         });
         var note = pendingRev.length ? '顶部 ' + pendingRev.length + ' 条为生成未完成的任务（去「编辑重提」补全资料后重新生成）。' : '';
-        el.innerHTML = pagedTable(['记录ID','标题','站点','状态','时间',''], tr, 20, 'rev-list-all') + (note ? '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">' + note + '</div>' : '');
+        el.innerHTML = pagedTable(['关联商品 SKU','标题','站点','状态','时间',''], tr, 20, 'rev-list-all') + (note ? '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">' + note + '</div>' : '');
       }
       Promise.all([API.table('定稿输出表', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
         var el = document.getElementById('rev-data');
