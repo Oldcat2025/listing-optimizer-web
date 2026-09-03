@@ -878,6 +878,21 @@ page('gen-new', {
     '</div>';
 
     setTimeout(function(){
+    function loadSeasons(selId, keepVal){
+      API.table('季节配置', {}, 50).then(function(r){
+        var rows = (r.ok && r.data && r.data.data) ? r.data.data.filter(function(x){ return x && x['季节代码'] && x['启用'] !== false; }) : [];
+        if (!rows.length) return;
+        if (!window._SEASON_NAME2CODE) window._SEASON_NAME2CODE = {};
+        rows.forEach(function(x){ window._SEASON_NAME2CODE[x['季节名称']] = x['季节代码']; });
+        var sel = document.getElementById(selId);
+        if (!sel) return;
+        var cur = keepVal || sel.value;
+        sel.innerHTML = rows.map(function(x){
+          return '<option value="'+x['季节代码']+'">'+x['季节名称']+'</option>';
+        }).join('');
+        if (cur){ var found = rows.some(function(x){ return x['季节代码'] === cur; }); if (found) sel.value = cur; }
+      });
+    }
             var skuRows = [];
             var marketSel = document.getElementById('gen-market');
       var langSel = document.getElementById('gen-lang');
