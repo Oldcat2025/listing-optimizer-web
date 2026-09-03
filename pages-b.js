@@ -428,7 +428,12 @@ page('rev-manual', {
         if (!r.ok || !r.data || r.data.success === false) {
           root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
         }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['运行ID'] && String(x['最终状态']||'').toUpperCase() === 'REVIEW_REQUIRED'; });
+        var rawRows = (r.data.data||[]).filter(function(x){ return x && x['运行ID']; });
+        // SKU 级折叠：同 SKU+站点 只保留最新一次 run（旧失败 run 已被新 run 取代的，不再需要人工）
+        (function(){ var g2 = {}; rawRows.forEach(function(x){ var k = (x['SKU']||'') + '|' + (x['目标市场']||''); var cur = g2[k];
+          if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k] = x; });
+          rawRows = Object.keys(g2).map(function(k){ return g2[k]; }); })();
+        var rows = rawRows.filter(function(x){ return String(x['最终状态']||'').toUpperCase() === 'REVIEW_REQUIRED'; });
         if (!rows.length) { root.innerHTML = callout('warn','暂无数据','当前没有需要人工处理的任务。'); return; }
         rows.sort(function(a,b){ var ta=String(a['结束时间']||''), tb=String(b['结束时间']||''); return ta<tb?1:(ta>tb?-1:0); });
         root.innerHTML =

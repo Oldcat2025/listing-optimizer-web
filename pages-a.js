@@ -1073,6 +1073,10 @@ page('gen-run', {
               {no:'③', t:'生成与审核段', s:'工序 7-12', state:'done', steps:[['done','7. 字段路由','',''],['done','8. 四层入口组合','',''],['done','9. 仲裁顺序','',''],['done','10. 八项质量门禁','',''],['done','11. 审核放行','',''],['done','12. 上架登记','','']]},
             ]), {flush:true, note:'绿色步骤已完成。12 步状态由后端返回，当前为占位展示。'});
         } else {
+        // SKU 级折叠：同 SKU+站点 只保留「最新一次 run」（按结束时间最晚），旧 run 失败记录不冒充当前状态
+        (function(){ var g2 = {}; rows.forEach(function(x){ var k = (x['SKU']||'') + '|' + (x['目标市场']||''); var cur = g2[k];
+          if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k] = x; });
+          rows = Object.keys(g2).map(function(k){ return g2[k]; }); })();
         var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
         var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
@@ -1094,7 +1098,7 @@ rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['
               chip(x['最终状态']||'', t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
-              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-action'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
+              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-manual'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
             ]; })
           ), {flush:true});
         }
