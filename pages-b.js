@@ -542,55 +542,87 @@ page('data-ppc', {
       '连带销售识别不可得 → 报告显式标注，不伪装'
     ]
   },
-    body:function(){
+        body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC 数据…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>DE</option><option>GB</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC / SQP 数据…') + '</div>';
     setTimeout(function(){
-            function loadPpc(){
+      function loadPpc(){
         var root = document.getElementById('data-ppc-root');
-        if (root) root.innerHTML = ghost('正在加载 PPC 数据…');
+        if (!root) return;
+        root.innerHTML = ghost('正在加载 PPC / SQP 数据…');
         var sels = document.querySelectorAll('.tb .sel');
         if (preMkt && sels[0]) sels[0].value = preMkt;
         var mkt = (sels[0]||{}).value || 'US';
         var date = (sels[1]||{}).value || '全部';
-        var sheet = (mkt === 'GB') ? 'PPC出单词_GB' : 'PPC出单词_US';
-        API.table(sheet, {}, 200).then(function(r){
-          if (!root) return;
-          if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-          var all = (r.data.data||[]).filter(function(x){ return x && x['客户搜索词']; });
-          var dates = {};
-          all.forEach(function(x){ if (x['报表开始日期']) dates[x['报表开始日期']] = 1; });
-          var dlist = Object.keys(dates);
-          var sel2 = sels[1];
-          if (sel2){ sel2.innerHTML = '<option value="全部">全部（'+dlist.length+' 个日期）</option>' + dlist.map(function(d){ return '<option value="'+d+'"'+(d===date?' selected':'')+'>'+d+'</option>'; }).join(''); }
-          var rows = all;
-          if (date && date !== '全部'){ rows = rows.filter(function(x){ return x['报表开始日期'] === date; }); }
-          if (!rows.length){ root.innerHTML = callout('warn','该日期暂无出单词','换个日期或站点试试。'); return; }
-          var clicks = rows.reduce(function(s,x){ return s + (parseInt(x['点击']||'0',10)||0); }, 0);
-          var orders = rows.reduce(function(s,x){ return s + (parseInt(x['订单']||'0',10)||0); }, 0);
-          var spend = rows.reduce(function(s,x){ return s + (parseFloat(x['花费']||'0')||0); }, 0);
-          function f3(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
-          root.innerHTML =
-            panel('广告数据库版本（' + dlist.length + ' 个日期）', '<div style="font-size:13px;color:var(--t-2)">上方下拉里选报表日期，下方显示该日期出单词。当前：<b>'+date+'</b>（'+mkt+' · '+rows.length+' 词）</div>') +
-            panel('PPC 出单词概览', kv([
-              ['出单词总数（当前筛选）', rows.length],
-              ['点击合计', clicks],
-              ['订单合计', orders],
-              ['花费合计', '$' + spend.toFixed(2)],
-            ])) +
-            panel('出单词列表（'+rows.length+' 条）', pagedTable(
-              ['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'],
-              rows.map(function(x){ return [
-                '<span class="m">'+(x['客户搜索词']||'')+'</span>',
-                x['广告活动名称']||'—',
-                x['曝光']||'—',
-                x['点击']||'—',
-                x['花费']||'—',
-                x['订单']||'—',
-                '<span class="num">'+f3(x['ACOS'])+'</span>'
-              ]; })
-            ), {flush:true});
+        var ppcSheet = (mkt === 'US') ? 'PPC出单词_US' : (mkt === 'GB' ? 'PPC出单词_GB' : '');
+        var sqpSheet = 'SQP_ASIN_' + mkt;
+        var jobs = [];
+        if (ppcSheet) jobs.push(API.table(ppcSheet, {}, 200).then(function(r){ return {ok:true, r:r}; }, function(){ return {ok:false}; }));
+        else jobs.push(Promise.resolve({ok:false, noPpc:true}));
+        jobs.push(API.table(sqpSheet, {}, 200).then(function(r){ return {ok:true, r:r}; }, function(){ return {ok:false}; }));
+        Promise.all(jobs).then(function(rs){
+          var ppc = rs[0], sqp = rs[1];
+          var html = '';
+          // ── PPC 面板 ──
+          if (ppc && ppc.noPpc) {
+            html += callout('warn','该站点暂无 PPC 广告数据', mkt + ' 站点目前只导入了搜索表现（SQP ASIN 视图）数据。');
+          } else if (ppc && ppc.ok && ppc.r.ok && ppc.r.data && ppc.r.data.success !== false) {
+            var all = (ppc.r.data.data||[]).filter(function(x){ return x && x['客户搜索词']; });
+            var dates = {};
+            all.forEach(function(x){ if (x['报表开始日期']) dates[x['报表开始日期']] = 1; });
+            var dlist = Object.keys(dates);
+            var sel2 = sels[1];
+            if (sel2){ var cur = date; sel2.innerHTML = '<option value="全部">全部（'+dlist.length+' 个日期）</option>' + dlist.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join(''); sel2.value = cur; }
+            var rows = all;
+            if (date && date !== '全部'){ rows = rows.filter(function(x){ return x['报表开始日期'] === date; }); }
+            var clicks = rows.reduce(function(s,x){ return s + (parseInt(x['点击']||'0',10)||0); }, 0);
+            var orders = rows.reduce(function(s,x){ return s + (parseInt(x['订单']||'0',10)||0); }, 0);
+            var spend = rows.reduce(function(s,x){ return s + (parseFloat(x['花费']||'0')||0); }, 0);
+            function f3(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
+            html += panel('PPC 出单词（' + mkt + ' · ' + dlist.length + ' 个日期）', '<div style="font-size:13px;color:var(--t-2)">广告报告：上方下拉选报表日期，下方显示该日期出单词。当前：<b>'+date+'</b> · '+rows.length+' 词</div>' + kv([['出单词总数（当前筛选）', rows.length],['点击合计', clicks],['订单合计', orders],['花费合计', '$' + spend.toFixed(2)]]) + pagedTable(['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'], rows.map(function(x){ return ['<span class="m">'+(x['客户搜索词']||'')+'</span>', x['广告活动名称']||'—', x['曝光']||'—', x['点击']||'—', x['花费']||'—', x['订单']||'—', '<span class="num">'+f3(x['ACOS'])+'</span>']; })), {flush:true});
+          } else {
+            html += callout('warn','PPC 数据暂不可用', '读取 PPC 出单词表失败，可能尚未导入或授权过期。');
+          }
+          // ── SQP ASIN 份额面板 ──
+          if (sqp && sqp.ok && sqp.r.ok && sqp.r.data && sqp.r.data.success !== false) {
+            var rows2 = (sqp.r.data.data||[]).filter(function(x){ return x && x['搜索查询']; });
+            if (!rows2.length) {
+              html += callout('warn','该站点暂无搜索表现数据', 'SQP ASIN 视图尚未导入 ' + mkt + ' 站点数据。');
+            } else {
+              var brands = {}; rows2.forEach(function(x){ if (x['品牌名']) brands[x['品牌名']] = 1; });
+              var bnames = Object.keys(brands);
+              function f4(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
+              var cols2 = ['搜索查询','查询总量','曝光总量','ASIN曝光份额','ASIN购买份额','ASIN','报表开始日期'];
+              html += panel('搜索表现 · ASIN 份额（SQP_ASIN_' + mkt + ' · ' + rows2.length + ' 条）', '<div style="font-size:13px;color:var(--t-2)">搜索查询绩效 ASIN 视图（' + (bnames.length ? bnames.join(' / ') : mkt) + '）。点表头可排序。ASIN 购买份额 > 0 = 该 ASIN 已占住的入口。</div>' + pagedTable(cols2, rows2.map(function(x){ return ['<span class="m">'+(x['搜索查询']||'—')+'</span>', '<span class="num">'+String(x['查询总量']||'—')+'</span>', '<span class="num">'+String(x['曝光总量']||'—')+'</span>', '<span class="num">'+f4(x['ASIN曝光份额'])+'</span>', '<span class="num">'+f4(x['ASIN购买份额'])+'</span>', '<span class="m">'+(x['ASIN']||'—')+'</span>', x['报表开始日期']||'—']; })), {flush:true});
+            }
+          } else {
+            html += callout('warn','搜索表现数据暂不可用', '读取 SQP_ASIN_' + mkt + ' 失败。');
+          }
+          root.innerHTML = html;
+          // 表头排序（两块表格都启用）
+          var curSort = {}, curDesc = {};
+          Array.prototype.forEach.call(root.querySelectorAll('th'), function(th){
+            th.style.cursor = 'pointer';
+            th.onclick = function(){
+              var tbl = th.closest('table'); if (!tbl) return;
+              var head = Array.prototype.map.call(tbl.querySelectorAll('thead th, tr:first-child th'), function(h){ return h.textContent; });
+              var ci = Array.prototype.indexOf.call(tbl.querySelectorAll('thead th, tr:first-child th'), th);
+              if (!(tbl in curSort)) { curSort[tbl] = ''; curDesc[tbl] = true; }
+              if (curSort[tbl] === head[ci]) curDesc[tbl] = !curDesc[tbl]; else { curSort[tbl] = head[ci]; curDesc[tbl] = true; }
+              var key = curSort[tbl]; var desc = curDesc[tbl];
+              var tbody = tbl.querySelector('tbody'); if (!tbody) return;
+              var trs = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+              trs.sort(function(a,b){
+                var av = a.children[ci] ? a.children[ci].textContent.trim() : '';
+                var bv = b.children[ci] ? b.children[ci].textContent.trim() : '';
+                var an = parseFloat(av.replace(/[$,\s]/g,'')), bn = parseFloat(bv.replace(/[$,\s]/g,''));
+                if (!isNaN(an) && !isNaN(bn)) return desc ? bn - an : an - bn;
+                return desc ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
+              });
+              trs.forEach(function(tr){ tbody.appendChild(tr); });
+            };
+          });
         });
       }
       loadPpc();
@@ -840,18 +872,24 @@ page('data-import', {
       if (!root) return;
       Promise.all([
         API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200),
-        API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200)
+        API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200),
+        API.table('SQP_ASIN_US', {}, 200), API.table('SQP_ASIN_DE', {}, 200), API.table('SQP_ASIN_GB', {}, 200)
       ]).then(function(rs){
+        function n(i){ return (rs[i]&&rs[i].ok&&rs[i].data)?(rs[i].data.total||0):0; }
         var items = [
-          ['关键词库','US','站点词库_US',(rs[0].ok&&rs[0].data)?(rs[0].data.total||0):0,'data-kw'],
-          ['关键词库','GB','站点词库_GB',(rs[1].ok&&rs[1].data)?(rs[1].data.total||0):0,'data-kw'],
-          ['PPC 出单词','US','PPC出单词_US',(rs[2].ok&&rs[2].data)?(rs[2].data.total||0):0,'data-ppc'],
-          ['PPC 出单词','GB','PPC出单词_GB',(rs[3].ok&&rs[3].data)?(rs[3].data.total||0):0,'data-ppc']
+          ['关键词库','US','站点词库_US',n(0),'data-kw'],
+          ['关键词库','GB','站点词库_GB',n(1),'data-kw'],
+          ['PPC 出单词','US','PPC出单词_US',n(2),'data-ppc'],
+          ['PPC 出单词','GB','PPC出单词_GB',n(3),'data-ppc'],
+          ['搜索表现 ASIN','US','SQP_ASIN_US',n(4),'data-ppc'],
+          ['搜索表现 ASIN','DE','SQP_ASIN_DE',n(5),'data-ppc'],
+          ['搜索表现 ASIN','GB','SQP_ASIN_GB',n(6),'data-ppc']
         ];
-        root.innerHTML = panel('导入历史（' + items.length + ' 个数据源）', table(
+        var hasSqp = n(4) + n(5) + n(6);
+        root.innerHTML = panel('导入历史（' + items.length + ' 个数据源 · 共 ' + items.reduce(function(s,it){return s+it[3];},0) + ' 条记录）', table(
           ['数据类型','站点','数据表','记录数',''],
           items.map(function(it){ return [it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>', btn('查看','',it[4])]; })
-        ), {flush:true, note:'关键词库和 PPC 数据各自按站点导入，查看详情请点右侧「查看」进入对应页面。'});
+        ), {flush:true, note:'关键词库 / PPC 广告 / 搜索表现（SQP ASIN 视图）各自按站点导入。搜索表现数据 2025Q4 精选已导入 DE / US / GB（含圣诞季），查看详情点「查看」。' + (hasSqp ? '' : '')});
       });
     }, 0);
     return el;
