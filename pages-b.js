@@ -873,33 +873,107 @@ page('data-import', {
     writes:['无'],
     limits:['原始文件<b>必须保留</b>，用于事后复核解析器是否改错了口径']
   },
-  body:function(){
-    var el = '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
+      body:function(){
+    var el = toolbar([btn('+ 上传 CSV 导入','','')], []) + '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
     setTimeout(function(){
       var root = document.getElementById('data-import-root');
       if (!root) return;
-      Promise.all([
-        API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200),
-        API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200),
-        API.table('SQP_ASIN_US', {}, 200), API.table('SQP_ASIN_DE', {}, 200), API.table('SQP_ASIN_GB', {}, 200)
-      ]).then(function(rs){
-        function n(i){ return (rs[i]&&rs[i].ok&&rs[i].data)?(rs[i].data.total||0):0; }
-        var items = [
-          ['关键词库','US','站点词库_US',n(0),'data-kw'],
-          ['关键词库','GB','站点词库_GB',n(1),'data-kw'],
-          ['PPC 出单词','US','PPC出单词_US',n(2),'data-ppc'],
-          ['PPC 出单词','GB','PPC出单词_GB',n(3),'data-ppc'],
-          ['搜索表现 ASIN','US','SQP_ASIN_US',n(4),'data-ppc'],
-          ['搜索表现 ASIN','DE','SQP_ASIN_DE',n(5),'data-ppc'],
-          ['搜索表现 ASIN','GB','SQP_ASIN_GB',n(6),'data-ppc']
-        ];
-        var hasSqp = n(4) + n(5) + n(6);
-        root.innerHTML = panel('导入历史（' + items.length + ' 个数据源 · 共 ' + items.reduce(function(s,it){return s+it[3];},0) + ' 条记录）', table(
-          ['数据类型','站点','数据表','记录数',''],
-          items.map(function(it){ return [it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>', btn('查看','',it[4])]; })
-        ), {flush:true, note:'关键词库 / PPC 广告 / 搜索表现（SQP ASIN 视图）各自按站点导入。搜索表现数据 2025Q4 精选已导入 DE / US / GB（含圣诞季），查看详情点「查看」。' + (hasSqp ? '' : '')});
-      });
+      // 上传弹窗
+      var upBtn = document.querySelector('#data-import-root + .tb .btn, .tb .btn');
+      function openImportDialog(){
+        var typeSel = '<div style="margin:2px 0 2px;font-size:12px;color:var(--t-3)">数据类型</div><select class="sel" id="data-type-sel" style="width:100%"><option>搜索表现ASIN视图</option></select>';
+        var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>DE</option><option>GB</option></select>';
+        var brandInp = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">品牌名（可选，留空则用 CSV 内 ASIN）</div><input class="inp" id="di-brand" style="width:100%;box-sizing:border-box" placeholder="如 BIGM / KOOOLET / Dapman">';
+        var fileBox = '<div style="margin:10px 0 2px;font-size:12px;color:var(--t-3)">选择亚马逊导出的 CSV 文件（搜索查询绩效 ASIN 视图 34 列格式）</div><input type="file" id="di-file" accept=".csv" style="width:100%">';
+        var note = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-2,#f4f6f8);border-radius:6px;font-size:12px;color:var(--t-3)">系统会自动识别文件里的 ASIN 与季度、按列名解析入库。同一 ASIN+季度+词 已存在会自动跳过，不会重复。</div>';
+        openModal('上传数据 CSV', typeSel + mktSel + brandInp + fileBox + note, function(close){
+          var brand = (document.getElementById('di-brand')||{}).value || '';
+          var file = (document.getElementById('di-file')||{}).files && document.getElementById('di-file').files[0];
+          if (!file){ toast('请先选择 CSV 文件'); return; }
+          if (file.size > 5*1024*1024){ toast('文件超过 5MB，请拆分后再传'); return; }
+          var mkt = (document.getElementById('data-mkt-sel')||{}).value || 'US';
+          var rd = new FileReader();
+          rd.onload = function(){
+            var csvText = String(rd.result || '');
+            if (!csvText || csvText.trim() === ''){ toast('文件内容为空'); return; }
+            var okBtn = document.querySelector('.modal__ok'); if (okBtn) okBtn.disabled = true;
+            API._post('/proj28/api/import', { data_type:'SQP_ASIN', marketplace:mkt, brand_name:brand, file_name:file.name, csv_text:csvText }, true).then(function(res){
+              if (okBtn) okBtn.disabled = false;
+              if (res.ok && res.data && res.data.success){
+                toast('导入完成：新增 ' + (res.data.inserted_rows||0) + ' 行，跳过重复 ' + (res.data.skipped_rows||0) + ' 行');
+                close();
+                loadHistory();
+              } else {
+                var msg = (res.data && res.data.error) ? res.data.error : '导入失败，请检查文件格式';
+                toast('导入失败：' + msg);
+              }
+            });
+          };
+          rd.onerror = function(){ toast('读取文件失败'); };
+          rd.readAsText(file, 'utf-8');
+        });
+      }
+      function loadHistory(){
+        var root2 = document.getElementById('data-import-root');
+        if (!root2) return;
+        root2.innerHTML = ghost('正在加载导入历史…');
+        Promise.all([
+          API.table('导入批次', {}, 200),
+          API.table('站点词库_US', {}, 200), API.table('站点词库_GB', {}, 200),
+          API.table('PPC出单词_US', {}, 200), API.table('PPC出单词_GB', {}, 200),
+          API.table('SQP_ASIN_US', {}, 200), API.table('SQP_ASIN_DE', {}, 200), API.table('SQP_ASIN_GB', {}, 200)
+        ]).then(function(rs){
+          var b = rs[0];
+          var batches = (b.ok && b.data && b.data.data) ? b.data.data : [];
+          var bt = (b.ok && b.data) ? (b.data.total||0) : 0;
+          function n(i){ return (rs[i]&&rs[i].ok&&rs[i].data)?(rs[i].data.total||0):0; }
+          var items = [
+            ['关键词库','US','站点词库_US',n(1),'data-kw'],
+            ['关键词库','GB','站点词库_GB',n(2),'data-kw'],
+            ['PPC 出单词','US','PPC出单词_US',n(3),'data-ppc'],
+            ['PPC 出单词','GB','PPC出单词_GB',n(4),'data-ppc'],
+            ['搜索表现 ASIN','US','SQP_ASIN_US',n(5),'data-ppc'],
+            ['搜索表现 ASIN','DE','SQP_ASIN_DE',n(6),'data-ppc'],
+            ['搜索表现 ASIN','GB','SQP_ASIN_GB',n(7),'data-ppc']
+          ];
+          function stTxt(s){
+            if (s === 'success') return '<span style="color:#1a7f37">成功</span>';
+            if (s === 'partial') return '<span style="color:#9a6700">部分跳过</span>';
+            if (s === 'skipped') return '<span style="color:#57606a">全部跳过</span>';
+            return s || '—';
+          }
+          var html = '';
+          html += panel('最近导入批次（' + batches.length + ' 条）', batches.length ? pagedTable(
+            ['时间','类型','站点','文件名','总数','新增','跳过','状态','操作人'],
+            batches.map(function(x){
+              return [
+                x['时间']||'—',
+                x['数据类型']||'—',
+                x['站点']||'—',
+                '<span class="m">'+(x['文件名']||'—')+'</span>',
+                '<span class="num">'+(x['总行数']??'—')+'</span>',
+                '<span class="num">'+(x['新增']??'—')+'</span>',
+                '<span class="num">'+(x['跳过']??'—')+'</span>',
+                stTxt(x['状态']),
+                x['操作人']||'—'
+              ];
+            })
+          , {flush:true}) : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});
+          html += panel('当前数据源存量（' + items.length + ' 个）', table(
+            ['数据类型','站点','数据表','记录数',''],
+            items.map(function(it){ return [it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>', btn('查看','',it[4])]; })
+          ), {flush:true, note:'各数据表当前总行数，供核对导入是否生效。'});
+          root2.innerHTML = html;
+          var u2 = document.querySelector('.tb .btn');
+          if (u2 && !u2.__bound){ u2.__bound = true; u2.onclick = openImportDialog; }
+        });
+      }
+      loadHistory();
+      // toolbar 按钮绑定（data-import 段内唯一的 btn）
+      var tb = document.querySelector('.tb .btn');
+      if (tb){ tb.__bound = true; tb.onclick = openImportDialog; }
     }, 0);
     return el;
   }
 });
+
