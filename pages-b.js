@@ -907,10 +907,11 @@ page('data-import', {
         var typeSel = '<div style="margin:2px 0 2px;font-size:12px;color:var(--t-3)">数据类型</div><select class="sel" id="data-type-sel" style="width:100%"><option>搜索表现ASIN视图</option></select>';
         var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>DE</option><option>GB</option></select>';
         var brandInp = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">品牌名（可选，留空则用 CSV 内 ASIN）</div><input class="inp" id="di-brand" style="width:100%;box-sizing:border-box" placeholder="如 BIGM / KOOOLET / Dapman">';
+        var seasonSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">季节/假日标记（生成时按此筛选）</div><select class="sel" id="di-season" style="width:100%"><option value="">未标记（全部参与）</option><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option><option value="HALLOWEEN">万圣节</option></select>';
         var fileBox = '<div style="margin:10px 0 2px;font-size:12px;color:var(--t-3)">选择亚马逊导出的 CSV 文件（搜索查询绩效 ASIN 视图 34 列格式）</div><input type="file" id="di-file" accept=".csv" style="width:100%">';
         var note = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg-2,#f4f6f8);border-radius:6px;font-size:12px;color:var(--t-3)">系统会自动识别文件里的 ASIN 与季度、按列名解析入库。同一 ASIN+季度+词 已存在会自动跳过，不会重复。</div>';
         var lastClose = null;
-        openModal('上传数据 CSV', typeSel + mktSel + brandInp + fileBox + note, function(close){
+        openModal('上传数据 CSV', typeSel + mktSel + brandInp + seasonSel + fileBox + note, function(close){
           lastClose = close;
           var brand = (document.getElementById('di-brand')||{}).value || '';
           var file = (document.getElementById('di-file')||{}).files && document.getElementById('di-file').files[0];
@@ -966,7 +967,8 @@ page('data-import', {
               if (lastClose) lastClose();
               showImportResult(file.name, mkt, 0, 0, 0, false, '网络错误，请重试');
             };
-            xhr.send(JSON.stringify({ data_type:'SQP_ASIN', marketplace:mkt, brand_name:brand, file_name:file.name, csv_text:csvText }));
+            var seasonTag = (document.getElementById('di-season')||{}).value || '';
+            xhr.send(JSON.stringify({ data_type:'SQP_ASIN', marketplace:mkt, brand_name:brand, file_name:file.name, csv_text:csvText, season_tag:seasonTag }));
           };
           rd.onerror = function(){ toast('读取文件失败'); if(lastClose) lastClose(); };
           rd.readAsText(file, 'utf-8');
@@ -1003,18 +1005,20 @@ page('data-import', {
           }
           var html = '';
           html += panel('最近导入批次（' + batches.length + ' 条）', batches.length ? pagedTable(
-            ['时间','类型','站点','文件名','总数','新增','跳过','状态','操作人'],
+            ['时间','类型','站点','季节','文件名','总数','新增','跳过','状态','操作人','操作'],
             batches.map(function(x){
               return [
                 x['时间']||'—',
                 x['数据类型']||'—',
                 x['站点']||'—',
+                x['季节']||'—',
                 '<span class="m">'+(x['文件名']||'—')+'</span>',
                 '<span class="num">'+(x['总行数']??'—')+'</span>',
                 '<span class="num">'+(x['新增']??'—')+'</span>',
                 '<span class="num">'+(x['跳过']??'—')+'</span>',
                 stTxt(x['状态']),
-                x['操作人']||'—'
+                x['操作人']||'—',
+                '<button class="btn" style="padding:3px 8px;font-size:12px;color:#c0392b" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post('/proj28/api/batch/delete',{batch_id:'+x['批次ID']+'}).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
               ];
             })
           , {flush:true}) : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});

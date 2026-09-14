@@ -432,6 +432,8 @@ page('sku-detail', {
           return '<option value="'+x['季节代码']+'">'+x['季节名称']+'</option>';
         }).join('');
         if (cur){ var found = rows.some(function(x){ return x['季节代码'] === cur; }); if (found) sel.value = cur; }
+        var kwBox = document.getElementById('gen-kw-seasons');
+        if (kwBox) kwBox.innerHTML = rows.map(function(x){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:normal"><input type="checkbox" value="'+x['季节代码']+'" style="width:auto"> '+x['季节名称']+'</label>'; }).join('');
       });
     }
     function submitNewSku(){
@@ -857,6 +859,9 @@ page('gen-new', {
         fld('季节范围', '<select id="gen-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>', '可修改（失败重做时改完再提交）') +
         fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="如 HomGoodz">', '可修改') +
         fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
+        fld('标题是否包含材质', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-title-mat" style="width:auto"> 允许材质词进标题（春夏防水款 / 材质是核心卖点时勾选）</label>') +
+        fld('词库参与生成', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-use-kw" checked style="width:auto"> 关键词库 / 广告词库参与文案生成</label>') +
+        fld('参与的季节/假日（留空=全部）', '<div id="gen-kw-seasons" style="display:flex;flex-wrap:wrap;gap:10px"></div>', '勾选哪些季节/假日的词库数据参与生成，不勾=不筛选全部参与') +
 
       '</div>' +
       '<div class="form g3" style="margin-top:14px">' +
@@ -923,7 +928,7 @@ page('gen-new', {
         if (_se){ var has = _se.querySelector('option[value="'+code+'"]'); if (!has){ _se.innerHTML = '<option value="'+code+'">'+(nm||code)+'</option>' + _se.innerHTML; } _se.value = code; }
         var _br = document.getElementById('gen-brand'); if (_br) _br.value = skuInfo['品牌名'] || '';
         var sess = (typeof session === 'function') ? session() : null;
-        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: val('gen-season') || skuInfo['季节范围'] || '', brand_name: val('gen-brand') || skuInfo['品牌名'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '' };
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: val('gen-season') || skuInfo['季节范围'] || '', brand_name: val('gen-brand') || skuInfo['品牌名'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '', title_include_material: (document.getElementById('gen-title-mat')||{}).checked || false, use_keyword_db: ((document.getElementById('gen-use-kw')||{}).checked !== false), keyword_seasons: (function(){ var cs=[]; var nb=document.getElementById('gen-kw-seasons'); if(nb) nb.querySelectorAll('input:checked').forEach(function(c){cs.push(c.value);}); return cs.join(','); })() };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
