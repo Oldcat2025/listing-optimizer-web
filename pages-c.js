@@ -152,7 +152,7 @@ page('cfg-market', {
       });
       function openMarketModal(){
         var fields = [
-          fld('站点', '<select class="ctl" id="mkt-code"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option><option>DE</option></select>'),
+          fld('站点', '<select class="ctl" id="mkt-code"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>'),
           fld('语言区域', '<input class="ctl" id="mkt-lang" placeholder="如 en_US">'),
           fld('Backend 最大字节', '<input class="ctl" id="mkt-bytes" type="number" value="250">'),
           fld('Title 标点策略', '<select class="ctl" id="mkt-punc"><option>无句末标点</option><option>保留逗号</option><option>全角标点</option></select>'),
@@ -290,7 +290,7 @@ page('cfg-forbidden', {
         var fields = [
           fld('词条', '<input class="ctl" id="f-word" placeholder="要禁用的词，如 bra">'),
           fld('类型', '<select class="ctl" id="f-type"><option>COMPLIANCE</option><option>TRADEMARK</option><option>OTHER</option></select>'),
-          fld('站点', '<select class="ctl" id="f-market"><option value="">通用</option><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>'),
+          fld('站点', '<select class="ctl" id="f-market"><option value="">通用</option><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>'),
           fld('语言', '<input class="ctl" id="f-lang" placeholder="如 en / 全部">'),
           fld('禁用原因', '<input class="ctl" id="f-reason" placeholder="为什么禁用这个词">')
         ];

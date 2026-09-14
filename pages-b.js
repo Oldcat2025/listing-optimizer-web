@@ -482,7 +482,7 @@ page('data-kw', {
     body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
@@ -550,7 +550,7 @@ page('data-ppc', {
         body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>DE</option><option>GB</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC / SQP 数据…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC / SQP 数据…') + '</div>';
     setTimeout(function(){
       function loadPpc(){
         var root = document.getElementById('data-ppc-root');
@@ -771,7 +771,7 @@ page('data-opp', {
     body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:130px"><option>US</option><option>DE</option><option>GB</option></select>', inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:130px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
     setTimeout(function(){
             var sortCol = '查询总量', sortDesc = true;
       function loadOpp(){
@@ -905,7 +905,7 @@ page('data-import', {
       }
       function openImportDialog(){
         var typeSel = '<div style="margin:2px 0 2px;font-size:12px;color:var(--t-3)">数据类型</div><select class="sel" id="data-type-sel" style="width:100%"><option>搜索表现ASIN视图</option></select>';
-        var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>DE</option><option>GB</option></select>';
+        var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>';
         var brandInp = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">品牌名（可选，留空则用 CSV 内 ASIN）</div><input class="inp" id="di-brand" style="width:100%;box-sizing:border-box" placeholder="如 BIGM / KOOOLET / Dapman">';
         var seasonSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">季节/假日标记（生成时按此筛选）</div><select class="sel" id="di-season" style="width:100%"><option value="">未标记（全部参与）</option><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option><option value="HALLOWEEN">万圣节</option></select>';
         var fileBox = '<div style="margin:10px 0 2px;font-size:12px;color:var(--t-3)">选择亚马逊导出的 CSV 文件（搜索查询绩效 ASIN 视图 34 列格式）</div><input type="file" id="di-file" accept=".csv" style="width:100%">';

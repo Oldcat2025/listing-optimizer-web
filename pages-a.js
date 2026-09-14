@@ -406,7 +406,7 @@ page('sku-detail', {
         fld('变体（产品族）', '<select id="nsku-family" class="ctl"><option>无（独立商品）</option></select>', '归入已有系列，可选') +
         fld('类目', '<select id="nsku-category" class="ctl"><option value="Home & Kitchen > Home Décor > Decorative Pillows">抱枕（Decorative Pillows）</option><option value="Kitchen & Dining > Table Runners">桌旗（Table Runners）</option><option value="Nursery > Crib Sheets">婴童床笠（Crib Sheets）</option></select>') +
         fld('季节范围', '<select id="nsku-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>') +
-        fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
+        fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>') +
         fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
         fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><img id="nsku-thumb" style="display:none;margin-top:8px;max-width:160px;max-height:160px;border-radius:8px;border:1px solid #e5e7eb"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
         fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
@@ -855,7 +855,7 @@ page('gen-new', {
     var html = '<div class="cols c21">' +
       panel('选择商品与站点', '<div class="form g2">'+
         fld('选择商品 <span style="color:var(--red)">*</span>', '<select id="gen-sku" class="ctl"><option>正在加载商品…</option></select>', '从失败重做进来会预选该商品；正常提交只显示还没生成文案的商品') +
-        fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>FR</option><option>IT</option><option>ES</option></select>') +
+        fld('目标市场', '<select id="gen-market" class="ctl"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>') +
         fld('季节范围', '<select id="gen-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>', '可修改（失败重做时改完再提交）') +
         fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="如 HomGoodz">', '可修改') +
         fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
