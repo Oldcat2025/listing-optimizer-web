@@ -727,81 +727,74 @@ page('sku-dna', {
         var r1 = rs[0];
         if (!r1.ok || !r1.data || r1.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r1.data&&r1.data.error)||'请检查网络或稍后重试'); return; }
         var _all = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
-        // [fix 09-02] 同 SKU 可能多次识别(重提/重跑)，按 SKU 去重保留识别时间最新的一条
         (function(){ var m = {}; _all.forEach(function(x){ var k = x['SKU']; var t = String(x['识别时间']||''); if (!m[k] || t > String(m[k]['识别时间']||'')) m[k] = x; }); rows = Object.keys(m).map(function(k){ return m[k]; }); })();
         var rows = rows;
         var skuRows = ((rs[1] && rs[1].data && rs[1].data.data)||[]);
-        if (!rows.length){ root.innerHTML = callout('warn','暂无识别结果','还没有商品完成「产品识别」。请先提交生成，系统会用 Gemini 识别产品图片、提炼精准卖点。'); return; }
+        if (!rows.length){ root.innerHTML = callout('warn','暂无识别结果','还没有商品完成「产品识别」。请先提交生成，系统会用 GPT-4o 识别产品图片、生成 9 维产品档案与精准主定位。'); return; }
         function safeParse(s){ if (!s) return null; if (typeof s === 'object') return s; try { return JSON.parse(s); } catch(e){ return null; } }
-        function intentCn(it){ var m={'OUTDOOR_LIVING':'户外家居爱好者','PATIO_DECOR':'庭院/露台装饰需求者','CHRISTMAS_DECOR':'圣诞节日装饰','HOLIDAY_DECOR':'节日装饰','FARMHOUSE_STYLE':'乡村田园风爱好者','AUTUMN_DECOR':'秋季装饰','YEAR_ROUND_DECOR':'日常家居装饰','HALLOWEEN':'万圣节装饰','MINIMALIST':'简约风爱好者','SUMMER_OUTDOOR':'夏季户外','WINTER_COZY':'冬季温馨风','HOLIDAY_SPECIFIC':'节日限定'}; return m[it]||it; }
-        var fieldCn = {'entity':'产品实体','size':'尺寸','quantity':'数量','material':'材质','craft':'工艺','structure':'结构','function':'功能','inclusion':'包含物','care':'护理','certification':'认证/安全','prohibited_claims':'禁止声明'};
-        var srcCn = {'PRODUCT_FACT_SHEET':'商品资料','GEMINI_VISION':'AI 看图识别','INFERRED':'AI 推断','DEFAULT':'默认'};
-        function pct(c){ if (c === undefined || c === null || c === '') return '—'; var n = parseFloat(c); if (isNaN(n)) return String(c); return Math.round(n*100)+'%'; }
+        function arr(v){ if (Array.isArray(v) && v.length) return v; if (typeof v === 'string' && v.trim()) return v.split(/[，,、;；]/).map(function(s){return s.trim();}).filter(Boolean); return []; }
+        function st(v){ return (v === null || v === undefined || v === '') ? '—' : String(v); }
+        function panel(t, c, o){ return '<div class="panel"' + (o && o.flush ? '' : ' style="margin-bottom:14px"') + '><div class="panel-t">' + t + '</div><div class="panel-b">' + c + '</div></div>'; }
+        function kv(pairs){ return '<table class="kv"><tbody>' + pairs.map(function(p){ return '<tr><td class="k">' + p[0] + '</td><td class="v">' + p[1] + '</td></tr>'; }).join('') + '</tbody></table>'; }
         function dnaOf(row){
+          var mode = st(row['识别方式']);
           var truth = safeParse(row['真相身份']) || {};
-          var registry = safeParse(row['事实注册表']) || [];
-          var visual = safeParse(row['视觉选择原型']) || {};
-          var rich = visual.rich || {};
-          var factVal = {};
-          (registry||[]).forEach(function(f){ factVal[f.field] = f.value; });
-          var primary = String(visual.primary||'');
-          var pm = primary.match(/^([a-z]+) pattern/i);
-          var patternText = pm ? pm[1] : (primary.indexOf('pattern')>=0 ? '特色图案' : '—');
-          var sceneText = '—';
-          (visual.secondary||[]).forEach(function(s2){ var m2 = String(s2).match(/staged scene: ([a-z]+)/i); if (m2) sceneText = m2[1]; });
-          var sceneCn = ({outdoor:'户外（花园/露台/阳台）',garden:'花园',living:'客厅',bedroom:'卧室',office:'办公室',patio:'露台',porch:'门廊'})[sceneText] || (sceneText==='—'?'—':sceneText);
-          var seasonScope = String(row['季节范围']||'');
-          var seasonCn = ({'SPRING_SUMMER':'春夏户外家纺','春夏':'春夏户外家纺','FALL':'秋冬装饰','秋冬':'秋冬装饰','ALL_SEASON':'全年通用'})[seasonScope] || '待补充';
-          var intents = (visual.compatible_intents||[]).map(intentCn);
-          var ev = visual.evidence || {};
-          var identityHtml = panel('商品识别', kv([
-            ['产品身份', truth.entity||'—'],
-            ['SKU', row['SKU']||'—'],
+          var mp = safeParse(row['主定位']) || {};
+          var kl = safeParse(row['关键词层级']) || {};
+          var ev = (safeParse(row['视觉选择原型']) || {}).evidence || {};
+          var color = safeParse(row['色彩定位']), elem = safeParse(row['核心元素']), style = safeParse(row['风格定位']);
+          var aud = safeParse(row['人群画像']), carr = safeParse(row['家具载体']), scene = safeParse(row['使用场景']);
+          var reason = safeParse(row['购买原因']), mood = safeParse(row['情绪氛围']), holiday = safeParse(row['季节节日']);
+          var func = safeParse(row['核心功能']), spec = safeParse(row['规格参数']), diff = safeParse(row['差异化卖点']);
+          var ident = panel('识别信息', kv([
+            ['SKU', row['SKU'] || '—'],
+            ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
+            ['产品身份', truth.entity || '—'],
             ['识别模型', ev.vision_model || row['识别模型'] || '—'],
-            ['识别时间', String(row['识别时间']||'—').slice(0,16).replace('T',' ')],
-            ['图片指纹', ev.image_hash ? '<code style="font-size:11px">'+ev.image_hash+'</code>' : '—'],
+            ['识别时间', st(row['识别时间']).slice(0,16).replace('T',' ')],
           ]));
-          var peopleHtml = panel('人群定位', kv([
-            ['目标人群', visual.target_audience || (intents.length ? intents.join('、') : '—')],
-            ['家居风格', (rich.home_styles||[]).length ? rich.home_styles.join('、') : '—'],
-            ['季节/节日', (rich.season_holiday||[]).length ? rich.season_holiday.join('、') : seasonCn],
-          ]));
-          var sceneHtml = panel('使用场景', kv([
-            ['摆放场景', (rich.use_scenes||[]).length ? rich.use_scenes.join('、') : (sceneCn==='—' ? '—':sceneCn)],
-            ['场景情绪', rich.home_emotion || '—'],
-            ['礼品场景', (rich.gift_scenes||[]).length ? rich.gift_scenes.join('、') : '—'],
-          ]));
-          // [fix] 从 primary 提取完整图案描述（如 'festive highland cow portrait'），避免 'other'/'—'
-          var patFull = '';
-          var _pi = String(visual.primary||'').indexOf(' pattern ');
-          if (_pi > 0) patFull = String(visual.primary).slice(0, _pi).trim();
-          if (!patFull && patternText && patternText!=='—' && patternText.toLowerCase()!=='other') patFull = patternText;
-          var artStyle = rich.art_style || '';
-          var motifTxt = (rich.pattern_elements||[]).length ? rich.pattern_elements.join('、') : (patFull || rich.differentiation || '—');
-          var colorSys = rich.color_system || ((rich.color_palette||[]).length ? ('色调: ' + rich.color_palette.join('、')) : '—');
-          var styleHtml = panel('图案风格', kv([
-            ['风格', artStyle || (patFull ? patFull + ' 风' : '—')],
-            ['图案元素', motifTxt],
-            ['色调体系', colorSys],
-            ['主色板', (rich.color_palette||[]).length ? rich.color_palette.join('、') : '—'],
-            ['构图', rich.visual_composition || '—'],
-          ]));
-          var sellingHtml = panel('精准卖点', (visual.primary) ? kv([
-            ['主卖点', visual.primary],
-            ['差异化卖点', rich.differentiation || '—'],
-            ['材质触感', rich.texture_feel || factVal['material'] || '—'],
-            ['搭配建议', rich.style_pairing || '—'],
-            ['购买驱动', rich.buyer_aspiration || '—'],
-            ['次要卖点', (visual.secondary||[]).length ? visual.secondary.join('；') : '—'],
-            ['卖点置信度', visual.confidence||'—'],
-          ]) : callout('warn','暂无视觉卖点','产品图片缺失或识别降级，视觉卖点未生成。请先补传产品图片。'));
-          function isEmptyFact(v){ var s = String(v||'').trim(); return !s || s==='—' || /^not specified/i.test(s); }
-          var detailRows = (registry||[]).filter(function(f){ return !isEmptyFact(f.value); }).map(function(f){ return [ fieldCn[f.field] || f.field, String(f.value), pct(f.inferredConfidence), srcCn[f.source] || f.source || '—' ]; });
-          var detailHtml = panel('AI 识别的事实明细（共 ' + detailRows.length + ' 项）', detailRows.length ? table(['事实','识别值','置信度','来源'], detailRows) : '—', {flush:true});
-          var chips = [];
-          [['尺寸',factVal['size']],['材质',factVal['material']],['数量',factVal['quantity']],['包含',factVal['inclusion']],['护理',factVal['care']]].forEach(function(p){ if (p[1]) chips.push('<span style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:4px 12px;font-size:12px;margin:3px">'+p[0]+'：'+p[1]+'</span>'); });
-          var factHtml = panel('关键事实', chips.length ? '<div>'+chips.join('')+'</div>' : '—');
-          return '<div class="cols c2">' + identityHtml + peopleHtml + '</div><div class="cols c2">' + sceneHtml + styleHtml + '</div>' + sellingHtml + detailHtml + factHtml;
+          var posHtml = panel('🎯 主定位（一句话产品画像）', mp.local ?
+            '<div style="font-size:14px;font-weight:600;color:#111;line-height:1.55">' + mp.local + '</div>' +
+            '<div style="font-size:12px;color:#888;margin-top:6px">' + st(mp.zh) + '</div>'
+            : '—');
+          var dims = '';
+          if (mode === 'visual') {
+            dims =
+              '<div class="cols c2">' +
+                panel('① 色彩定位', color ? kv([['主色', st(color.primary_color)], ['次色', arr(color.secondary_colors).join('、') || '—'], ['配色体系', st(color.color_system)], ['颜色关键词', arr(color.local_keywords).join('、') || '—']]) : '—') +
+                panel('② 核心元素', elem ? kv([['图案元素', arr(elem.pattern_elements).join('、') || '—'], ['设计手法', st(elem.design_technique)]]) : '—') +
+              '</div><div class="cols c2">' +
+                panel('③ 风格定位', style ? kv([['主风格', st(style.primary_style)], ['次风格', arr(style.secondary_styles).join('、') || '—'], ['排除风格', (style.excluded_styles || []).map(function(e){ return typeof e === 'string' ? e : (st(e.style) + '（' + st(e.reason) + '）'); }).join('；') || '—']]) : '—') +
+                panel('④ 人群画像', aud ? kv([['主人群', st(aud.primary_audience)], ['次人群', arr(aud.secondary_audiences).join('、') || '—']]) : '—') +
+              '</div><div class="cols c2">' +
+                panel('⑤ 家具载体', carr ? kv([['主载体', st(carr.primary_carrier)], ['次载体', arr(carr.secondary_carriers).join('、') || '—']]) : '—') +
+                panel('⑥ 使用场景', scene ? kv([['主场景', st(scene.primary_scene)], ['次场景', arr(scene.secondary_scenes).join('、') || '—'], ['搭配建议', st(scene.pairing_suggestion)]]) : '—') +
+              '</div><div class="cols c2">' +
+                panel('⑦ 购买原因', reason ? kv([['主动机', st(reason.primary_motivation)], ['次动机', arr(reason.secondary_motivations).join('、') || '—']]) : '—') +
+                panel('⑧ 情绪氛围', mood ? kv([['情绪词', arr(mood.mood_words).join('、') || '—'], ['氛围', st(mood.atmosphere)]]) : '—') +
+              '</div>' +
+              panel('⑨ 季节节日', holiday ? kv([['核心节日', st(holiday.core_holiday)], ['兼容节日', arr(holiday.compatible_holidays).join('、') || '—']]) : '—');
+          } else {
+            dims =
+              '<div class="cols c2">' +
+                panel('核心功能', func ? kv([['主要用途', st(func.primary_use)], ['功能特性', arr(func.key_features).join('、') || '—']]) : '—') +
+                panel('规格参数', spec ? (typeof spec === 'object' ? kv(Object.keys(spec).map(function(k){ return [k, st(spec[k])]; })) : st(spec)) : '—') +
+              '</div><div class="cols c2">' +
+                panel('使用场景', scene ? kv([['主场景', st(scene.primary_scene)], ['使用场所', st(scene.usage_place)]]) : '—') +
+                panel('人群画像', aud ? kv([['主人群', st(aud.primary_audience)], ['次人群', arr(aud.secondary_audiences).join('、') || '—']]) : '—') +
+              '</div><div class="cols c2">' +
+                panel('购买原因', reason ? kv([['主动机', st(reason.primary_motivation)]]) : '—') +
+                panel('情绪·节日', kv([['情绪', mood ? (arr(mood.mood_words).join('、') || '—') : '—'], ['节日', holiday ? st(holiday.core_holiday) : '—']])) +
+              '</div>' +
+              panel('差异化卖点', diff ? kv([['独特卖点', arr(diff.unique_selling_points).join('、') || st(diff)]]) : '—');
+          }
+          var kwHtml = panel('关键词层级（供文案生成取词）', kl ?
+            kv([['产品词', arr(kl.product_words).join('、') || '—'],
+                ['差异词', arr(kl.differentiator_words).join('、') || '—'],
+                ['风格场景词', arr(kl.style_scene_words).join('、') || '—'],
+                ['人群动机词', arr(kl.audience_motivation_words).join('、') || '—'],
+                ['Backend 搜索词', arr(kl.backend_terms).join('、') || '—']]) : '—');
+          return ident + posHtml + dims + kwHtml;
         }
         var imgMap = {};
         skuRows.forEach(function(sx){ if (sx && sx['SKU']) imgMap[sx['SKU']] = sx['产品图片URL'] || ''; });
@@ -809,12 +802,12 @@ page('sku-dna', {
         if (!cur || !rows.some(function(x){ return x['SKU'] === cur; })) cur = rows[0]['SKU'];
         function pick(v){ return rows.filter(function(x){ return x['SKU'] === v; })[0] || rows[0]; }
         function imgInner(url){ if (!url) return '<div style="width:76px;height:76px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999;background:#f3f4f6;border-radius:10px">无图片</div>'; return thumbHtml(url, 76); }
-        var selOpts = rows.map(function(x){ return '<option value="'+x['SKU']+'"'+(x['SKU']===cur?' selected':'')+'>'+x['SKU']+'</option>'; }).join('');
+        var selOpts = rows.map(function(x){ return '<option value="' + x['SKU'] + '"' + (x['SKU'] === cur ? ' selected' : '') + '>' + x['SKU'] + '</option>'; }).join('');
         root.innerHTML =
           '<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;flex-wrap:wrap">' +
             '<div id="dna-img-box" style="flex-shrink:0">' + imgInner(imgMap[cur]) + '</div>' +
-            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（已识别 '+rows.length+' 个）</div>' +
-            '<select id="dna-sku-sel" style="width:100%;max-width:520px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;background:#fff">'+selOpts+'</select></div>' +
+            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（已识别 ' + rows.length + ' 个）</div>' +
+            '<select id="dna-sku-sel" style="width:100%;max-width:520px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;background:#fff">' + selOpts + '</select></div>' +
             '<div style="font-size:11px;color:#aaa;max-width:200px">下拉切换 → 查看该商品的产品图片与识别详情</div>' +
           '</div>' +
           '<div id="dna-content">' + dnaOf(pick(cur)) + '</div>';
@@ -828,7 +821,7 @@ page('sku-dna', {
           if (ct) ct.innerHTML = dnaOf(pick(v));
         };
       });
-    }, 0);;
+    }, 0);
     return el;
   }
 });
