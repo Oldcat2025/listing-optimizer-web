@@ -89,7 +89,7 @@ const NAV = [
   ]},
   { g:'②', n:'2', t:'我的商品', k:'sku', items:[
     ['2.1','商品列表','sku-list','SKU List'],
-    ['2.2','系列与变体','sku-family','产品族 Family Router'],
+    ['2.2','父体','sku-family','父体 Parent'],
     ['2.3','商品资料填写','sku-detail','商品事实表 Product Truth'],
     ['2.4','系统识别结果','sku-dna','Product DNA'],
   ]},
@@ -283,6 +283,13 @@ function bar(pct, tone){
 function callout(kind, title, body){
   return '<div class="callout'+(kind?' '+kind:'')+'"><b>'+title+'</b><p>'+body+'</p></div>';
 }
+
+/* ─── 尺寸多选共用工具（2.2 父体弹窗 / 2.3 商品资料 共用）─── */
+var SKU_SIZE_OPTIONS = ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch'];
+function sizeCheckboxesHtml(){ return SKU_SIZE_OPTIONS.map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join(''); }
+function checkedVals(boxId){ var box=document.getElementById(boxId); if(!box) return []; return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(x){ return x.value; }); }
+function sizeTag(s){ return String(s||'').replace(/\s*inch\s*/i,'').replace(/[^0-9a-zA-ZxX]/g,'').toUpperCase(); }
+function resetCheckboxes(boxId){ var box=document.getElementById(boxId); if(!box) return; Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(x){ x.checked=false; }); }
 
 function fld(label, ctl, hint){
   return '<div class="fld"><label>'+label+'</label>'+ctl+

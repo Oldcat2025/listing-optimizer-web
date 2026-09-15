@@ -401,9 +401,9 @@ page('sku-detail', {
       return '<div class="form g2">' +
         fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
         fld('商品是什么（英文核心词）<span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">', '写进标题的第一个词，比如 pillow covers') +
-        fld('尺寸 <span style="color:var(--red)">*</span>', '<select id="nsku-dimensions" class="ctl"><option>16x16 inch</option><option>18x18 inch</option><option>20x20 inch</option><option>24x24 inch</option><option>26x26 inch</option></select>') +
+        fld('尺寸 <span style="color:var(--red)">*</span>（可多选）', '<div id="nsku-dims" class="ctl" style="display:flex;flex-wrap:wrap;gap:2px;height:auto;min-height:34px;align-items:center">' + sizeCheckboxesHtml() + '</div>', '勾选 1 个 = 建 1 个商品；勾选多个 = <b>每个尺寸各建一个商品</b>（SKU 自动加尺寸后缀，如 -18X18），它们可用同一个「父体ID」归入同一父体') +
         fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">', '一套几个，比如 set of 2') +
-        fld('变体（产品族）', '<select id="nsku-family" class="ctl"><option>无（独立商品）</option></select>', '归入已有系列，可选') +
+        fld('父体', '<select id="nsku-family" class="ctl"><option>无（独立商品）</option></select>', '归入已有父体，可选；勾选多个尺寸时会各建一个商品，填同一个父体ID即可归入同一父体') +
         fld('类目', '<select id="nsku-category" class="ctl"><option value="Home & Kitchen > Home Décor > Decorative Pillows">抱枕（Decorative Pillows）</option><option value="Kitchen & Dining > Table Runners">桌旗（Table Runners）</option><option value="Nursery > Crib Sheets">婴童床笠（Crib Sheets）</option></select>') +
         fld('季节范围', '<select id="nsku-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>') +
         fld('目标市场', '<select id="nsku-market" class="ctl"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>') +
@@ -438,35 +438,59 @@ page('sku-detail', {
     }
     function submitNewSku(){
       function val(id){ return (document.getElementById(id)||{}).value || ''; }
-      var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-dimensions','尺寸'],['nsku-quantity','数量']];
+      var required = [['nsku-sku','SKU 编号'],['nsku-entity','商品是什么'],['nsku-quantity','数量']];
       var missing = required.filter(function(x){ return !val(x[0]); });
       if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
+      // [fix 09-16e] 2.3 尺寸改多选（二期 PRD §14）：勾选 1 个建 1 个商品；勾选多个则每个尺寸各建一个商品，
+      // 多尺寸时 SKU 自动加尺寸后缀，便于用同一个「父体ID」归入同一父体。
+      var dims = checkedVals('nsku-dims');
+      if (!dims.length){ toast('还缺必填项：尺寸（至少勾选一个）'); return; }
       var sku = val('nsku-sku');
-      API.table('SKU_输入表', {SKU: sku}, 1).then(function(r){
+      var multi = dims.length > 1;
+      var targets = dims.map(function(d){ return { size: d, sku: multi ? (sku + '-' + sizeTag(d)) : sku }; });
+      API.table('SKU_输入表', {SKU: sku}, 200).then(function(r){
         var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
-        var exists = rows.some(function(x){ return x['SKU'] === sku; });
-        if (exists){ toast('SKU ' + sku + ' 已经存在，请换一个编号'); return; }
-        var body = {
-          sku: sku, marketplace: val('nsku-market') || 'US',
-          category: val('nsku-category'), season_scope: val('nsku-season'),
-          family_id: val('nsku-family'),
-          brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
-          product_entity: val('nsku-entity'), dimensions: val('nsku-dimensions'),
-          quantity: val('nsku-quantity'), material: val('nsku-material'),
-          craft: val('nsku-craft'), structure: val('nsku-structure'),
-          function: val('nsku-function'), inclusion: val('nsku-inclusion'),
-          care: val('nsku-care'), certification: val('nsku-certification'),
-          prohibited_claims: val('nsku-prohibited')
-        };
-        API.create(body).then(function(r2){
-          if (r2.ok && r2.data && r2.data.success){
-            toast('已保存商品 ' + sku + '，可去「新建生成任务」生成文案');
-            var gg = document.getElementById('go-gen-btn'); if (gg){ gg.style.display = 'inline-block'; gg.onclick = function(){ location.hash = 'gen-new'; }; }
+        var existed = targets.filter(function(t){ return rows.some(function(x){ return x['SKU'] === t.sku; }); });
+        if (existed.length){ toast('已存在，请换编号：' + existed.map(function(t){ return t.sku; }).join('、')); return; }
+        function baseBody(){
+          return {
+            marketplace: val('nsku-market') || 'US',
+            category: val('nsku-category'), season_scope: val('nsku-season'),
+            family_id: val('nsku-family'),
+            brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
+            product_entity: val('nsku-entity'),
+            quantity: val('nsku-quantity'), material: val('nsku-material'),
+            craft: val('nsku-craft'), structure: val('nsku-structure'),
+            function: val('nsku-function'), inclusion: val('nsku-inclusion'),
+            care: val('nsku-care'), certification: val('nsku-certification'),
+            prohibited_claims: val('nsku-prohibited')
+          };
+        }
+        var created = 0, failed = [];
+        function step(k){
+          if (k >= targets.length){
+            if (failed.length){
+              toast('已保存 ' + created + ' 个，失败 ' + failed.length + ' 个：' + failed.join('；'));
+            } else {
+              toast(multi ? ('已保存 ' + created + ' 个商品（按尺寸各一个），可去「新建生成任务」生成文案')
+                          : ('已保存商品 ' + targets[0].sku + '，可去「新建生成任务」生成文案'));
+              var gg = document.getElementById('go-gen-btn'); if (gg){ gg.style.display = 'inline-block'; gg.onclick = function(){ location.hash = 'gen-new'; }; }
+            }
             ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
+            resetCheckboxes('nsku-dims');
             var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
+            return;
           }
-          else { toast('保存失败：' + ((r2.data && r2.data.error) || '请检查网络')); }
-        });
+          var body = baseBody();
+          body.sku = targets[k].sku;
+          body.dimensions = targets[k].size;
+          API.create(body).then(function(r2){
+            if (r2.ok && r2.data && r2.data.success){ created++; }
+            else { failed.push(targets[k].sku + '（' + ((r2.data && r2.data.error) || '网络异常').slice(0,40) + '）'); }
+            step(k + 1);
+          });
+        }
+        step(0);
       });
     }
     function bindSkuUpload(){
@@ -545,7 +569,7 @@ page('sku-detail', {
         var skuName = (input && input['SKU']) || (fact && fact['SKU']) || '—';
         var leftPairs = input ? [
           ['SKU', input['SKU']||'—'],
-          ['产品族ID', input['产品族ID']||'—'],
+          ['父体ID', input['产品族ID']||'—'],
           ['目标市场', input['目标市场']||'—'],
           ['类目', input['类目']||'—'],
           ['季节范围', input['季节范围']||'—'],
@@ -585,41 +609,42 @@ page('sku-detail', {
 page('sku-family', {
   roles:['运营','管理员'],
   guide:[
-    '同一系列的商品<b>共享图案、材质、风格</b>，各自<b>独享尺寸、数量</b>。',
+    '同一父体下的商品<b>共享图案、材质、风格</b>，各自<b>独享尺寸、数量</b>。',
     '不要为了让文案看起来不一样，就去改主图案或主风格——<b>每个商品写到最好就行，相似是允许的</b>。',
-    '注意「季节混装」告警：同图案的四季款和圣诞款建在一个系列里，容易串词。'
+    '注意「季节混装」告警：同图案的四季款和圣诞款建在一个父体里，容易串词。'
   ],
   spec:{
-    q:'哪些商品属于同一系列？共享什么、各自独享什么。',
-    acts:['建系列','移入/移出','看系列内差异'],
+    q:'哪些商品属于同一父体？共享什么、各自独享什么。',
+    acts:['建父体','移入/移出','看父体内差异'],
     wf:['无'],
     reads:['product_family','sku','fact_registry'],
     writes:['product_family','sku.product_family_id'],
     limits:[
       '禁止为制造差异改主风格 / 主节日 / 主图案（F4.10 Family Router）',
-      '同系列不同尺寸文案<b>允许高度相似</b>，单个商品最优优先',
-      '系列只保证同款不串，<b>不保证季节不串</b>——季节靠「季节款式」字段'
+      '同一父体下不同尺寸的文案<b>允许高度相似</b>，单个商品最优优先',
+      '父体只保证同款不串，<b>不保证季节不串</b>——季节靠「季节款式」字段'
     ]
   },
     body:function(){
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
     function openNewFamilyModal(){
       var html = '<div class="form g2">' +
-        fld('变体编号（产品族ID）<span style="color:var(--red)">*</span>', '<input id="nfam-id" class="ctl" placeholder="如 FLORAL-SERIES-01">', '这个变体的唯一编号，新增商品时用它来归入') +
+        fld('父体编号（父体ID）<span style="color:var(--red)">*</span>', '<input id="nfam-id" class="ctl" placeholder="如 FLORAL-SERIES-01">', '这个父体的唯一编号，新增商品时用它来归入') +
         fld('共享图案', '<input id="nfam-pattern" class="ctl" placeholder="如 floral print">') +
         fld('共享材质', '<input id="nfam-material" class="ctl" placeholder="如 faux linen">') +
         fld('共享风格', '<input id="nfam-style" class="ctl" placeholder="如 modern farmhouse">') +
+        '<div style="grid-column:1 / -1">' + fld('子体尺寸（可多选）', '<div id="nfam-sizes" style="display:flex;flex-wrap:wrap;gap:2px;padding:6px 0">' + sizeCheckboxesHtml() + '</div>', '一个父体下常含多个尺寸。勾选后这些尺寸作为该父体的子体尺寸集合；去「商品资料填写」建商品时按尺寸各建一个即可。') + '</div>' +
         '</div>';
-      openModal('新增变体（先建变体，再去「商品资料填写」把商品归入）', html, function(close){
+      openModal('新增父体（先建父体，再去「商品资料填写」把商品归入）', html, function(close){
         var fid = (document.getElementById('nfam-id')||{}).value || '';
-        if (!fid){ toast('请填写变体编号'); return; }
-        API.createFamily({ family_id: fid, shared_pattern: (document.getElementById('nfam-pattern')||{}).value || '', shared_material: (document.getElementById('nfam-material')||{}).value || '', shared_style: (document.getElementById('nfam-style')||{}).value || '' }).then(function(r){
-          if (r.ok && r.data && r.data.success){ toast('变体 ' + fid + ' 已创建'); close(); }
+        if (!fid){ toast('请填写父体编号'); return; }
+        API.createFamily({ family_id: fid, shared_pattern: (document.getElementById('nfam-pattern')||{}).value || '', shared_material: (document.getElementById('nfam-material')||{}).value || '', shared_style: (document.getElementById('nfam-style')||{}).value || '', sizes: checkedVals('nfam-sizes') }).then(function(r){
+          if (r.ok && r.data && r.data.success){ toast('父体 ' + fid + ' 已创建'); close(); }
           else { toast('创建失败：' + ((r.data && r.data.error) || '请检查网络')); }
         });
       }, '创建');
     }
-    var el = toolbar([], ['<button class="btn" id="fam-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增变体</button>']) + '<div id="sku-family-root">' + ghost('正在加载系列数据…') + '</div>';
+    var el = toolbar([], ['<button class="btn" id="fam-new-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">新增父体</button>']) + '<div id="sku-family-root">' + ghost('正在加载父体数据…') + '</div>';
     setTimeout(function(){
       var nb = document.getElementById('fam-new-btn'); if (nb) nb.onclick = openNewFamilyModal;
       Promise.all([API.table('产品族', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
@@ -633,15 +658,15 @@ page('sku-family', {
         rows.forEach(function(x){ var fid = x['产品族ID'] || ''; if (!byFamily[fid]) byFamily[fid] = []; byFamily[fid].push(x); });
         var famList = famRows.map(function(f){
           var fid = f.family_id || '';
-          return { fid: fid, pattern: f.shared_pattern, material: f.shared_material, style: f.shared_style, members: byFamily[fid] || [] };
+          return { fid: fid, pattern: f.shared_pattern, material: f.shared_material, style: f.shared_style, sizes: (f.sizes || []), members: byFamily[fid] || [] };
         });
         var famIdSet = {};
         famRows.forEach(function(f){ if (f.family_id) famIdSet[f.family_id] = true; });
         var orphan = [];
         Object.keys(byFamily).forEach(function(fid){ if (!fid || !famIdSet[fid]){ orphan = orphan.concat(byFamily[fid]); } });
         function renderMembers(fam){
-          var t = '变体 ' + fam.fid + ' 的商品（' + fam.members.length + ' 个）';
-          if (!fam.members.length){ return panel(t, callout('warn','这个变体还没有商品','去「商品资料填写」新增商品时，把「产品族ID」填成 ' + fam.fid + ' 即可归入这个变体。'), {flush:true}); }
+          var t = '父体 ' + fam.fid + ' 下的商品（' + fam.members.length + ' 个）';
+          if (!fam.members.length){ return panel(t, callout('warn','这个父体下还没有商品','去「商品资料填写」新增商品时，把「父体ID」填成 ' + fam.fid + ' 即可归入这个父体。'), {flush:true}); }
           return panel(t, table(
             ['图片','SKU','目标市场','类目','季节范围','处理状态',''],
             fam.members.map(function(m){ return [
@@ -655,19 +680,20 @@ page('sku-family', {
             ]; })
           ), {flush:true});
         }
-        var famListHtml = famList.length ? table(['变体编号','共享图案','共享材质','共享风格','商品数',''],
+        var famListHtml = famList.length ? table(['父体编号','共享图案','共享材质','共享风格','子体尺寸','商品数',''],
             famList.map(function(f, i){ return [
               '<span class="m">' + f.fid + '</span>',
               f.pattern || '—',
               f.material || '—',
               f.style || '—',
+              (f.sizes && f.sizes.length ? f.sizes.join(' / ') : '—'),
               '<b>' + f.members.length + '</b>',
               '<button class="btn btn--ghost" data-famx="'+i+'">展开看商品</button>'
             ]; })
-          ) : callout('warn','还没有变体','点右上角「新增变体」创建第一个变体。');
-        var html = panel('变体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一变体共享图案/材质/风格，各自独享尺寸/数量。点「展开看商品」查看该变体下的所有商品。'});
+          ) : callout('warn','还没有父体','点右上角「新增父体」创建第一个父体。');
+        var html = panel('父体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一父体共享图案/材质/风格，各自独享尺寸/数量。点「展开看商品」查看该父体下的所有商品。'});
         if (orphan.length){
-          html += panel('未归入变体的商品（共 ' + orphan.length + ' 个）', table(['图片','SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
+          html += panel('未归入父体的商品（共 ' + orphan.length + ' 个）', table(['图片','SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
             thumbHtml(m['产品图片URL']),
             '<span class="m">' + (m['SKU']||'—') + '</span>',
             m['目标市场']||'—',
@@ -675,7 +701,7 @@ page('sku-family', {
             m['季节范围']||'—',
             chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
             btn('详情', '', 'sku-dna', (m['SKU']||''))
-          ]; })), {flush:true, note:'这些商品没填「产品族ID」，去「商品资料填写」补上即可归入对应变体。'});
+          ]; })), {flush:true, note:'这些商品没填「父体ID」，去「商品资料填写」补上即可归入对应父体。'});
         }
         html += '<div id="fam-members">' + (famList.length ? renderMembers(famList[0]) : '') + '</div>';
         root.innerHTML = html;
