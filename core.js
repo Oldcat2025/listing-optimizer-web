@@ -27,6 +27,8 @@ var API = {
   listings: function(){ return this._post('/proj28/api/listings', {}, true); },
   create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); },
   createFamily: function(fam){ return this._post('/proj28/api/families/create', fam, true); },
+  // [二期需求1] 商品模板：save / list / delete（WH-Template）
+  template: function(t){ return this._post('/proj28/api/templates', t, true); },
   auditSku: function(a){ return this._post('/proj28/api/skus/audit', a, true); },
   createCategory: function(c){ return this._post('/proj28/api/categories/create', c, true); },
   createMarket: function(m){ return this._post('/proj28/api/markets/create', m, true); },
@@ -577,6 +579,90 @@ function regenVariantTitle(sku, btn){
   });
 }
 
+/* [二期需求1] 商品模板 —— 2.3 页面「另存为模板 / 用模板填充 / 删除模板」
+   设计要点：模板只记「每次都要重复填」的属性；SKU 编号 / 产品图片 / 父体ID 这三个逐商品不同的
+   **不写入模板、填充时也不覆盖**（避免把上一条商品的专有信息带到下一条）。 */
+var TPL_CACHE = [];
+function tplInit(){
+  var sel = document.getElementById('tpl-select');
+  if (!sel) return;
+  API.template({ action: 'list' }).then(function (r) {
+    var list = (r && r.data && r.data.templates) ? r.data.templates : [];
+    TPL_CACHE = list;
+    sel.innerHTML = '<option value="">（选择模板一键填充）</option>' + list.map(function (t) {
+      return '<option value="' + encodeURIComponent(t.name) + '">' + t.name + (t.market ? '（' + t.market + '）' : '') + '</option>';
+    }).join('');
+    var hint = document.getElementById('tpl-hint');
+    if (hint && !list.length) hint.innerHTML = '还没有模板 —— 把常用属性填好后点「<b>另存为模板</b>」，下次一键填充。';
+  });
+}
+function tplFill(){
+  var sel = document.getElementById('tpl-select');
+  var name = sel ? decodeURIComponent(sel.value || '') : '';
+  if (!name){ toast('先选一个模板'); return; }
+  var t = null;
+  for (var i = 0; i < TPL_CACHE.length; i++) { if (TPL_CACHE[i].name === name) t = TPL_CACHE[i]; }
+  if (!t){ toast('模板内容读不到，请刷新后重试'); return; }
+  var p = t.payload || {};
+  function set(id, v){ var e = document.getElementById(id); if (e && v !== undefined && v !== null && String(v) !== '') e.value = String(v); }
+  set('nsku-entity', p.product_entity); set('nsku-quantity', p.quantity);
+  set('nsku-brand', p.brand_name);      set('nsku-category', p.category);
+  set('nsku-season', p.season_scope);   set('nsku-market', p.marketplace);
+  set('nsku-material', p.material);     set('nsku-craft', p.craft);
+  set('nsku-structure', p.structure);   set('nsku-function', p['function']);
+  set('nsku-inclusion', p.inclusion);   set('nsku-care', p.care);
+  set('nsku-certification', p.certification); set('nsku-prohibited', p.prohibited_claims);
+  // 尺寸：按模板勾选。⚠️ 尺寸下拉是「按站点单位」显示的（US 用 inch、欧站用 cm），
+  // 所以模板存的尺寸与当前站点的可选项可能字面对不上 —— 这时**必须显性告知**，不能静默不勾。
+  var box = document.getElementById('nsku-dims');
+  var sizeNote = '', sizeHit = 0, sizeTotal = 0;
+  if (box && Array.isArray(p.sizes) && p.sizes.length){
+    sizeTotal = p.sizes.length;
+    var cbs = box.querySelectorAll('input[type=checkbox]');
+    for (var k = 0; k < cbs.length; k++){ var ok = p.sizes.indexOf(cbs[k].value) >= 0; cbs[k].checked = ok; if (ok) sizeHit++; }
+    if (sizeHit > 0 && sizeHit === sizeTotal) sizeNote = '，尺寸也勾好了 ' + sizeHit + ' 个（可修改）';
+    else if (sizeHit > 0) sizeNote = '；尺寸勾上 ' + sizeHit + '/' + sizeTotal + ' 个（其余与本站点下拉项对不上，请手动勾选）';
+    else sizeNote = '；⚠️ 模板里的尺寸（' + p.sizes.join(' / ') + '）与本站点下拉项对不上（下拉按站点单位显示，US 是 inch、欧洲站是 cm），<b>请手动勾选尺寸</b>';
+  }
+  toast('已用模板「' + name + '」填充' + sizeNote + '；SKU 编号、图片、父体ID 未动');
+}
+function tplSaveAs(){
+  var name = (window.prompt('给这套资料起个模板名（例如：抱枕套·faux linen 双面印刷）', '') || '').trim();
+  if (!name) return;
+  function val(id){ return (document.getElementById(id)||{}).value || ''; }
+  var dims = (typeof checkedVals === 'function') ? checkedVals('nsku-dims') : [];
+  var payload = {
+    marketplace: val('nsku-market') || 'US', category: val('nsku-category'),
+    season_scope: val('nsku-season'), brand_name: val('nsku-brand'),
+    product_entity: val('nsku-entity'), quantity: val('nsku-quantity'),
+    material: val('nsku-material'), craft: val('nsku-craft'),
+    structure: val('nsku-structure'), 'function': val('nsku-function'),
+    inclusion: val('nsku-inclusion'), care: val('nsku-care'),
+    certification: val('nsku-certification'), prohibited_claims: val('nsku-prohibited'),
+    sizes: dims
+  };
+  var blank = 0;
+  for (var kk in payload){ if (kk !== 'sizes' && !String(payload[kk]).trim()) blank++; }
+  if (blank >= 12){ toast('表单几乎是空的，先填好资料再存模板'); return; }
+  var sess = (typeof session === 'function') ? session() : null;
+  API.template({ action: 'save', name: name, created_by: (sess && sess.user_name) || '前端', payload: payload }).then(function (r) {
+    if (r && r.ok && r.data && r.data.success){ toast('模板「' + name + '」已保存（同名会自动覆盖）'); tplInit(); }
+    else { toast('保存失败：' + ((r && r.data && r.data.error) || '请检查网络')); }
+  });
+}
+function tplDelete(){
+  var sel = document.getElementById('tpl-select');
+  var name = sel ? decodeURIComponent(sel.value || '') : '';
+  if (!name){ toast('先在左侧选中要删的模板'); return; }
+  if (!window.confirm('确定删除模板「' + name + '」？已生成的商品不受影响。')) return;
+  API.template({ action: 'delete', name: name }).then(function (r) {
+    if (r && r.ok && r.data && r.data.success){
+      toast(r.data.deleted ? ('模板「' + name + '」已删除') : ('模板「' + name + '」不存在（可能已被删）'));
+      tplInit();
+    } else { toast('删除失败：' + ((r && r.data && r.data.error) || '请检查网络')); }
+  });
+}
+
 function BOOT(){
   var sp = document.getElementById('spec');
   var mk = document.getElementById('mask');
@@ -617,6 +703,9 @@ function BOOT(){
       render();
       return;
     }
+    if (b.id === 'tpl-apply'){ tplFill(); return; }
+    if (b.id === 'tpl-save'){ tplSaveAs(); return; }
+    if (b.id === 'tpl-del'){ tplDelete(); return; }
     var gf = b.getAttribute('data-genfam');
     if (gf){ genFamily(gf, b); return; }
     var rv = b.getAttribute('data-regen');

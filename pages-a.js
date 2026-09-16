@@ -397,6 +397,19 @@ page('sku-detail', {
       return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : '';
     }
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
+    function tplBarHtml(){
+      // [二期需求1] 商品模板条：一键填充常用属性，免「每个属性都去点一遍」
+      return '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+        '<b style="font-size:13px;white-space:nowrap">商品模板</b>' +
+        '<select id="tpl-select" class="ctl" style="width:250px"><option value="">（选择模板一键填充）</option></select>' +
+        '<button class="btn" id="tpl-apply" type="button" style="background:var(--g-600);color:#fff;border:none;font-weight:600">用模板填充</button>' +
+        '<button class="btn btn--ghost" id="tpl-save" type="button">另存为模板</button>' +
+        '<button class="btn btn--ghost" id="tpl-del" type="button">删除模板</button>' +
+      '</div>' +
+      '<div id="tpl-hint" class="hint" style="font-size:11.5px;color:var(--t-3);margin-top:6px">' +
+        '把经常重复的属性存成模板，下次一键填好。<b>模板不记 SKU 编号、产品图片、父体ID</b>（这三项每个商品都不同，填充时不会覆盖）。' +
+      '</div></div>';
+    }
     function skuFormHtml(){
       return '<div class="form g2">' +
         fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
@@ -536,12 +549,14 @@ page('sku-detail', {
       document.body.appendChild(fab);
     }
     var skuParam = window.CUR_SKU || pageParam();
+    var _tplNeedInit = !window.CUR_SKU && !pageParam();
     var formPart = '';
     if (!skuParam){
-      formPart = panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
+      formPart = tplBarHtml() + panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
     }
     var el = formPart + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
+    if (_tplNeedInit) tplInit();   // [二期需求1] 初始化模板下拉
       if (!skuParam){
         var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
         bindSkuUpload();
