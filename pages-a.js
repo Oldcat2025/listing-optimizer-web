@@ -896,10 +896,12 @@ page('gen-new', {
         fld('参与的季节/假日（留空=全部）', '<div id="gen-kw-seasons" style="display:flex;flex-wrap:wrap;gap:10px"></div>', '勾选哪些季节/假日的词库数据参与生成，不勾=不筛选全部参与') +
 
       '</div>' +
-      '<div class="form g3" style="margin-top:14px">' +
-        fld('竞品 ASIN 1（选填）', '<input id="gen-asin1" class="ctl" placeholder="B0XXXXXXXXX">', '填<b>该市场</b>在跑的竞品商品 ASIN（不超过 3 个），生成时系统会把竞品流量词纳入候选池') +
-        fld('竞品 ASIN 2（选填）', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
-        fld('竞品 ASIN 3（选填）', '<input id="gen-asin3" class="ctl" placeholder="B0XXXXXXXXX">') +
+      '<div style="margin-top:16px;font-size:12.5px;color:var(--t-2);font-weight:500">竞品 ASIN（选填，最多 3 个）</div>' +
+      '<div class="hint" style="font-size:11.5px;color:var(--t-3);margin:4px 0 8px">填<b>该市场</b>正在跑的竞品商品 ASIN，生成时系统会把竞品流量词纳入候选池；不填不影响生成。</div>' +
+      '<div class="form g3">' +
+        fld('竞品 ASIN 1', '<input id="gen-asin1" class="ctl" placeholder="B0XXXXXXXXX">') +
+        fld('竞品 ASIN 2', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
+        fld('竞品 ASIN 3', '<input id="gen-asin3" class="ctl" placeholder="B0XXXXXXXXX">') +
       '</div>' +
       '<div class="btnrow" style="margin-top:16px">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
