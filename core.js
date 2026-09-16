@@ -205,7 +205,8 @@ var MARKETS_ALL = ['US','GB','DE','FR','IT','ES','CA'];
    用法：recentTenPanel().then(function(h){ 容器.innerHTML = h; wireRecent(fn); })      */
 function recentTenPanel(opt){
   opt = opt || {};
-  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, 200)]).then(function(rs){
+  // 证书表载荷大（每行含 5 份证书 JSON），只取最近 80 行足够覆盖「最近 10 条」的筛选 → 降低耗时
+  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, 80)]).then(function(rs){
     var fin  = ((rs[0].data||{}).data) || [];
     var cert = ((rs[1].data||{}).data) || [];
     var pass = {};
