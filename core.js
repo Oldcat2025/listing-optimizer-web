@@ -288,7 +288,27 @@ function callout(kind, title, body){
 
 /* ─── 尺寸多选共用工具（2.2 父体弹窗 / 2.3 商品资料 共用）─── */
 var SKU_SIZE_OPTIONS = ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch'];
-function sizeCheckboxesHtml(){ return SKU_SIZE_OPTIONS.map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join(''); }
+/* [fix 09-16v] 尺寸选项**按站点单位自适应** —— 原先写死 inch 列表，德国站（cm）也显示 inch，
+   这也是「商品模板尺寸对不上」的根源。美国/加拿大/英国用 inch，德/法/意/西用 cm。 */
+var SIZE_BY_UNIT = {
+  inch: ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch'],
+  cm:   ['40x40 cm','45x45 cm','50x50 cm','55x55 cm','60x60 cm']
+};
+function sizeOptionsForMarket(mkt){
+  var m = String(mkt || 'US').toUpperCase();
+  return (m === 'US' || m === 'CA' || m === 'GB') ? SIZE_BY_UNIT.inch : SIZE_BY_UNIT.cm;
+}
+function sizeCheckboxesHtml(mkt){
+  return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
+}
+function refreshSizeChoices(mkt){
+  var box = document.getElementById('nsku-dims');
+  if (!box) return;
+  var keep = checkedVals('nsku-dims');
+  box.innerHTML = sizeCheckboxesHtml(mkt);
+  // 站点切换后，能对上的尺寸保持勾选
+  Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(x){ if (keep.indexOf(x.value) >= 0) x.checked = true; });
+}
 function checkedVals(boxId){ var box=document.getElementById(boxId); if(!box) return []; return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(x){ return x.value; }); }
 function sizeTag(s){ return String(s||'').replace(/\s*inch\s*/i,'').replace(/[^0-9a-zA-ZxX]/g,'').toUpperCase(); }
 function resetCheckboxes(boxId){ var box=document.getElementById(boxId); if(!box) return; Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(x){ x.checked=false; }); }
@@ -634,6 +654,8 @@ function tplFill(){
   set('nsku-certification', p.certification); set('nsku-prohibited', p.prohibited_claims);
   // 尺寸：按模板勾选。⚠️ 尺寸下拉是「按站点单位」显示的（US 用 inch、欧站用 cm），
   // 所以模板存的尺寸与当前站点的可选项可能字面对不上 —— 这时**必须显性告知**，不能静默不勾。
+  // [fix 09-16v] 先按模板站点把尺寸选项刷成对应单位（US/CA/GB=inch，欧站=cm），再勾选 —— 否则必然错位
+  if (typeof refreshSizeChoices === 'function') refreshSizeChoices(p.marketplace || 'US');
   var box = document.getElementById('nsku-dims');
   var sizeNote = '', sizeHit = 0, sizeTotal = 0;
   if (box && Array.isArray(p.sizes) && p.sizes.length){
