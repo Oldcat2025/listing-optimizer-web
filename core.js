@@ -548,12 +548,32 @@ function genFamily(fid, btn){
   if (btn) btn.disabled = true;
   API.table('SKU_输入表', { '父体ID': fid }, 200).then(function(r){
     if (btn) btn.disabled = false;
-    var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
-    if (!rows.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体ID」填成 ' + fid); return; }
+    var all = (r.ok && r.data && r.data.data) ? r.data.data : [];
+    if (!all.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体ID」填成 ' + fid); return; }
+    // [fix 09-16u] 父体是**按站点**的（老猫 2026-09-15 定案：不存在跨站点父体），
+    // 所以「生成父体」必须先选站点 —— 否则一个父体跨 7 个站点会一次提交 7 轮。
+    var byMkt = {};
+    for (var ai = 0; ai < all.length; ai++){
+      var am = String(all[ai]['目标市场'] || all[ai]['marketplace'] || 'US').toUpperCase();
+      (byMkt[am] = byMkt[am] || []).push(all[ai]);
+    }
+    var mkts = Object.keys(byMkt).sort();
+    var msg = '父体 ' + fid + ' 下有 ' + all.length + ' 个商品，分布：\n' +
+      mkts.map(function(m){ return '  ' + m + '：' + byMkt[m].length + ' 个'; }).join('\n') +
+      '\n\n输入要生成的**站点**（如 US；多个用逗号分隔；留空 = 全部站点）：';
+    var pick = (window.prompt(msg, mkts.indexOf('US') >= 0 ? 'US' : mkts[0]) || '').toUpperCase().replace(/\s/g, '');
+    if (pick === '' && !window.confirm('确定要生成全部 ' + all.length + ' 个商品（' + mkts.join('/') + '）吗？')) return;
+    var rows = [];
+    if (!pick){ rows = all; }
+    else {
+      var want = pick.split(',');
+      for (var wi = 0; wi < want.length; wi++){ if (byMkt[want[wi]]) rows = rows.concat(byMkt[want[wi]]); }
+      if (!rows.length){ toast('站点「' + pick + '」在这个父体下没有商品，可选：' + mkts.join('/')); return; }
+    }
     var ok = 0, fail = [], i = 0;
     function step(){
       if (i >= rows.length){
-        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
+        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品（' + (pick ? pick : mkts.join('/')) + '）' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
         return;
       }
       var row = rows[i++]; var sku = row['SKU'] || row.sku || '';
