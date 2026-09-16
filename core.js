@@ -99,7 +99,7 @@ const NAV = [
     ['3.1','新建生成任务','gen-new','Run 创建'],
     ['3.2','排队情况','gen-queue','Job Queue'],
     ['3.3','生成进度详情','gen-run','Run Detail · 12 步链路'],
-    ['3.4','失败重做','gen-retry','定向重试路由 WF-28-08'],
+    ['3.4','人工审核重做','gen-retry','人工审核 + 定向重试'],
   ]},
   { g:'④', n:'4', t:'文案与审核', k:'rev', items:[
     ['4.1','文案列表','rev-list','定稿列表 Listing Final'],
