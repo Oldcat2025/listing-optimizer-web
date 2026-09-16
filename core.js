@@ -190,7 +190,10 @@ function panel(title, inner, opt){
 function toolbar(filters, actions, opt){
   opt = opt || {};
   // [4.2/4.3 改造] opt.tight = 筛选与按钮**紧挨**（默认仍两端对齐，向后兼容）
-  return '<div class="tb'+(opt.tight?' tb--tight':'')+'"><div class="flt">'+filters.join('')+'</div>'+
+  // ⚠️ 必须用 **inline style**：静态站无 Cache-Control → 浏览器启发式缓存旧 app.css，
+  //    只靠 .tb--tight 类会「代码已改、用户看到的还是旧的」。inline 样式优先级更高，缓存无忧。
+  var st = opt.tight ? ' style="justify-content:flex-start"' : '';
+  return '<div class="tb'+(opt.tight?' tb--tight':'')+'"'+st+'><div class="flt">'+filters.join('')+'</div>'+
          '<div class="btnrow" style="margin:0">'+actions.join('')+'</div></div>';
 }
 
