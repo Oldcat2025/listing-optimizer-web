@@ -566,9 +566,24 @@ function _genBodyFromRow(row, sku){
 function genFamily(fid, btn){
   if (!fid){ toast('父体编号为空'); return; }
   if (btn) btn.disabled = true;
-  API.table('SKU_输入表', { '父体ID': fid }, 200).then(function(r){
+  // [fix 09-16w] 读表 API 里 SKU 表的产品族列名是「产品族ID」（不是「父体ID」）——
+  // 用错键会静默返回 0 行，前端于是提示「父体下还没有商品」而永不提交。
+  API.table('SKU_输入表', { '产品族ID': fid }, 200).then(function(r){
     if (btn) btn.disabled = false;
     var all = (r.ok && r.data && r.data.data) ? r.data.data : [];
+    if (!all.length) {
+      // 兼容旧列名兜底
+      API.table('SKU_输入表', { '父体ID': fid }, 200).then(function(r2){
+        var a2 = (r2.ok && r2.data && r2.data.data) ? r2.data.data : [];
+        if (!a2.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体」选成 ' + fid); return; }
+        _genFamilySubmit(fid, a2);
+      });
+      return;
+    }
+    _genFamilySubmit(fid, all);
+  });
+}
+function _genFamilySubmit(fid, all){
     if (!all.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体ID」填成 ' + fid); return; }
     // [fix 09-16u] 父体是**按站点**的（老猫 2026-09-15 定案：不存在跨站点父体），
     // 所以「生成父体」必须先选站点 —— 否则一个父体跨 7 个站点会一次提交 7 轮。
@@ -593,7 +608,7 @@ function genFamily(fid, btn){
     var ok = 0, fail = [], i = 0;
     function step(){
       if (i >= rows.length){
-        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品（' + (pick ? pick : mkts.join('/')) + '）' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
+        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品（' + (typeof pick !== 'undefined' && pick ? pick : '') + '）' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
         return;
       }
       var row = rows[i++]; var sku = row['SKU'] || row.sku || '';
@@ -604,7 +619,6 @@ function genFamily(fid, btn){
       });
     }
     step();
-  });
 }
 function regenVariantTitle(sku, btn){
   if (!sku){ toast('SKU 为空'); return; }
