@@ -187,9 +187,56 @@ function panel(title, inner, opt){
   return '<section class="pnl"><div class="pnl__hd'+(opt.strong?' pnl__hd--strong':'')+'"><h3>'+title+'</h3>'+sub+'</div>'+bd+note+'</section>';
 }
 
-function toolbar(filters, actions){
-  return '<div class="tb"><div class="flt">'+filters.join('')+'</div>'+
+function toolbar(filters, actions, opt){
+  opt = opt || {};
+  // [4.2/4.3 改造] opt.tight = 筛选与按钮**紧挨**（默认仍两端对齐，向后兼容）
+  return '<div class="tb'+(opt.tight?' tb--tight':'')+'"><div class="flt">'+filters.join('')+'</div>'+
          '<div class="btnrow" style="margin:0">'+actions.join('')+'</div></div>';
+}
+
+/* [4.2/4.3 改造] 站点全集（原先两页硬编码 5 站，漏了 DE 与 CA） */
+var MARKETS_ALL = ['US','GB','DE','FR','IT','ES','CA'];
+
+/* [4.2/4.3 共用] 「最近 10 条成功文案」
+   成功 = 证书「全部通过」= TRUE（fail-closed：未通过的写进定稿也不算成功文案）
+   用法：recentTenPanel().then(function(h){ 容器.innerHTML = h; wireRecent(fn); })      */
+function recentTenPanel(opt){
+  opt = opt || {};
+  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, 200)]).then(function(rs){
+    var fin  = ((rs[0].data||{}).data) || [];
+    var cert = ((rs[1].data||{}).data) || [];
+    var pass = {};
+    cert.forEach(function(c){ if (String(c['全部通过']||'').toUpperCase()==='TRUE') pass[String(c['SKU']||'')] = 1; });
+    var rows = fin.filter(function(x){
+      if (!x || !x['Title']) return false;
+      return opt.onlyPassed === false ? true : !!pass[String(x['SKU']||'')];
+    });
+    rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
+    var top = rows.slice(0, 10);
+    var sub = '点「查看」直接把这一条载入下面的结果区';
+    if (!top.length) return panel('最近 10 条成功文案', callout('warn','暂时还没有成功的文案','五证书全部通过后会自动出现在这里。'), {sub:sub});
+    var trs = top.map(function(x){
+      var sku = String(x['SKU']||''), tt = String(x['Title']||'');
+      return [ '<span class="m">'+sku+'</span>',
+               x['目标市场']||'—',
+               '<span style="font-size:12px;color:var(--t-3)">'+bjTime(x['生成时间'])+'</span>',
+               '<span style="font-size:12px">'+(tt.length>44?tt.slice(0,44)+'…':tt)+'</span>',
+               '<button class="btn btn--ghost" data-recent-sku="'+sku+'">查看</button>' ];
+    });
+    return panel('最近 10 条成功文案（共 '+rows.length+' 条成功，按生成时间倒序）',
+                 table(['SKU','站点','生成时间','标题',''], trs), {flush:true, sub:sub});
+  });
+}
+/* 绑定「查看」：回填查询框 → 调 onPick（页面自己的重载函数） */
+function wireRecent(onPick){
+  Array.prototype.forEach.call(document.querySelectorAll('[data-recent-sku]'), function(b){
+    b.onclick = function(){
+      var sku = b.getAttribute('data-recent-sku');
+      var qi = document.querySelector('.tb .inp'); if (qi) qi.value = sku;
+      var si = document.querySelector('.tb .sel'); if (si) si.selectedIndex = 0;
+      onPick(sku);
+    };
+  });
 }
 function sel(label, opts){
   return '<select class="sel"><option>'+label+'</option>'+

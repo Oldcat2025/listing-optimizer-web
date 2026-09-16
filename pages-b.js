@@ -101,10 +101,13 @@ page('rev-detail', {
     ]
   },
   body:function(){
+    // [4.2 改造] 查询框 + 站点框 + 查询按钮**紧挨**（原先把按钮当右侧动作 → 被 space-between 推到最右）
     var el = toolbar(
-      [inp('搜索 SKU 或标题'), sel('全部站点',['US','GB','FR','IT','ES'])],
-      ['<button class="btn btn--ghost" id="rd-search-btn">查询</button>']
-    ) + '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>';
+      [inp('搜索 SKU 或标题'), sel('全部站点', MARKETS_ALL),
+       '<button class="btn" id="rd-search-btn">查询</button>'],
+      [], {tight:true}
+    ) + '<div id="rd-recent">' + ghost('正在加载最近成功文案…') + '</div>'
+      + '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>';
     setTimeout(function(){
             function loadDetail(){
         var root = document.getElementById('rev-detail-root');
@@ -168,6 +171,10 @@ page('rev-detail', {
       }
       loadDetail();
       var sb = document.getElementById('rd-search-btn'); if (sb) sb.onclick = loadDetail;
+      // [4.2 改造] 最近 10 条成功文案（点「查看」回填并载入）
+      var rc = document.getElementById('rd-recent');
+      if (rc) recentTenPanel().then(function(h){ rc.innerHTML = h; wireRecent(loadDetail); })
+                             .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;
   }
@@ -193,7 +200,13 @@ page('rev-audit', {
     ]
   },
   body:function(){
-    var el = '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
+    // [4.3 改造] 与 4.2 一致的查询功能（原先查询框藏在结果里、且站点只有 5 个）
+    var el = toolbar(
+      [inp('搜索 SKU'), sel('全部站点', MARKETS_ALL),
+       '<button class="btn" id="rd-audit-search">查询</button>'],
+      [], {tight:true}
+    ) + '<div id="ra-recent">' + ghost('正在加载最近成功文案…') + '</div>'
+      + '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
     setTimeout(function(){
       function verdict(v){
         var o = v;
@@ -266,13 +279,16 @@ page('rev-audit', {
               ['商品名称', '<span style="font-size:12px;font-weight:400">'+(x['SKU']||'—')+'</span>', '', '', false],
               ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
             ], 5) +
-            toolbar([inp('搜索 SKU') + ' ' + sel('全部站点',['US','GB','FR','IT','ES']) + ' <button class="btn" id="rd-audit-search" style="margin-left:6px">查询</button>'], []) +
             panel('证书通过概况（通过数 / 总数）', table(['证书','结论','通过 / 总数'], passSummary), {flush:true}) +
             certCols.map(function(col){ return panel(certTitles[col] || col, verdict(x[col]), {flush:true}); }).join('');
         });
       }
       loadAudit();
-      var sb = document.getElementById('rd-audit-search'); if (!sb){ sb = document.querySelector('.tb button.btn'); } if (sb) sb.onclick = loadAudit;
+      var sb = document.getElementById('rd-audit-search'); if (sb) sb.onclick = loadAudit;
+      // [4.3 改造] 最近 10 条成功文案（与 4.2 同一套助手）
+      var rc = document.getElementById('ra-recent');
+      if (rc) recentTenPanel().then(function(h){ rc.innerHTML = h; wireRecent(loadAudit); })
+                             .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;
   }
