@@ -519,6 +519,64 @@ function render(){
   window.scrollTo(0, 0);
 }
 
+/* [fix 09-16p] ④ 主线A 前端两个动作（PRD §4.4）
+   ① 生成父体：该父体下所有商品逐个提交；首个变体生成共享内容（9维档案/五点/Backend），
+      其余变体自动【复用】父体共享产物，只各做自己尺寸的标题+亮点。
+   ② 单独重生成某变体标题：同父体共享内容复用，只重做该尺寸的标题+亮点。 */
+function _genBodyFromRow(row, sku){
+  var LOCALE = { US:'en_US', CA:'en_CA', GB:'en_GB', DE:'de_DE', FR:'fr_FR', IT:'it_IT', ES:'es_ES' };
+  var mkt = String(row['目标市场'] || row.marketplace || 'US').toUpperCase();
+  return {
+    sku: sku,
+    marketplace: mkt,
+    category: row['类目'] || row.category || 'PILLOW_COVER',
+    season_scope: row['季节范围'] || row.season_scope || '',
+    brand_name: row['品牌名'] || row.brand_name || '',
+    family_id: row['父体ID'] || row.family_id || row['产品族ID'] || '',
+    product_image_url: row['产品图片URL'] || row.product_image_url || '',
+    locale: row['语言'] || LOCALE[mkt] || 'en_US',
+    recognition_mode: row['识别方式'] || row.recognition_mode || 'VISUAL',
+    title_include_material: true,
+    use_keyword_db: true,
+    executed_by: (typeof session === 'function' && session() && session().user_name) || 'Frontend'
+  };
+}
+function genFamily(fid, btn){
+  if (!fid){ toast('父体编号为空'); return; }
+  if (btn) btn.disabled = true;
+  API.table('SKU_输入表', { '父体ID': fid }, 200).then(function(r){
+    if (btn) btn.disabled = false;
+    var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+    if (!rows.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体ID」填成 ' + fid); return; }
+    var ok = 0, fail = [], i = 0;
+    function step(){
+      if (i >= rows.length){
+        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
+        return;
+      }
+      var row = rows[i++]; var sku = row['SKU'] || row.sku || '';
+      if (!sku){ step(); return; }
+      API.generate(_genBodyFromRow(row, sku)).then(function(r2){
+        if (r2.ok && r2.data && r2.data.success) ok++; else fail.push(sku);
+        step();
+      });
+    }
+    step();
+  });
+}
+function regenVariantTitle(sku, btn){
+  if (!sku){ toast('SKU 为空'); return; }
+  if (btn) btn.disabled = true;
+  API.table('SKU_输入表', { 'SKU': sku }, 1).then(function(r){
+    var row = (r.ok && r.data && r.data.data && r.data.data[0]) || {};
+    API.generate(_genBodyFromRow(row, sku)).then(function(r2){
+      if (btn) btn.disabled = false;
+      if (r2.ok && r2.data && r2.data.success) toast('已提交「单独重生成标题」：' + sku + ' —— 复用父体的 9维档案/五点/Backend，只重做这个尺寸的标题和亮点');
+      else toast('提交失败：' + ((r2.data && r2.data.error) || '请检查网络'));
+    });
+  });
+}
+
 function BOOT(){
   var sp = document.getElementById('spec');
   var mk = document.getElementById('mask');
@@ -559,6 +617,10 @@ function BOOT(){
       render();
       return;
     }
+    var gf = b.getAttribute('data-genfam');
+    if (gf){ genFamily(gf, b); return; }
+    var rv = b.getAttribute('data-regen');
+    if (rv){ regenVariantTitle(rv, b); return; }
     var sku = b.getAttribute('data-sku');
     if (sku) window.CUR_SKU = sku;
     var go = b.getAttribute('data-go');

@@ -610,6 +610,7 @@ page('sku-family', {
   roles:['运营','管理员'],
   guide:[
     '同一父体下的商品<b>共享图案、材质、风格</b>，各自<b>独享尺寸、数量</b>。',
+    '点右上角「生成父体」= 一次提交该父体下所有商品：系统只做一套共享内容，其他尺寸自动共用；点每个商品后面的「重生成标题」= 只重做这一个尺寸的标题和亮点。',
     '不要为了让文案看起来不一样，就去改主图案或主风格——<b>每个商品写到最好就行，相似是允许的</b>。',
     '注意「季节混装」告警：同图案的四季款和圣诞款建在一个父体里，容易串词。'
   ],
@@ -676,7 +677,9 @@ page('sku-family', {
               m['类目']||'—',
               m['季节范围']||'—',
               chip(m['处理状态']||'待处理', toneOf(m['处理状态'])),
-              btn('详情', '', 'sku-dna', (m['SKU']||''))
+              '<div style="white-space:nowrap">' + btn('详情', '', 'sku-dna', (m['SKU']||'')) + ' ' +
+                '<button class="btn btn--ghost" data-regen="'+encodeURIComponent(m['SKU']||'')+'">重生成标题</button>' +
+              '</div>'
             ]; })
           ), {flush:true});
         }
@@ -688,10 +691,13 @@ page('sku-family', {
               f.style || '—',
               (f.sizes && f.sizes.length ? f.sizes.join(' / ') : '—'),
               '<b>' + f.members.length + '</b>',
-              '<button class="btn btn--ghost" data-famx="'+i+'">展开看商品</button>'
+              '<div style="white-space:nowrap">' +
+                '<button class="btn" data-genfam="'+encodeURIComponent(f.fid)+'" style="background:var(--g-600);color:#fff;border:none;font-weight:600">生成父体</button> ' +
+                '<button class="btn btn--ghost" data-famx="'+i+'">展开看商品</button>' +
+              '</div>'
             ]; })
           ) : callout('warn','还没有父体','点右上角「新增父体」创建第一个父体。');
-        var html = panel('父体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一父体共享图案/材质/风格，各自独享尺寸/数量。点「展开看商品」查看该父体下的所有商品。'});
+        var html = panel('父体清单（共 ' + famList.length + ' 个）', famListHtml, {flush:true, note:'同一父体共享图案/材质/风格，各自独享尺寸/数量。<b>点「生成父体」一次提交该父体下所有商品</b>：系统先做出一套共享内容（识别结果、五点、后台搜索词），其他尺寸自动共用，只各写自己的标题和亮点；<b>点「重生成标题」</b>只重做某一个尺寸的标题和亮点，共享内容不动。'});
         if (orphan.length){
           html += panel('未归入父体的商品（共 ' + orphan.length + ' 个）', table(['图片','SKU','目标市场','类目','季节范围','处理状态',''], orphan.map(function(m){ return [
             thumbHtml(m['产品图片URL']),
