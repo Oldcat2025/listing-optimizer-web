@@ -231,14 +231,30 @@ function recentTenPanel(opt){
                  table(['SKU','站点','生成时间','标题',''], trs), {flush:true, sub:sub});
   });
 }
-/* 绑定「查看」：回填查询框 → 调 onPick（页面自己的重载函数） */
+/* 绑定「查看」：回填查询框 → 调 onPick（页面自己的重载函数）
+   ⚠️ 必须给**明确反馈**：详情区在列表下方，若点的是当前那条、内容不变，用户会以为"点击没反应"（实测被反馈过）。
+   三重反馈：① 按钮文字变「已载入」+ 高亮该行（inline 样式，不受 app.css 缓存影响）② toast 提示 ③ 平滑滚到结果区 */
 function wireRecent(onPick){
   Array.prototype.forEach.call(document.querySelectorAll('[data-recent-sku]'), function(b){
     b.onclick = function(){
       var sku = b.getAttribute('data-recent-sku');
       var qi = document.querySelector('.tb .inp'); if (qi) qi.value = sku;
       var si = document.querySelector('.tb .sel'); if (si) si.selectedIndex = 0;
+      // ① 高亮当前行
+      Array.prototype.forEach.call(document.querySelectorAll('[data-recent-sku]'), function(x){
+        x.style.background = ''; x.style.borderColor = ''; x.style.color = ''; x.textContent = '查看';
+      });
+      b.style.background = 'var(--g-600)'; b.style.borderColor = 'var(--g-600)'; b.style.color = '#fff';
+      b.textContent = '已载入';
+      // ② 文字反馈
+      if (typeof toast === 'function') toast('已载入 ' + sku + ' —— 内容已切到下方结果区');
       onPick(sku);
+      // ③ 滚到结果区
+      setTimeout(function(){
+        var r = document.querySelector('#rev-detail-root .copybox') || document.querySelector('#rev-audit-root .stats') ||
+                document.getElementById('rev-detail-root') || document.getElementById('rev-audit-root');
+        if (r && r.scrollIntoView) { try { r.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){ r.scrollIntoView(); } }
+      }, 450);
     };
   });
 }
