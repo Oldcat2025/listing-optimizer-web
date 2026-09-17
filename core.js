@@ -376,18 +376,20 @@ function recogCn(v){
   if (s === '已识别') return '已识别';
   if (s === '识别中') return '识别中';
   if (s === '识别失败') return '识别失败';
-  return '未识别';
+  return '待识别';
 }
 function recogTip(v){
   var s = String(v||'').trim();
   if (s === '已识别') return '已完成产品识别（9 维档案），生成文案时直接复用。';
   if (s === '识别失败') return '产品识别失败。重新提交生成时会重试。';
-  return '还没做产品识别（9 维档案）。\n新增商品成功后系统会自动识别 —— 同一父体、同一站点的多个尺寸只识别 1 次（其余复用），所以它是逐父体/逐站点完成的，不是每条都立刻变。\n也可以直接点「去生成 →」，识别会在生成流程里自动做掉。';
+  if (s === '识别中') return '正在做产品识别（9 维档案）。\n识别是生成流程的第 ② 步 —— 识别结果落库后，系统才会用它去写标题/亮点/五点/后台词（第 ⑥ 步）。\n所以「生成中 + 识别中」是正常的过程状态，不是漏做了识别。';
+  return '还没提交生成，所以还没做产品识别（9 维档案）。\n提交生成后，第 ② 步就是产品识别，识别结果落库后才写文案。\n同一父体、同一站点的多个尺寸只识别 1 次（其余复用）。';
 }
 function recogTone(v){
   var s = String(v||'').trim();
   if (s === '已识别') return 'ok';
   if (s === '识别失败') return 'fail';
+  if (s === '识别中') return 'run';
   return 'neutral';
 }
 function statusCn(st){
