@@ -369,6 +369,13 @@ function sizeCheckboxesHtml(mkt){
   return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
 }
 function refreshSizeChoices(mkt){
+  /* [fix 09-16ap] 若已选了父体 → 尺寸仍以**父体的计划**为准。
+     否则用户改「目标市场」时会把父体收敛的结果覆盖掉（父体在上面、市场在下面，很容易误操作）。 */
+  var sel = document.getElementById('nsku-family');
+  if (sel && String(sel.value || '') && (window.FAM_CACHE || []).some(function(x){ return String(x['family_id'] || x['产品族ID'] || '') === String(sel.value); })){
+    onSkuFamilyChange();
+    return;
+  }
   renderSizeChoices('nsku-dims', mkt);
 }
 
@@ -401,6 +408,16 @@ function onSkuFamilyChange(){
   var mkt = (document.getElementById('nsku-market') || {}).value || 'US';
   var note = document.getElementById('nsku-size-note');
   var fam = (window.FAM_CACHE || []).filter(function(x){ return String(x['family_id'] || x['产品族ID'] || '') === fid; })[0];
+  /* [fix 09-16ap] 父体记着自己的站点 → 选中后自动把「目标市场」带过去（单位才不会错）。
+     marketplace='ALL'（多站点父体）时不动，尊重用户自己选的市场。 */
+  if (fam){
+    var pm = String(fam['站点'] || fam.marketplace || '').toUpperCase();
+    if (/^[A-Z]{2}$/.test(pm)){
+      var ms = document.getElementById('nsku-market');
+      if (ms && ms.value !== pm){ ms.value = pm; }
+      mkt = pm;
+    }
+  }
   if (fid && fam && Array.isArray(fam.sizes) && fam.sizes.length){
     renderSizeChoices('nsku-dims', mkt, { list: fam.sizes, keep: [], tail:
       '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:#8A9390;cursor:pointer"><input type="checkbox" id="nsku-more-sizes"> 其它尺寸</label>' });

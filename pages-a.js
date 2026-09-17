@@ -434,11 +434,11 @@ page('sku-detail', {
     }
     function skuFormHtml(){
       return '<div class="form g2">' +
-        fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
+        fld('父体', '<select id="nsku-family" class="ctl" onchange="onSkuFamilyChange()"><option>无（独立商品）</option></select>', '归入已有父体，可选；勾选多个尺寸时会各建一个商品，填同一个父体ID即可归入同一父体') +
+fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" class="ctl" placeholder="如 PILLOW-FLORAL-18X18">', '商品唯一编号，保存时会自动检查是否重复') +
         fld('商品是什么（英文核心词）<span style="color:var(--red)">*</span>', '<input id="nsku-entity" class="ctl" placeholder="如 pillow covers">', '写进标题的第一个词，比如 pillow covers') +
         fld('尺寸 <span style="color:var(--red)">*</span>（可多选）', '<div id="nsku-dims" class="ctl" style="display:flex;flex-wrap:wrap;gap:2px;height:auto;min-height:34px;align-items:center">' + sizeCheckboxesHtml('US') + '</div>', '<span id="nsku-size-note">勾选 1 个 = 建 1 个商品；勾选多个 = <b>每个尺寸各建一个商品</b>（SKU 自动加尺寸后缀，如 -18X18）。归入父体后会自动收敛为该父体的计划尺寸。</span>') +
         fld('数量 <span style="color:var(--red)">*</span>', '<input id="nsku-quantity" class="ctl" placeholder="如 set of 2">', '一套几个，比如 set of 2') +
-        fld('父体', '<select id="nsku-family" class="ctl" onchange="onSkuFamilyChange()"><option>无（独立商品）</option></select>', '归入已有父体，可选；勾选多个尺寸时会各建一个商品，填同一个父体ID即可归入同一父体') +
         fld('类目', '<select id="nsku-category" class="ctl"><option value="Home & Kitchen > Home Décor > Decorative Pillows">抱枕（Decorative Pillows）</option><option value="Kitchen & Dining > Table Runners">桌旗（Table Runners）</option><option value="Nursery > Crib Sheets">婴童床笠（Crib Sheets）</option></select>') +
         fld('季节范围', '<select id="nsku-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>') +
         fld('目标市场', '<select id="nsku-market" class="ctl" onchange="refreshSizeChoices(this.value)"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', '切换站点会同步切换尺寸单位（美国/加拿大/英国=inch，欧洲四国=cm）') +
