@@ -468,8 +468,47 @@ page('cfg-param', {
     ]
   },
     body:function(){
-    return callout('warn','参数配置待数据源','「阈值与权重」数据源尚未建立。接入后这里会展示：生成参数（如 Highlights 最少新信息点数）、每版参数的依据、回测对比。') + '<div style="margin-top:12px">' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>文案生成的各种阈值和权重（比如「卖点至少要有几个新信息点」「词进入标题的最低置信度」）。<br><b>和 6.1 的区别：</b>6.1 是每种商品的规格，这一页是生成算法的参数。<br><b>范例：</b>「Highlights 最少新信息点 = 2」——每条卖点至少包含 2 个新信息点，否则不算合格卖点。</div>', {flush:true}) + '</div>';
-}
+      // [fix 09-17b] 真开关：新增商品后自动识别（数据源 p28.system_config，保存走 /proj28/api/config/save）
+      var html = '<div id="cfg-param-root">' + callout('info','正在读取参数…','') + '</div>';
+      setTimeout(function(){
+        var el = document.getElementById('cfg-param-root');
+        if (!el) return;
+        API.table('系统参数', {}, 50).then(function(r){
+          var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
+          var on = false;
+          rows.forEach(function(x){ if (String(x['参数名']) === 'recognize_on_create') on = String(x['值']).toLowerCase() === 'true'; });
+          var sw = '<label style="display:flex;align-items:center;gap:10px;cursor:pointer">' +
+                   '<input type="checkbox" id="cfg-recog-on"' + (on ? ' checked' : '') + ' style="width:18px;height:18px">' +
+                   '<span style="font-size:14px">新增商品后，自动识别这个商品</span></label>';
+          var state = '<div style="margin-top:8px;font-size:13px;color:var(--t-2)">当前状态：<b>' + (on ? '已开启' : '已关闭') + '</b></div>';
+          var exp = '<div style="margin-top:14px;font-size:13px;line-height:1.9">' +
+            '<b>打开（推荐）</b>：你每次新增商品，系统马上自动识别它的图案、颜色、风格、受众、场景等 9 个维度，存成一份「商品档案」。<br>' +
+            '<b>同一父体、同一站点的多个尺寸只识别 1 次</b>，其余尺寸直接复用，不会重复花钱。<br>' +
+            '<b>关掉</b>：识别改到「提交生成」的时候做（省钱，但要等提交后才看得到识别结果）。<br>' +
+            '<span style="color:var(--t-3)">怎么选：商品经常要返工、想提前发现问题 → 打开；商品量很大、只做一次性生成 → 关掉。</span>' +
+            '</div>';
+          el.innerHTML = panel('新增商品后自动识别',
+            sw + state + exp +
+            '<div style="margin-top:16px"><button class="btn btn--primary" id="cfg-recog-save">保存</button>' +
+            '<span id="cfg-recog-msg" style="margin-left:12px;font-size:13px"></span></div>', {flush:true});
+          var btn = document.getElementById('cfg-recog-save');
+          if (btn) btn.onclick = function(){
+            var cb = document.getElementById('cfg-recog-on');
+            var msg = document.getElementById('cfg-recog-msg');
+            var want = (cb && cb.checked) ? 'true' : 'false';
+            btn.disabled = true; btn.textContent = '保存中…';
+            API.saveConfig({ key: 'recognize_on_create', value: want }).then(function(rr){
+              btn.disabled = false; btn.textContent = '保存';
+              var ok = rr && rr.ok;
+              if (msg) msg.innerHTML = ok
+                ? '<span style="color:var(--ok)">已保存 ✅ 现在是' + (want === 'true' ? '开启' : '关闭') + '状态</span>'
+                : '<span style="color:var(--red)">保存失败，请重试</span>';
+            });
+          };
+        });
+      }, 0);
+      return html;
+    }
 });
 
 /* ─── 模型配置两页 ─── */

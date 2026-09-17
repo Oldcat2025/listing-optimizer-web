@@ -43,6 +43,8 @@ var API = {
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
   generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
   seasonsManage: function(o){ return this._post('/proj28/api/seasons/manage', o, true); },
+  /* [fix 09-17b] 系统参数保存（6.x 系统参数页的开关用它） */
+  saveConfig: function(c){ return this._post('/proj28/api/config/save', c, true); },
   table: function(sheet, filter, limit){ return this._post('/proj28/api/table', {sheet:sheet, filter:filter||{}, limit:limit||50}, true); }
 };
 
