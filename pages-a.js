@@ -38,7 +38,17 @@ page('dash-todo', {
         var completed = cnt(sku,'处理状态','COMPLETED');
         var failed = cnt(sku,'处理状态','FAILED');
         var skuRows = sku.filter(function(x){ return x && x['SKU']; });
-        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        /* [fix 09-16al] 排序口径：**新创建/待处理的排最前**（原先新商品的「处理状态」不在已知取值里 → 被判成 5 → 沉到列表最底部，客户反馈"新建的找不到"）。
+   分组：0 需人工处理 / 1 新创建·待处理 / 2 生成中 / 3 已完成 / 4 失败 / 5 其他 */
+        function statusRank(s){
+          var u = String(s||'').toUpperCase().trim();
+          if (u === 'REVIEW_REQUIRED') return 0;
+          if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'PROCESSING') return 2;
+          if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
+          if (u === 'FAILED') return 4;
+          return 5;
+        }
         skuRows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         function rowList(rows, actionTxt, btnCls){
           return rows.map(function(x){
@@ -132,7 +142,17 @@ page('dash-runs', {
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        /* [fix 09-16al] 排序口径：**新创建/待处理的排最前**（原先新商品的「处理状态」不在已知取值里 → 被判成 5 → 沉到列表最底部，客户反馈"新建的找不到"）。
+   分组：0 需人工处理 / 1 新创建·待处理 / 2 生成中 / 3 已完成 / 4 失败 / 5 其他 */
+        function statusRank(s){
+          var u = String(s||'').toUpperCase().trim();
+          if (u === 'REVIEW_REQUIRED') return 0;
+          if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'PROCESSING') return 2;
+          if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
+          if (u === 'FAILED') return 4;
+          return 5;
+        }
         rows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         function cnt(s){ return rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === s; }).length; }
         var running = cnt('PROCESSING'), pending = cnt('PENDING'), completed = cnt('COMPLETED'), review = cnt('REVIEW_REQUIRED'), failed = cnt('FAILED');
@@ -313,7 +333,17 @@ page('sku-list', {
         if (!el) return;
         var rows = (r.ok && r.data && r.data.data) ? r.data.data : [];
         rows = rows.filter(function(x){ return x['记录ID']; });
-        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:(u==='COMPLETED'?3:(u==='FAILED'?4:5)))); }
+        /* [fix 09-16al] 排序口径：**新创建/待处理的排最前**（原先新商品的「处理状态」不在已知取值里 → 被判成 5 → 沉到列表最底部，客户反馈"新建的找不到"）。
+   分组：0 需人工处理 / 1 新创建·待处理 / 2 生成中 / 3 已完成 / 4 失败 / 5 其他 */
+        function statusRank(s){
+          var u = String(s||'').toUpperCase().trim();
+          if (u === 'REVIEW_REQUIRED') return 0;
+          if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'PROCESSING') return 2;
+          if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
+          if (u === 'FAILED') return 4;
+          return 5;
+        }
         rows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         if (!rows.length){ el.innerHTML = callout('warn','还没有商品','点「新建商品」添加第一个 SKU。'); return; }
         var toneOf = function(st){
@@ -484,6 +514,13 @@ page('sku-detail', {
             ['nsku-sku','nsku-entity','nsku-quantity','nsku-brand','nsku-image','nsku-material','nsku-craft','nsku-structure','nsku-function','nsku-inclusion','nsku-care','nsku-certification','nsku-prohibited'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
             resetCheckboxes('nsku-dims');
             var pr = document.getElementById('nsku-upload-progress'); if (pr) pr.textContent = '';
+            /* [fix 09-16ak] 创建成功 → 自动重载本页，让新商品/父体成员数立刻反映出来（客户反馈）。
+               但**不打断用户**：若 2.5 秒内已开始录入下一个商品（SKU 框又有内容），就跳过本次刷新。 */
+            setTimeout(function(){
+              var nx = document.getElementById('nsku-sku');
+              if (nx && String(nx.value || '').trim()) return;
+              if (typeof render === 'function') render();
+            }, 2500);
             return;
           }
           var body = baseBody();
@@ -646,7 +683,12 @@ page('sku-family', {
         var fid = (document.getElementById('nfam-id')||{}).value || '';
         if (!fid){ toast('请填写父体编号'); return; }
         API.createFamily({ family_id: fid, shared_pattern: (document.getElementById('nfam-pattern')||{}).value || '', shared_material: (document.getElementById('nfam-material')||{}).value || '', shared_style: (document.getElementById('nfam-style')||{}).value || '', sizes: checkedVals('nfam-sizes') }).then(function(r){
-          if (r.ok && r.data && r.data.success){ toast('父体 ' + fid + ' 已创建'); close(); }
+          if (r.ok && r.data && r.data.success){
+            toast('父体 ' + fid + ' 已创建，页面已刷新');
+            close();
+            // [fix 09-16ak] 创建成功 → 自动重载本页，让新父体立刻出现在下方列表里（客户反馈）
+            setTimeout(function(){ if (typeof render === 'function') render(); }, 350);
+          }
           else { toast('创建失败：' + ((r.data && r.data.error) || '请检查网络')); }
         });
       }, '创建');
@@ -659,6 +701,8 @@ page('sku-family', {
         if (!root) return;
         for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
         var famRows = (rs[0].data.data || []);
+        // [fix 09-16al] 新创建的父体排最上面（原来无排序，新建的要看运气才找得到）
+        famRows.sort(function(a, b){ return String(b.created_at || b['创建时间'] || '').localeCompare(String(a.created_at || a['创建时间'] || '')); });
         var rows = (rs[1].data.data || []).filter(function(x){ return x && x['SKU']; });
         if (!rows.length && !famRows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
                 var byFamily = {};
@@ -1011,6 +1055,9 @@ page('gen-new', {
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
             result.innerHTML = callout('warn', preSku ? '已重新提交，正在生成' : '已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「生成进度」查看状态。');
+            // [fix 09-16ak] 提交成功 → 自动重载本页：该 SKU 从「待生成」下拉里消失，排队状态即刻反映（客户反馈）
+            toast('SKU ' + r.data.sku + ' 已提交生成，页面已刷新');
+            setTimeout(function(){ if (typeof render === 'function') render(); }, 700);
           } else {
             result.innerHTML = callout('warn','提交失败', (r.data && r.data.error) || '请检查网络或稍后重试');
           }
@@ -1056,7 +1103,9 @@ page('gen-queue', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var q = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'PENDING' || s === 'PROCESSING'; });
-        q.sort(function(a,b){ var pa=parseInt(a['优先级']||'0')||0, pb=parseInt(b['优先级']||'0')||0; if (pa!==pb) return pa-pb; return String(a['创建时间']||'').localeCompare(String(b['创建时间']||'')); });
+        /* [fix 09-16al] 优先级仍是主键（急件可插队）；同优先级改为**新创建的在前**（原来早的在先，
+           刚提交的任务沉在队列底部，客户找不到）。 */
+        q.sort(function(a,b){ var pa=parseInt(a['优先级']||'0')||0, pb=parseInt(b['优先级']||'0')||0; if (pa!==pb) return pa-pb; return String(b['创建时间']||'').localeCompare(String(a['创建时间']||'')); });
         if (!q.length){ root.innerHTML = callout('warn','暂无数据','当前没有排队中或处理中的任务。'); return; }
         var running = q.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'PROCESSING'; }).length;
         var pending = q.length - running;
@@ -1260,7 +1309,17 @@ page('gen-run', {
         var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
         var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
-        function statusRank(s){ var u = String(s||'').toUpperCase(); return u==='REVIEW_REQUIRED'?0:(u==='PROCESSING'?1:(u==='PENDING'?2:((u==='SUCCESS'||u==='COMPLETED')?3:(u==='FAILED'?4:5)))); }
+        /* [fix 09-16al] 排序口径：**新创建/待处理的排最前**（原先新商品的「处理状态」不在已知取值里 → 被判成 5 → 沉到列表最底部，客户反馈"新建的找不到"）。
+   分组：0 需人工处理 / 1 新创建·待处理 / 2 生成中 / 3 已完成 / 4 失败 / 5 其他 */
+        function statusRank(s){
+          var u = String(s||'').toUpperCase().trim();
+          if (u === 'REVIEW_REQUIRED') return 0;
+          if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'PROCESSING') return 2;
+          if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
+          if (u === 'FAILED') return 4;
+          return 5;
+        }
         
 rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['最终状态']); if(ra!==rb) return ra-rb; return String(b['结束时间']||b['开始时间']||'').localeCompare(String(a['结束时间']||a['开始时间']||'')); });
         root.innerHTML =
@@ -1321,6 +1380,8 @@ page('gen-retry', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
+    // [fix 09-16al] 新发生的失败/需人工排最上面（原来无排序）
+    failed.sort(function(a, b){ return String(b['更新时间'] || b['结束时间'] || b['开始时间'] || '').localeCompare(String(a['更新时间'] || a['结束时间'] || a['开始时间'] || '')); });
         function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
                 function errorCn(e){
           var m = String(e||'');
