@@ -683,30 +683,52 @@ function genFamily(fid, btn){
 }
 function _genFamilySubmit(fid, all){
     if (!all.length){ toast('父体 ' + fid + ' 下还没有商品 —— 先去「商品资料填写」，把「父体ID」填成 ' + fid); return; }
-    // [fix 09-16u] 父体是**按站点**的（老猫 2026-09-15 定案：不存在跨站点父体），
-    // 所以「生成父体」必须先选站点 —— 否则一个父体跨 7 个站点会一次提交 7 轮。
+    // 父体是**按站点**的（老猫 2026-09-15 定案：不存在跨站点父体），所以按站点分组展示。
     var byMkt = {};
     for (var ai = 0; ai < all.length; ai++){
       var am = String(all[ai]['目标市场'] || all[ai]['marketplace'] || 'US').toUpperCase();
       (byMkt[am] = byMkt[am] || []).push(all[ai]);
     }
     var mkts = Object.keys(byMkt).sort();
-    var msg = '父体 ' + fid + ' 下有 ' + all.length + ' 个商品，分布：\n' +
-      mkts.map(function(m){ return '  ' + m + '：' + byMkt[m].length + ' 个'; }).join('\n') +
-      '\n\n输入要生成的**站点**（如 US；多个用逗号分隔；留空 = 全部站点）：';
-    var pick = (window.prompt(msg, mkts.indexOf('US') >= 0 ? 'US' : mkts[0]) || '').toUpperCase().replace(/\s/g, '');
-    if (pick === '' && !window.confirm('确定要生成全部 ' + all.length + ' 个商品（' + mkts.join('/') + '）吗？')) return;
-    var rows = [];
-    if (!pick){ rows = all; }
-    else {
-      var want = pick.split(',');
-      for (var wi = 0; wi < want.length; wi++){ if (byMkt[want[wi]]) rows = rows.concat(byMkt[want[wi]]); }
-      if (!rows.length){ toast('站点「' + pick + '」在这个父体下没有商品，可选：' + mkts.join('/')); return; }
-    }
+    var defMkt = mkts.indexOf('US') >= 0 ? 'US' : mkts[0];
+    /* [fix 09-16am] 原来是浏览器原生 window.prompt 选站点 —— 风格不搭、部分浏览器会拦截，
+       且看不出每个站点各有多少商品。改为系统弹窗：站点带商品数、勾选、默认 US。
+       全部不勾 = 全部站点（再确认一次）。 */
+    var mHtml = '<div style="font-size:12.5px;color:#5A6663;line-height:1.7;margin-bottom:11px">父体 <b>' + fid + '</b> 下共 <b>' + all.length + '</b> 个商品，按站点分组：</div>' +
+      '<div style="display:flex;flex-direction:column;gap:7px">' +
+        mkts.map(function(m){
+          return '<label style="display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 11px;border:1px solid #E8ECEA;border-radius:9px;cursor:pointer">' +
+            '<input type="checkbox" class="fam-pick" value="' + m + '"' + (m === defMkt ? ' checked' : '') + '>' +
+            '<b>' + m + '</b><span style="color:#8A9390">（' + byMkt[m].length + ' 个商品）</span>' +
+          '</label>';
+        }).join('') +
+      '</div>' +
+      '<div style="font-size:11.5px;color:#9AA0A6;margin-top:10px;line-height:1.7">' +
+        '<b>不勾任何站点</b> = 生成全部站点（会再确认一次）。<br>' +
+        '提交后：<b>第一个变体做共享内容</b>（识别结果 / 五点 / 后台搜索词），其余尺寸自动复用，只各写自己的标题和亮点。' +
+      '</div>';
+    openModal('生成文案 · 父体 ' + fid, mHtml, function(close){
+      var picks = [];
+      Array.prototype.forEach.call(document.querySelectorAll('input.fam-pick'), function(cb){ if (cb.checked) picks.push(cb.value); });
+      var rows = [];
+      if (!picks.length){
+        if (!window.confirm('你没有勾选任何站点 —— 确定要生成全部 ' + all.length + ' 个商品（' + mkts.join('/') + '）吗？')) return;
+        rows = all;
+      } else {
+        for (var wi = 0; wi < picks.length; wi++){ if (byMkt[picks[wi]]) rows = rows.concat(byMkt[picks[wi]]); }
+      }
+      if (!rows.length){ toast('没有匹配的商品'); return; }
+      close();
+      _runFamilyGen(fid, rows, picks.length ? picks.join('、') : '全部站点');
+    }, '生成文案');
+}
+
+function _runFamilyGen(fid, rows, label){
     var ok = 0, fail = [], i = 0;
     function step(){
       if (i >= rows.length){
-        toast('「生成父体 ' + fid + '」已提交 ' + ok + ' 个商品（' + (typeof pick !== 'undefined' && pick ? pick : '') + '）' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成父体共享内容，其余自动复用）');
+        toast('「生成文案 ' + fid + '」已提交 ' + ok + ' 个商品（' + label + '）' + (fail.length ? '，失败 ' + fail.length + ' 个：' + fail.join('、') : '') + '（首个变体生成共享内容，其余自动复用）');
+        if (typeof render === 'function') setTimeout(function(){ render(); }, 400);   // [fix 09-16ak] 提交后刷新，任务进清单
         return;
       }
       var row = rows[i++]; var sku = row['SKU'] || row.sku || '';
