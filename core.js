@@ -369,7 +369,28 @@ function sizeCheckboxesHtml(mkt){
   return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
 }
     /* [fix 09-16aq] 处理状态中文说明 + 悬停解释（客户反馈：只看到 PENDING 不知道什么意思、也不知道下一步点哪） */
-    function statusCn(st){
+    /* [fix 09-16ar] 产品识别（ProductDNA）状态：新增商品成功后系统会自动识别（同父体同站点只识别1次）
+   开关见 6.x 系统参数 recognize_on_create；这里只负责显示，已识别的才算完成 */
+function recogCn(v){
+  var s = String(v||'').trim();
+  if (s === '已识别') return '已识别';
+  if (s === '识别中') return '识别中';
+  if (s === '识别失败') return '识别失败';
+  return '未识别';
+}
+function recogTip(v){
+  var s = String(v||'').trim();
+  if (s === '已识别') return '已完成产品识别（9 维档案），生成文案时直接复用。';
+  if (s === '识别失败') return '产品识别失败。重新提交生成时会重试。';
+  return '还没做产品识别（9 维档案）。\n新增商品成功后系统会自动识别 —— 同一父体、同一站点的多个尺寸只识别 1 次（其余复用），所以它是逐父体/逐站点完成的，不是每条都立刻变。\n也可以直接点「去生成 →」，识别会在生成流程里自动做掉。';
+}
+function recogTone(v){
+  var s = String(v||'').trim();
+  if (s === '已识别') return 'ok';
+  if (s === '识别失败') return 'fail';
+  return 'neutral';
+}
+function statusCn(st){
       var s = String(st||'').toUpperCase();
       if (s === 'COMPLETED') return '已完成';
       if (s === 'PROCESSING') return '生成中';

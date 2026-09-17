@@ -61,7 +61,7 @@ page('dash-todo', {
               thumbHtml(x['产品图片URL']),
               '<span class="m">'+sku+'</span>',
               x['目标市场']||'—',
-              '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))) + '</span>',
+              '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))) + '</span>' + '<div style="margin-top:3px"><span title="' + recogTip(x['识别状态']) + '" style="cursor:help;font-size:11px">' + chip(recogCn(x['识别状态']), recogTone(x['识别状态'])) + '</span></div>',
               String(x['更新时间']||'').slice(0,16).replace('T',' '),
               (function(){
                 var todo = (st === '' || st === 'PENDING' || st === '待处理');
@@ -370,7 +370,7 @@ page('sku-list', {
             x['类目']||'—',
             x['季节范围']||'—',
             x['目标市场']||'—',
-            '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), toneOf(x['处理状态'])) + '</span>',
+            '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), toneOf(x['处理状态'])) + '</span>' + '<div style="margin-top:3px"><span title="' + recogTip(x['识别状态']) + '" style="cursor:help;font-size:11px">' + chip(recogCn(x['识别状态']), recogTone(x['识别状态'])) + '</span></div>',
             (x['处理时间']||'—').slice(0,10),
             (function(){
               var st = String(x['处理状态']||'').toUpperCase();
