@@ -61,9 +61,13 @@ page('dash-todo', {
               thumbHtml(x['产品图片URL']),
               '<span class="m">'+sku+'</span>',
               x['目标市场']||'—',
-              chip(x['处理状态']||'', st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))),
+              '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))) + '</span>',
               String(x['更新时间']||'').slice(0,16).replace('T',' '),
-              btn(actionTxt, btnCls||'', go, sku)
+              (function(){
+                var todo = (st === '' || st === 'PENDING' || st === '待处理');
+                return '<div style="white-space:nowrap">' + btn(actionTxt, btnCls||'', go, sku) +
+                  (todo ? ' ' + btn('去生成 →', '', 'gen-new', sku) : '') + '</div>';
+              })()
             ];
           });
         }
@@ -366,9 +370,15 @@ page('sku-list', {
             x['类目']||'—',
             x['季节范围']||'—',
             x['目标市场']||'—',
-            chip(x['处理状态']||'待处理', toneOf(x['处理状态'])),
+            '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), toneOf(x['处理状态'])) + '</span>',
             (x['处理时间']||'—').slice(0,10),
-            btn('详情', '', 'sku-dna', (x.SKU||''))
+            (function(){
+              var st = String(x['处理状态']||'').toUpperCase();
+              var todo = (st === '' || st === 'PENDING' || st === '待处理');
+              // [fix 09-16aq] 待生成的行给一个直达按钮，一眼知道下一步点哪（客户反馈：只看到 PENDING 不知道要干嘛）
+              return '<div style="white-space:nowrap">' + btn('详情', '', 'sku-dna', (x.SKU||'')) +
+                (todo ? ' ' + btn('去生成 →', '', 'gen-new', (x.SKU||'')) : '') + '</div>';
+            })()
           ];
         });
           el.innerHTML = pagedTable(['图片','SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');

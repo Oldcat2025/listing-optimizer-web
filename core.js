@@ -368,7 +368,26 @@ function sizeOptionsForMarket(mkt){
 function sizeCheckboxesHtml(mkt){
   return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
 }
-function refreshSizeChoices(mkt){
+    /* [fix 09-16aq] 处理状态中文说明 + 悬停解释（客户反馈：只看到 PENDING 不知道什么意思、也不知道下一步点哪） */
+    function statusCn(st){
+      var s = String(st||'').toUpperCase();
+      if (s === 'COMPLETED') return '已完成';
+      if (s === 'PROCESSING') return '生成中';
+      if (s === 'REVIEW_REQUIRED') return '待人工审核';
+      if (s === 'FAILED') return '失败';
+      if (s === '' || s === 'PENDING' || s === '待处理') return '待生成';
+      return String(st||'—');
+    }
+    function statusTip(st){
+      var s = String(st||'').toUpperCase();
+      if (s === '' || s === 'PENDING' || s === '待处理') return '已录入，还没开始处理。\n点右边的「去生成 →」提交生成：系统会先做产品识别（9 维档案），再写标题/亮点/五点/后台词。\n同一父体、同一站点的多个尺寸只识别 1 次（其余自动复用）。';
+      if (s === 'PROCESSING') return '正在生成：产品识别 → 写作 → 五证书 → 定稿落库。一般 12 分钟内完成。';
+      if (s === 'COMPLETED') return '已生成完毕，五证书全部通过。可在「4.2 文案与审核」看成品。';
+      if (s === 'REVIEW_REQUIRED') return '需要人工处理：去「3.4 人工审核重做」查看失败原因并重新提交。';
+      if (s === 'FAILED') return '生成失败：去「3.4 人工审核重做」查看原因并重新提交。';
+      return '';
+    }
+    function refreshSizeChoices(mkt){
   /* [fix 09-16ap] 若已选了父体 → 尺寸仍以**父体的计划**为准。
      否则用户改「目标市场」时会把父体收敛的结果覆盖掉（父体在上面、市场在下面，很容易误操作）。 */
   var sel = document.getElementById('nsku-family');
