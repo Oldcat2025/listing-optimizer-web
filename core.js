@@ -408,10 +408,41 @@ function openModal(title, html, onOK, okLabel){
   mask.className = 'modal-mask';
   mask.innerHTML = '<div class="modal"><div class="modal__hd"><h3>'+title+'</h3><button class="modal__x" type="button">×</button></div><div class="modal__bd">'+html+'</div><div class="modal__ft"><button class="btn btn--ghost modal__cancel" type="button">取消</button><button class="btn modal__ok" type="button">'+(okLabel||'确定')+'</button></div></div>';
   document.body.appendChild(mask);
-  var close = function(){ if (mask.parentNode) document.body.removeChild(mask); };
-  mask.querySelector('.modal__x').onclick = close;
-  mask.querySelector('.modal__cancel').onclick = close;
-  mask.onclick = function(e){ if (e.target === mask) close(); };
+
+  /* [fix 09-16aj] 防止误触丢内容 —— 客户反馈：点窗体以外的区域，整个窗体和已填内容全没了，做到一半要重来。
+     策略：① 点窗体以外**不再直接关闭**（填过东西就保留并提示；没填过才关）
+           ② 点 × 或「取消」时，若填过东西 → 先确认
+           ③ ESC 同上；关闭时移除键盘监听，避免残留 */
+  var _fields = mask.querySelectorAll('input, select, textarea');
+  function _sig(f){ return (f.type === 'checkbox' || f.type === 'radio') ? (f.checked ? '1' : '0') : String(f.value || ''); }
+  var _init = [];
+  Array.prototype.forEach.call(_fields, function(f, i){ _init[i] = _sig(f); });
+  function _dirty(){
+    var d = false;
+    Array.prototype.forEach.call(_fields, function(f, i){ if (_sig(f) !== _init[i]) d = true; });
+    return d;
+  }
+  function _destroy(){
+    document.removeEventListener('keydown', _onKey);
+    if (mask.parentNode) document.body.removeChild(mask);
+  }
+  function close(){ _destroy(); }                                  // 提交成功用：直接销毁
+  function _askClose(){
+    if (_dirty() && !confirm('这个窗口里已经填了内容。确定关闭并丢弃吗？')) return;
+    _destroy();
+  }
+  function _onKey(ev){
+    if (!mask.parentNode) { document.removeEventListener('keydown', _onKey); return; }  // 弹窗已被其它途径移除 → 自卸载
+    if (ev.key === 'Escape') _askClose();
+  }
+  mask.querySelector('.modal__x').onclick = _askClose;
+  mask.querySelector('.modal__cancel').onclick = _askClose;
+  mask.onclick = function(e){
+    if (e.target !== mask) return;
+    if (_dirty()) { if (typeof toast === 'function') toast('内容已保留，不会丢 —— 关闭请点「取消」或右上角 ×'); return; }
+    _destroy();
+  };
+  document.addEventListener('keydown', _onKey);
   mask.querySelector('.modal__ok').onclick = function(){ if (onOK) onOK(close); };
   return mask;
 }
