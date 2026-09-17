@@ -369,12 +369,53 @@ function sizeCheckboxesHtml(mkt){
   return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
 }
 function refreshSizeChoices(mkt){
-  var box = document.getElementById('nsku-dims');
+  renderSizeChoices('nsku-dims', mkt);
+}
+
+/* [fix 09-16ao] 通用版：可指定容器 + 自定义尺寸清单 + 尾部附加项
+   （原来只能刷 nsku-dims 且清单写死按站点出，父体弹窗没法用） */
+function renderSizeChoices(boxId, mkt, opts){
+  opts = opts || {};
+  var box = document.getElementById(boxId);
   if (!box) return;
-  var keep = checkedVals('nsku-dims');
-  box.innerHTML = sizeCheckboxesHtml(mkt);
-  // 站点切换后，能对上的尺寸保持勾选
+  var keep = opts.keep || checkedVals(boxId);
+  var list = opts.list || sizeOptionsForMarket(mkt);
+  var style = 'display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap';
+  box.innerHTML = list.map(function(s){
+    return '<label style="' + style + '"><input type="checkbox" value="' + s + '"> ' + s + '</label>';
+  }).join('') + (opts.tail || '');
   Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(x){ if (keep.indexOf(x.value) >= 0) x.checked = true; });
+}
+
+/* 新增父体弹窗：尺寸选项按「站点」的单位出（原先写死 US/inch —— 这就是"父体写 inch、商品却是 cm"的根因） */
+function refreshFamSizeChoices(mkt){
+  renderSizeChoices('nfam-sizes', mkt);
+}
+
+/* 2.3 商品表单：选了父体 → 尺寸收敛为该父体声明的计划尺寸（可勾「其它尺寸」展开本站点全部） */
+function onSkuFamilyChange(){
+  var sel = document.getElementById('nsku-family');
+  var box = document.getElementById('nsku-dims');
+  if (!sel || !box) return;
+  var fid = String(sel.value || '');
+  var mkt = (document.getElementById('nsku-market') || {}).value || 'US';
+  var note = document.getElementById('nsku-size-note');
+  var fam = (window.FAM_CACHE || []).filter(function(x){ return String(x['family_id'] || x['产品族ID'] || '') === fid; })[0];
+  if (fid && fam && Array.isArray(fam.sizes) && fam.sizes.length){
+    renderSizeChoices('nsku-dims', mkt, { list: fam.sizes, keep: [], tail:
+      '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:#8A9390;cursor:pointer"><input type="checkbox" id="nsku-more-sizes"> 其它尺寸</label>' });
+    if (note) note.innerHTML = '已按父体 <b>' + fid + '</b> 的计划尺寸显示（' + fam.sizes.join(' / ') + '）。要计划外的尺寸，勾「<b>其它尺寸</b>」。';
+    var more = document.getElementById('nsku-more-sizes');
+    if (more) more.onchange = function(){
+      if (more.checked){
+        renderSizeChoices('nsku-dims', mkt, { keep: checkedVals('nsku-dims') });
+        if (note) note.innerHTML = '已展开本站点全部尺寸。<b style="color:#C0392B">选父体计划外的尺寸，父体清单会提示「计划外尺寸」</b>。';
+      } else { onSkuFamilyChange(); }
+    };
+  } else {
+    renderSizeChoices('nsku-dims', mkt);
+    if (note) note.innerHTML = '按目标市场单位显示（US/CA/GB 用 inch，德法意西用 cm）。归入父体后会自动收敛为该父体的计划尺寸。';
+  }
 }
 function checkedVals(boxId){ var box=document.getElementById(boxId); if(!box) return []; return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]:checked')).map(function(x){ return x.value; }); }
 function sizeTag(s){ return String(s||'').replace(/\s*inch\s*/i,'').replace(/[^0-9a-zA-ZxX]/g,'').toUpperCase(); }
