@@ -620,30 +620,82 @@ page('cfg-model', {
   },
     body:function(){
     var el = '<div id="cfg-binding-root">' + ghost('正在读取模型绑定…') + '</div>';
-    setTimeout(function(){
+    var state = { rows: [], editing: false };
+    function read(){
       API.table('模型绑定', {}, 50).then(function(r){
         var root = document.getElementById('cfg-binding-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','读不到模型绑定',(r.data&&r.data.error)||'请稍后重试。'); return; }
-        var rows = (r.data.data || []).filter(function(x){ return x && x['环节']; });
-        if (!rows.length){ root.innerHTML = callout('warn','暂无模型绑定','绑定表还是空的。'); return; }
-        var on = rows.filter(function(x){ return x['启用'] !== false; }).length;
-        var tr = rows.map(function(x){
-          var active = x['启用'] !== false;
-          return [ '<span class="m">'+x['环节']+'</span>', (x['模型']||'—'),
-                   active ? '<span style="color:#1a7f37">启用</span>' : '<span style="color:#999">已停用</span>',
-                   x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
-        });
-        root.innerHTML = stats([
-          ['绑定环节数', String(rows.length), '当前生成链路上的全部 AI 调用点', 'ok', false],
-          ['已启用', String(on), on===rows.length ? '全部生效' : '有停用项', on===rows.length?'ok':'warn', false],
-          ['生效时机', '下一次生成', '改完保存后，下次生成即按新值调用', '', false],
-        ], 3) + panel('各环节用哪个模型（真实绑定）', table(['环节','模型','状态','说明','更新人','更新时间'], tr),
-          {flush:true, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
-          callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
-            '「备用模型」是主模型失败时自动顶上的，顶上会写进检查报告。<b>当前页面的保存入口还没做</b>（改绑定需走数据库/接口），下一步补齐。');
+        state.rows = (r.data.data || []).filter(function(x){ return x && x['环节']; });
+        paint();
       });
-    }, 0);
+    }
+    function paint(){
+      var root = document.getElementById('cfg-binding-root'); if (!root) return;
+      var rows = state.rows;
+      if (!rows.length){ root.innerHTML = callout('warn','暂无模型绑定','绑定表还是空的。'); return; }
+      var canEdit = (typeof ROLE !== 'undefined') && (ROLE === '管理员');
+      var on = rows.filter(function(x){ return x['启用'] !== false; }).length;
+      var tr = rows.map(function(x, i){
+        var active = x['启用'] !== false;
+        if (state.editing){
+          return [ '<span class="m">'+x['环节']+'</span>',
+            '<input type="text" data-mb-model="'+i+'" value="'+String(x['模型']||'').replace(/"/g,'&quot;')+'" style="'+'width:200px;padding:4px 8px;border:1px solid #d8dee6;border-radius:var(--r-ctl);font-family:inherit;font-size:13px'+'">',
+            '<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" data-mb-on="'+i+'" '+(active?'checked':'')+' style="vertical-align:middle"> '+(active?'启用':'停用')+'</label>',
+            x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
+        }
+        return [ '<span class="m">'+x['环节']+'</span>', (x['模型']||'—'),
+          active ? '<span style="color:#1a7f37">启用</span>' : '<span style="color:#999">已停用</span>',
+          x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
+      });
+      var head = state.editing ? '各环节用哪个模型（编辑中）' : '各环节用哪个模型（真实绑定）';
+      var btn = '';
+      if (canEdit){
+        btn = state.editing
+          ? '<div style="margin-top:12px"><button class="btn" id="mb-save-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">保存</button> ' +
+            '<button class="btn" id="mb-cancel-btn" style="padding:8px 18px;border-radius:var(--r-ctl)">取消</button> ' +
+            '<span id="mb-msg" style="margin-left:10px;font-size:12px;color:var(--t-3)"></span></div>'
+          : '<div style="margin-top:12px"><button class="btn" id="mb-edit-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">编辑绑定</button>' +
+            '<span style="margin-left:10px;font-size:12px;color:var(--t-3)">改完要点「保存」才生效；保存后<b>下一次生成</b>即按新值调用</span></div>';
+      } else {
+        btn = '<div style="margin-top:12px;font-size:12px;color:var(--t-3)">当前角色为只读：如需修改模型绑定，请联系管理员。</div>';
+      }
+      root.innerHTML = stats([
+        ['绑定环节数', String(rows.length), '当前生成链路上的全部 AI 调用点', 'ok', false],
+        ['已启用', String(on), on===rows.length ? '全部生效' : '有停用项', on===rows.length?'ok':'warn', false],
+        ['生效时机', '下一次生成', '保存后，下次生成即按新值调用', '', false],
+      ], 3) + panel(head, table(['环节','模型','状态','说明','更新人','更新时间'], tr),
+        {flush:true, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
+        btn + callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
+          '「备用模型」是主模型失败时自动顶上的，顶上会写进检查报告。<b>改这里的模型会影响下一次生成</b>，请确认后再保存。' +
+          '<br><br>⚠️ 说明：<b>「停用」不是关掉这个环节的 AI</b> —— 它的意思是「不用本页指定的模型，回到节点自带的默认模型」。也就是说这一格停用了，该环节照样会调模型。');
+      var eb = document.getElementById('mb-edit-btn');
+      if (eb) eb.onclick = function(){ state.editing = true; paint(); };
+      var cb = document.getElementById('mb-cancel-btn');
+      if (cb) cb.onclick = function(){ if (confirm('取消编辑？未保存的改动会丢弃。')){ state.editing = false; paint(); } };
+      var sb = document.getElementById('mb-save-btn');
+      if (sb) sb.onclick = function(){
+        var out = state.rows.map(function(x, i){
+          var mi = document.querySelector('[data-mb-model="'+i+'"]');
+          var ci = document.querySelector('[data-mb-on="'+i+'"]');
+          return { '环节': x['环节'], '模型': (mi ? String(mi.value).trim() : ''), '启用': ci ? !!ci.checked : true };
+        });
+        var bad = out.filter(function(x){ return !x['模型']; });
+        var msg = document.getElementById('mb-msg');
+        if (bad.length){ if (msg){ msg.textContent = '「'+bad[0]['环节']+'」的模型名不能为空'; msg.style.color = '#c0392b'; } return; }
+        if (msg){ msg.textContent = '保存中…'; msg.style.color = 'var(--t-3)'; }
+        API.bindingSave(out).then(function(r2){
+          if (r2.ok && r2.data && r2.data.success !== false){
+            toast('模型绑定已保存（下一次生成生效）');
+            state.editing = false; read();
+          } else {
+            var em = (r2.data && (r2.data.error || r2.data.message)) || ('HTTP ' + r2.status);
+            if (msg){ msg.textContent = '保存失败：' + em; msg.style.color = '#c0392b'; }
+          }
+        });
+      };
+    }
+    setTimeout(read, 0);
     return el;
   }
 });

@@ -38,6 +38,8 @@ var API = {
   importForbidden: function(f){ return this._post('/proj28/api/forbidden/import', f, true); },
   queueManage: function(q){ return this._post('/proj28/api/queue/manage', q, true); },
   permSave: function(rows){ return this._post('/proj28/api/perms/save', {rows: rows}, true); },
+  // [fix 09-18f] 6.9 模型绑定保存（WH-ModelBinding-Save）
+  bindingSave: function(rows){ return this._post('/proj28/api/model-binding/save', {rows: rows}, true); },
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
