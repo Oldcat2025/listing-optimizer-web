@@ -456,7 +456,7 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         fld('目标市场', '<select id="nsku-market" class="ctl" onchange="refreshSizeChoices(this.value)"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', '切换站点会同步切换尺寸单位（美国/加拿大/英国=inch，欧洲四国=cm）') +
         fld('品牌名', '<input id="nsku-brand" class="ctl" placeholder="如 HomGoodz">') +
         fld('产品图片', '<div style="display:flex;gap:8px;align-items:center"><input id="nsku-image" class="ctl" placeholder="上传后自动填共享地址" style="flex:1"><button class="btn" id="nsku-upload-btn" type="button" style="white-space:nowrap">上传图片</button></div><input type="file" id="nsku-file" accept="image/*" style="display:none"><img id="nsku-thumb" style="display:none;margin-top:8px;max-width:160px;max-height:160px;border-radius:8px;border:1px solid #e5e7eb"><div id="nsku-upload-progress" style="margin-top:6px;font-size:12px;color:var(--g-500)"></div>') +
-        fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen">') +
+        fld('材质（可选）', '<input id="nsku-material" class="ctl" placeholder="如 faux linen"><div id="nsku-mat-chips" style="margin-top:9px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:11.5px;color:var(--t-3)">候选词加载中…</span></div>', '<b>点候选词直接填入</b>，再点一下移除；一个商品可以点多个材质（空格分隔，如 polyester faux linen）。候选来自系统里已用过的材质写法 + 材质词库（49 条）；词库含多语种写法，跟着「目标市场」选对应语言的词更地道。') +
         fld('工艺（可选）', '<input id="nsku-craft" class="ctl" placeholder="如 printed pattern, floral">') +
         fld('结构（可选）', '<input id="nsku-structure" class="ctl" placeholder="如 hidden zipper">') +
         fld('卖点功能（可选）', '<input id="nsku-function" class="ctl" placeholder="如 waterproof, decorative">', '有就填，这是主要卖点；没有就留空') +
@@ -481,6 +481,97 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         if (cur){ var found = rows.some(function(x){ return x['季节代码'] === cur; }); if (found) sel.value = cur; }
         var kwBox = document.getElementById('gen-kw-seasons');
         if (kwBox) kwBox.innerHTML = rows.map(function(x){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:normal"><input type="checkbox" value="'+x['季节代码']+'" style="width:auto"> '+x['季节名称']+'</label>'; }).join('');
+      });
+    }
+    /* [fix 2026-09-18][需求·选A] 材质候选词快选
+       来源①：系统里已经用过的材质写法（读 p28.product_facts.material，去重）
+       来源②：材质词库（读 p28.dimension_lexicon 里 dimension='MATERIAL' 的 49 条，英/德/法/意/西）
+       交互：点一下填入，再点一下移除；一个商品可以点多个（空格分隔，与库里既有写法一致，如 "polyester faux linen"）。 */
+    var _MAT_ALL = [];   /* 候选词全集（系统已用过 + 材质词库）；用于把输入框内容切成「材质词」，而不是按子串猜 */
+    function _matVal(){ var i = document.getElementById('nsku-material'); return i ? String(i.value || '') : ''; }
+    function _matKnown(p){
+      var L = String(p).toLowerCase();
+      for (var i = 0; i < _MAT_ALL.length; i++){ if (String(_MAT_ALL[i]).toLowerCase() === L) return true; }
+      return false;
+    }
+    /* 把输入框内容切成材质词序列：优先按【最长候选短语】合并相邻词。
+       否则 "faux linen" 里的 "linen"/"lin" 会被当成独立的词 —— 既误高亮，点一下还会把词切坏。 */
+    function _matSegments(){
+      var toks = _matVal().trim().split(/\s+/).filter(Boolean);
+      var out = [], i = 0;
+      while (i < toks.length){
+        var hit = 0;
+        for (var n = Math.min(4, toks.length - i); n >= 1; n--){
+          if (_matKnown(toks.slice(i, i + n).join(' '))){ hit = n; break; }
+        }
+        if (hit){ out.push(toks.slice(i, i + hit).join(' ')); i += hit; }
+        else { out.push(toks[i]); i += 1; }
+      }
+      return out;
+    }
+    function _matHas(m){
+      var L = String(m).toLowerCase();
+      var segs = _matSegments();
+      for (var i = 0; i < segs.length; i++){ if (segs[i].toLowerCase() === L) return true; }
+      return false;
+    }
+    function _matToggle(m){
+      var inp = document.getElementById('nsku-material'); if (!inp || !m) return;
+      var segs = _matSegments(), L = String(m).toLowerCase(), kept = [], had = false;
+      for (var i = 0; i < segs.length; i++){
+        if (segs[i].toLowerCase() === L){ had = true; } else { kept.push(segs[i]); }
+      }
+      if (!had) kept.push(m);
+      inp.value = kept.join(' ');
+      _matPaint();
+    }
+    function _matPaint(){
+      var box = document.getElementById('nsku-mat-chips'); if (!box) return;
+      Array.prototype.forEach.call(box.querySelectorAll('[data-mat]'), function(el){
+        var on = _matHas(el.getAttribute('data-mat'));
+        el.style.background = on ? 'var(--g-600)' : '#fff';
+        el.style.color = on ? '#fff' : 'var(--t-2)';
+        el.style.borderColor = on ? 'var(--g-600)' : 'var(--line-2)';
+        el.style.fontWeight = on ? '600' : '400';
+      });
+    }
+    function loadMaterialChips(){
+      var box = document.getElementById('nsku-mat-chips'); if (!box) return;
+      function chipHtml(m){
+        return '<span data-mat="' + m + '" style="cursor:pointer;display:inline-block;padding:3px 9px;border:1px solid var(--line-2);border-radius:999px;font-size:12px;color:var(--t-2);background:#fff">' + m + '</span>';
+      }
+      Promise.all([
+        API.table('商品事实表', {}, 200),
+        API.table('材质词库', {}, 200)
+      ]).then(function(rs){
+        var seen = {}, used = [], lib = [];
+        var fr = (rs[0] && rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
+        fr.forEach(function(x){ var m = String(x['材质'] || '').trim(); if (m && !seen[m.toLowerCase()]){ seen[m.toLowerCase()] = 1; used.push(m); } });
+        var lr = (rs[1] && rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
+        lr.forEach(function(x){ var m = String(x['材质词'] || '').trim(); if (m && !seen[m.toLowerCase()]){ seen[m.toLowerCase()] = 1; lib.push(m); } });
+        _MAT_ALL = used.concat(lib);   /* 供 _matSegments 做最长短语匹配 */
+        var box2 = document.getElementById('nsku-mat-chips'); if (!box2) return;
+        var h = '';
+        if (used.length) h += '<span style="font-size:11.5px;color:var(--t-3);margin-right:2px">系统已用过：</span>' + used.slice(0, 8).map(chipHtml).join('');
+        if (lib.length) h += '<a href="javascript:void(0)" id="nsku-mat-more" style="font-size:11.5px;color:var(--g-600);margin-left:6px;white-space:nowrap">展开材质词库 ' + lib.length + ' 条</a><span id="nsku-mat-lib" style="display:none;flex-wrap:wrap;gap:6px;width:100%;margin-top:6px">' + lib.map(chipHtml).join('') + '</span>';
+        box2.innerHTML = h || '<span style="font-size:11.5px;color:var(--t-3)">暂无候选词</span>';
+        box2.onclick = function(e){
+          var t = e.target || e.srcElement;
+          if (t && t.id === 'nsku-mat-more'){
+            var lb = document.getElementById('nsku-mat-lib');
+            if (lb){
+              var opened = (lb.style.display === 'flex');
+              lb.style.display = opened ? 'none' : 'flex';
+              t.innerHTML = opened ? ('展开材质词库 ' + lib.length + ' 条') : '收起材质词库';
+            }
+            return;
+          }
+          var m = (t && t.getAttribute) ? t.getAttribute('data-mat') : '';
+          if (m) _matToggle(m);
+        };
+        var inp = document.getElementById('nsku-material');
+        if (inp) inp.oninput = _matPaint;
+        _matPaint();
       });
     }
     function submitNewSku(){
@@ -602,6 +693,7 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
         bindSkuUpload();
         loadSeasons('nsku-season', '');
+        loadMaterialChips();   // [fix 2026-09-18] 材质候选词快选
         API.table('产品族', {}, 200).then(function(r){
           var famRows = (r.ok && r.data && r.data.data) ? r.data.data : [];
           var famSel = document.getElementById('nsku-family');
