@@ -686,7 +686,9 @@ page('cfg-model', {
         if (msg){ msg.textContent = '保存中…'; msg.style.color = 'var(--t-3)'; }
         API.bindingSave(out).then(function(r2){
           if (r2.ok && r2.data && r2.data.success !== false){
-            toast('模型绑定已保存（下一次生成生效）');
+            var mc = (r2.data || {}).models_checked;
+            if (mc === false) toast('已保存（⚠️ 没能连上网关，模型名未核对）');
+            else toast('模型绑定已保存（模型名已核对，下一次生成生效）');
             state.editing = false; read();
           } else {
             var em = (r2.data && (r2.data.error || r2.data.message)) || ('HTTP ' + r2.status);
