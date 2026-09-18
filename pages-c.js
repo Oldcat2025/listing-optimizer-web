@@ -619,36 +619,30 @@ page('cfg-model', {
     ]
   },
     body:function(){
-    var el = '<div id="cfg-binding-root"></div>';
+    var el = '<div id="cfg-binding-root">' + ghost('正在读取模型绑定…') + '</div>';
     setTimeout(function(){
-      var root = document.getElementById('cfg-binding-root');
-      if (!root) return;
-      var steps = [
-        ['1','商品事实录入','无需 AI','表单录入'],
-        ['2','Product DNA 识别','LLM 语义/意图分类','gpt-5.6-sol · 云雾网关'],
-        ['3','卖家精灵数据摄取','无需 AI','表格处理'],
-        ['4','12 类分类','规则引擎','类目映射'],
-        ['5','PPC/SQP 归因','规则引擎','数据归因'],
-        ['6','Reverse ASIN','SQL 倒排','词表索引'],
-        ['7','字段路由（前端生成）','LLM 文案生成','gpt-5.6-sol · 云雾网关'],
-        ['8','四层入口组合','规则引擎','词源组合'],
-        ['9','仲裁顺序','规则引擎','字段优先级'],
-        ['10','八项质量门禁','规则引擎 + LLM','断言判定 + 反向理解'],
-        ['11','审核放行','人工','运营/审核操作'],
-        ['12','上架登记','无需 AI','登记跟踪'],
-      ];
-      root.innerHTML =
-        stats([
-          ['AI 环节', '3', '识别/前端/后端/质检', '', false],
-          ['规则环节', '6', '分类/归因/组合/仲裁', '', false],
-          ['人工环节', '2', '审核放行/登记', '', false],
-          ['模型服务商', '待配置', '去 6.7 添加', 'warn', false],
-        ], 4) +
-        panel('各流程使用模型（12 个环节）（分工示意·非实时配置）', table(
-          ['环节','用不用 AI','当前模型 / 方式'],
-          steps.map(function(s){ return ['<span class="num">'+s[0]+'</span> ' + s[1], s[2], s[3]]; })
-        ), {flush:true}) +
-        panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页回答：</b>整个生成流程 12 个环节，哪些用了 AI、用的什么模型。<br><b>目前：</b>识别用 Gemini Vision 看图，文案生成用 LLM（GPT/Claude），其余是规则引擎和人工。<br><b>去 6.7：</b>「AI 模型与密钥」添加服务商后，这里可以按环节绑定不同模型（如识别用 Gemini、生成用 GPT）。</div>', {flush:true});
+      API.table('模型绑定', {}, 50).then(function(r){
+        var root = document.getElementById('cfg-binding-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','读不到模型绑定',(r.data&&r.data.error)||'请稍后重试。'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['环节']; });
+        if (!rows.length){ root.innerHTML = callout('warn','暂无模型绑定','绑定表还是空的。'); return; }
+        var on = rows.filter(function(x){ return x['启用'] !== false; }).length;
+        var tr = rows.map(function(x){
+          var active = x['启用'] !== false;
+          return [ '<span class="m">'+x['环节']+'</span>', (x['模型']||'—'),
+                   active ? '<span style="color:#1a7f37">启用</span>' : '<span style="color:#999">已停用</span>',
+                   x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
+        });
+        root.innerHTML = stats([
+          ['绑定环节数', String(rows.length), '当前生成链路上的全部 AI 调用点', 'ok', false],
+          ['已启用', String(on), on===rows.length ? '全部生效' : '有停用项', on===rows.length?'ok':'warn', false],
+          ['生效时机', '下一次生成', '改完保存后，下次生成即按新值调用', '', false],
+        ], 3) + panel('各环节用哪个模型（真实绑定）', table(['环节','模型','状态','说明','更新人','更新时间'], tr),
+          {flush:true, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
+          callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
+            '「备用模型」是主模型失败时自动顶上的，顶上会写进检查报告。<b>当前页面的保存入口还没做</b>（改绑定需走数据库/接口），下一步补齐。');
+      });
     }, 0);
     return el;
   }
