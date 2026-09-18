@@ -281,9 +281,9 @@ page('cfg-forbidden', {
               x['禁用原因'] || '—',
               '<span class="m">' + String(x['添加日期']||'—').slice(0,10) + '</span>',
               x['添加人'] || '—'
-            ] +
-          panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>不能出现在文案里的违禁词（夸大词、医疗词、平台禁用词）。<br><b>范例：</b>「waterproof」在部分站点/类目是禁词，文案里不能出现。<br><b>和 5.1 的关系：</b>5.1 是往词库导「能用的词」，这一页是「不能用的词」。</div>', {flush:true}); })
-          ), {flush:true});
+            ];
+          }))
+          , {flush:true}) + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>不能出现在文案里的违禁词（夸大词、医疗词、平台禁用词）。<br><b>范例：</b>「waterproof」在部分站点/类目是禁词，文案里不能出现。<br><b>和 5.1 的关系：</b>5.1 是往词库导「能用的词」，这一页是「不能用的词」。</div>', {flush:true});
         });
       }
       function openForbiddenModal(){

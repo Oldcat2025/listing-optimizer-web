@@ -431,16 +431,18 @@ page('sku-detail', {
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='PROCESSING') return 'run'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'neutral'; }
     function tplBarHtml(){
       // [二期需求1] 商品模板条：一键填充常用属性，免「每个属性都去点一遍」
-      return '<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-        '<b style="font-size:13px;white-space:nowrap">商品模板</b>' +
+      // [fix 2026-09-18] 原来控件行与提示只隔 6px、全挤在一行里 → 分三段：控件行 / 虚线分隔 / 提示，留足呼吸空间
+      return '<div class="card" style="margin-bottom:14px;padding:14px 16px">' +
+        '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;row-gap:10px">' +
+        '<b style="font-size:13px;white-space:nowrap;margin-right:2px">商品模板</b>' +
         '<select id="tpl-select" class="ctl" style="width:250px"><option value="">（选择模板一键填充）</option></select>' +
         '<button class="btn" id="tpl-apply" type="button" style="background:var(--g-600);color:#fff;border:none;font-weight:600">用模板填充</button>' +
         '<button class="btn btn--ghost" id="tpl-save" type="button">另存为模板</button>' +
         '<button class="btn btn--ghost" id="tpl-del" type="button">删除模板</button>' +
-      '</div>' +
-      '<div id="tpl-hint" class="hint" style="font-size:11.5px;color:var(--t-3);margin-top:6px">' +
+        '</div>' +
+        '<div id="tpl-hint" class="hint" style="font-size:11.5px;color:var(--t-3);margin-top:12px;padding-top:10px;border-top:1px dashed #E8ECEA;line-height:1.75">' +
         '把经常重复的属性存成模板，下次一键填好。<b>模板不记 SKU 编号、产品图片、父体ID</b>（这三项每个商品都不同，填充时不会覆盖）。' +
-      '</div></div>';
+        '</div></div>';
     }
     function skuFormHtml(){
       return '<div class="form g2">' +
@@ -874,13 +876,20 @@ page('sku-dna', {
           }
           function card(no, title, mainVal, sub, chips){
             var empty = (!mainVal || mainVal === '—') && (!sub) && (!chips || !chips.length);
-            return '<div style="border:1px solid #E8ECEA;border-radius:10px;padding:10px 12px;background:'+(empty?'#FAFBFA':'#fff')+'">' +
+            // [fix 2026-09-18] 底色分级：① 色彩定位 / ② 核心元素 加深（最重要，一眼可辨）；其余间隔换底色，避免一片白
+            var _n = parseInt(no, 10) || 99;
+            var bg, bd;
+            if (empty)        { bg = '#FAFBFA'; bd = '#E8ECEA'; }
+            else if (_n === 1) { bg = '#DCEDE4'; bd = '#B8D8C9'; }
+            else if (_n === 2) { bg = '#E9F4EE'; bd = '#CEE4D8'; }
+            else              { bg = (_n % 2 === 0) ? '#F5FAF8' : '#FFFFFF'; bd = '#E8ECEA'; }
+            return '<div style="border:1px solid '+bd+';border-radius:10px;padding:10px 12px;background:'+bg+'">' +
               '<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(empty?'0':'7px')+'">' +
-                '<span style="min-width:17px;height:17px;border-radius:5px;background:'+(empty?'#F1F3F2':'#EAF6F1')+';color:'+(empty?'#B0B8B4':'#1F7A5C')+';font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">'+no+'</span>' +
+                '<span style="min-width:17px;height:17px;border-radius:5px;background:'+(empty?'#F1F3F2':(_n<=2?'#CFE6DA':'#EAF6F1'))+';color:'+(empty?'#B0B8B4':'#1F7A5C')+';font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">'+no+'</span>' +
                 '<span style="font-size:12.5px;font-weight:700;color:#2C3B36">'+title+'</span>' +
                 (empty ? '<span style="margin-left:auto;font-size:11px;color:#B0B8B4">未识别</span>' : '') +
               '</div>' +
-              (mainVal && mainVal !== '—' ? '<div style="font-size:13.5px;font-weight:600;color:#111;line-height:1.5;margin-bottom:'+((sub||(chips&&chips.length))?'7px':'0')+'">'+mainVal+'</div>' : '') +
+              (mainVal && mainVal !== '—' ? '<div style="font-size:'+(_n===1?'15.5px':'13.5px')+';font-weight:'+(_n===1?'700':'600')+';color:#111;line-height:1.5;margin-bottom:'+((sub||(chips&&chips.length))?'7px':'0')+'">'+mainVal+'</div>' : '') +
               (sub ? '<div style="font-size:12px;color:#7A857F;line-height:1.55;margin-bottom:'+((chips&&chips.length)?'7px':'0')+'">'+esc(sub)+'</div>' : '') +
               tags(chips) +
             '</div>';
@@ -941,15 +950,28 @@ page('sku-dna', {
         }
         var imgMap = {};
         skuRows.forEach(function(sx){ if (sx && sx['SKU']) imgMap[sx['SKU']] = sx['产品图片URL'] || ''; });
+        // [fix 2026-09-18] 下拉框只列「实际识别了什么」：同一父体+站点的多个尺寸共享同一份识别结果，
+        // 不再按尺寸重复列出（原来 3 个尺寸 = 3 个几乎相同的条目，客户反馈「商品太多」）
+        var _fam = {}, _gmap = {}, _gorder = [];
+        (skuRows||[]).forEach(function(sx){ if (sx && sx['SKU']) _fam[sx['SKU']] = sx['产品族ID'] || ''; });
+        rows.forEach(function(x){
+          var k = String(_fam[x['SKU']] || x['SKU']) + '|' + String(x['目标市场'] || '');
+          if (!_gmap[k]){ _gmap[k] = { rep:x['SKU'], market:x['目标市场'] || '', skus:[] }; _gorder.push(k); }
+          _gmap[k].skus.push(x['SKU']);
+        });
+        var groups = _gorder.map(function(k){ return _gmap[k]; });
         var cur = sku;
-        if (!cur || !rows.some(function(x){ return x['SKU'] === cur; })) cur = rows[0]['SKU'];
+        if (!cur || !rows.some(function(x){ return x['SKU'] === cur; })) cur = groups[0].rep;
         function pick(v){ return rows.filter(function(x){ return x['SKU'] === v; })[0] || rows[0]; }
         function imgInner(url){ if (!url) return '<div style="width:76px;height:76px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999;background:#f3f4f6;border-radius:10px">无图片</div>'; return thumbHtml(url, 76); }
-        var selOpts = rows.map(function(x){ return '<option value="' + x['SKU'] + '"' + (x['SKU'] === cur ? ' selected' : '') + '>' + x['SKU'] + '</option>'; }).join('');
+        var selOpts = groups.map(function(g){
+          var lab = g.rep + '（' + g.market + (g.skus.length > 1 ? ' · 同款共 ' + g.skus.length + ' 个尺寸' : '') + '）';
+          return '<option value="' + g.rep + '"' + (g.skus.indexOf(cur) >= 0 ? ' selected' : '') + '>' + lab + '</option>';
+        }).join('');
         root.innerHTML =
           '<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;flex-wrap:wrap">' +
             '<div id="dna-img-box" style="flex-shrink:0">' + imgInner(imgMap[cur]) + '</div>' +
-            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（已识别 ' + rows.length + ' 个）</div>' +
+            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（' + groups.length + ' 个款式 · 共 ' + rows.length + ' 个 SKU）</div>' +
             '<select id="dna-sku-sel" style="width:100%;max-width:520px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;background:#fff">' + selOpts + '</select></div>' +
             '<div style="font-size:11px;color:#aaa;max-width:200px">下拉切换 → 查看该商品的产品图片与识别详情</div>' +
           '</div>' +

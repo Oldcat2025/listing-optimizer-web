@@ -1034,10 +1034,10 @@ page('data-import', {
                 '<span class="num">'+(x['跳过']??'—')+'</span>',
                 stTxt(x['状态']),
                 x['操作人']||'—',
-                '<button class="btn" style="padding:3px 8px;font-size:12px;color:#c0392b" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post('/proj28/api/batch/delete',{batch_id:'+x['批次ID']+'}, true).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
+                '<button class="btn" style="padding:3px 8px;font-size:12px;color:#c0392b" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post(\'/proj28/api/batch/delete\',{batch_id:'+x['批次ID']+'}, true).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
               ];
             })
-          , {flush:true}) : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});
+          , 20, 'data-import-batches') : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});
           html += panel('当前数据源存量（' + items.length + ' 个）', table(
             ['数据类型','站点','数据表','记录数',''],
             items.map(function(it){ return [it[0], it[1], '<span class="m">'+it[2]+'</span>', '<span class="num">'+it[3]+'</span>', btn('查看','',it[4])]; })
@@ -1045,6 +1045,13 @@ page('data-import', {
           root2.innerHTML = html;
           var u2 = document.querySelector('.tb .btn');
           if (u2 && !u2.__bound){ u2.__bound = true; u2.onclick = openImportDialog; }
+        }).catch(function(e){
+          // [fix 2026-09-18] 无 catch 时任何渲染异常都会让页面永远停在「正在加载」——必须兜住并说清
+          try { if (window.console && console.error) console.error('[data-import] 加载失败', e); } catch(_e){}
+          root2.innerHTML = panel('导入历史加载失败', 
+            '<div style="color:#c0392b;font-size:14px;margin-bottom:6px">' + String((e && e.message) || e) + '</div>' +
+            '<div style="font-size:12.5px;color:var(--t-3)">这是页面渲染错误，不是「还没有数据」。详细堆栈见浏览器控制台。请反馈给开发者。</div>',
+            {flush:true});
         });
       }
       loadHistory();
