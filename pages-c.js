@@ -618,7 +618,7 @@ page('cfg-model', {
 });page('cfg-binding', {
   roles:['管理员'],
   guide:[
-    '系统里有 <b>9 个环节会调用 AI</b>，每个环节可以单独选模型和参数——不是全局一个模型。',
+    '系统里有 <b>8 个环节会调用 AI</b>，每个环节可以单独选模型——不是全局一个模型。',
     '「备用模型」是主模型失败时自动顶上的，<b>顶上了会写进检查报告</b>，不会悄悄换。' +
     '⚠️ 本页是<b>环节与模型的分工示意，不是实时配置</b>（真表 model_profile_binding 目前为空），页面上也没有改动入口。当前实际：所有 LLM 环节都走云雾网关、模型 <b>gpt-5.6-sol</b>。',,
     '规划：<b>改绑定会生成新版本</b>，正在跑的任务不受影响，出问题可退回（当前尚无此入口）。',,
@@ -661,11 +661,11 @@ page('cfg-model', {
         if (state.editing){
           return [ '<span class="m">'+x['环节']+'</span>',
             '<input type="text" data-mb-model="'+i+'" value="'+String(x['模型']||'').replace(/"/g,'&quot;')+'" style="'+'width:200px;padding:4px 8px;border:1px solid #d8dee6;border-radius:var(--r-ctl);font-family:inherit;font-size:13px'+'">',
-            '<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" data-mb-on="'+i+'" '+(active?'checked':'')+' style="vertical-align:middle"> '+(active?'启用':'停用')+'</label>',
+            '<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" data-mb-on="'+i+'" '+(active?'checked':'')+' style="vertical-align:middle"> '+(active?'用指定的模型':'用系统默认')+'</label>',
             x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
         }
         return [ '<span class="m">'+x['环节']+'</span>', (x['模型']||'—'),
-          active ? '<span style="color:#1a7f37">启用</span>' : '<span style="color:#999">已停用</span>',
+          active ? '<span style="color:#1a7f37">用指定的模型</span>' : '<span style="color:#999">用系统默认模型</span>',
           x['说明']||'—', x['更新人']||'—', String(x['更新时间']||'—').slice(0,16).replace('T',' ') ];
       });
       var head = state.editing ? '各环节用哪个模型（编辑中）' : '各环节用哪个模型（真实绑定）';
@@ -682,13 +682,13 @@ page('cfg-model', {
       }
       root.innerHTML = stats([
         ['绑定环节数', String(rows.length), '当前生成链路上的全部 AI 调用点', 'ok', false],
-        ['已启用', String(on), on===rows.length ? '全部生效' : '有停用项', on===rows.length?'ok':'warn', false],
+        ['用指定模型的', String(on) + ' / ' + String(rows.length), on===rows.length ? '全部用指定的模型' : '其余走系统默认模型', on===rows.length?'ok':'warn', false],
         ['生效时机', '下一次生成', '保存后，下次生成即按新值调用', '', false],
-      ], 3) + panel(head, table(['环节','模型','状态','说明','更新人','更新时间'], tr),
+      ], 3) + panel(head, table(['环节','模型','模型来源','说明','更新人','更新时间'], tr),
         {flush:true, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
         btn + callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
           '「备用模型」是主模型失败时自动顶上的，顶上会写进检查报告。<b>改这里的模型会影响下一次生成</b>，请确认后再保存。' +
-          '<br><br>⚠️ 说明：<b>「停用」不是关掉这个环节的 AI</b> —— 它的意思是「不用本页指定的模型，回到节点自带的默认模型」。也就是说这一格停用了，该环节照样会调模型。');
+          '<br><br>⚠️ 说明：这里选「<b>用系统默认</b>」<b>不是关掉这个环节的 AI</b> —— 它的意思是：这一格<b>不用你指定的模型</b>，改用系统自带的默认模型。该环节<b>照样会调模型、照样产生费用</b>。');
       var eb = document.getElementById('mb-edit-btn');
       if (eb) eb.onclick = function(){ state.editing = true; paint(); };
       var cb = document.getElementById('mb-cancel-btn');
