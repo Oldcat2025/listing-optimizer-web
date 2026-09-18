@@ -477,19 +477,20 @@ page('rev-manual', {
 page('data-kw', {
   roles:['管理员'],
   guide:[
-    '上传卖家精灵导出的表 → 系统自动比对列名 → 看预览确认没问题 → 点「建快照」。',
-    '<b>每次导入都新建一份快照，不会覆盖旧的</b>。已经被任务用过的快照永久只读，保证历史结果可复现。',
+    '本页是<b>查看已入库的词库</b>（按站点 / 类目筛选）。要<b>导入新数据</b>：去 <b>5.7 导入历史</b>，点右上角「+ 上传 CSV 导入」。',
+    '<b>导入是追加式的：不会覆盖已有数据</b>（重复的「ASIN+季度+词」会自动跳过）。',
+    '⚠️ 说明：系统目前<b>没有独立的「快照版本」对象</b>——每次导入都进同一张词库表，所以能保证的是「数据不被覆盖」，还<b>不能按版本回看某一版</b>。',
     '重点看「完整性证明」：<b>读到的行数必须等于表里的行数</b>，差一行都不行。',
     '四季款和圣诞款的数据<b>要分开导</b>，系统会拦住跨季节读数据。'
   ],
   spec:{
     q:'这批卖家精灵数据干净吗，能不能拿去生成文案。',
-    acts:['上传全表','列名比对','预览','建快照','作废快照','设为默认'],
+    acts:['上传全表','列名比对','预览','入库（追加）'],
     wf:['WF-28-02 数据摄取（或入库后由 SQL 完成分类）'],
     reads:['keyword_snapshot','keyword_raw','marketplace_config'],
     writes:['keyword_snapshot','keyword_raw','import_batch','audit_log'],
     limits:[
-      '<b>导入永远新建快照，绝不覆盖</b>；被任何任务引用过的快照永久只读',
+      '<b>导入只追加、绝不覆盖</b>（当前无独立快照版本对象，不能按版本回看）',
       '列名匹配<b>必须去空格比对</b>（第 27 列无空格、30/33 列有空格）',
       '搜索排名无值必须写空，<b>写 0 会被当成全站最热门</b>（数据库有约束兜底）',
       '「关键词翻译」列落库但<b>禁止进入 AI 提示词</b>，否则中式表达会带回本地语言'
@@ -498,7 +499,7 @@ page('data-kw', {
     body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
@@ -515,12 +516,12 @@ page('data-kw', {
           var snap = {};
           all.forEach(function(x){ if (x['所属类目']) snap[x['所属类目']] = 1; });
           var ids = Object.keys(snap);
-          // 更新快照下拉
+          // 更新「类目」下拉（原来这里误叫"快照"）
           var sel2 = sels[1];
-          if (sel2){ var cur = snapId; sel2.innerHTML = '<option value="全部">全部（'+ids.length+' 个快照）</option>' + ids.map(function(id){ return '<option value="'+id+'"'+(id===cur?' selected':'')+'>'+id+'</option>'; }).join(''); }
+          if (sel2){ var cur = snapId; sel2.innerHTML = '<option value="全部">全部（'+ids.length+' 个类目）</option>' + ids.map(function(id){ return '<option value="'+id+'"'+(id===cur?' selected':'')+'>'+id+'</option>'; }).join(''); }
           var rows = all;
           if (snapId && snapId !== '全部'){ rows = rows.filter(function(x){ return x['所属类目'] === snapId; }); }
-          if (!rows.length){ root.innerHTML = callout('warn','该快照暂无关键词','换个快照或站点试试。'); return; }
+          if (!rows.length){ root.innerHTML = callout('warn','该类目暂无关键词','换个类目或站点试试。'); return; }
           root.innerHTML =
             panel('类目清单（' + ids.length + ' 个）', '<div style="font-size:13px;color:var(--t-2)">上方下拉里选类目，下方显示该类目的关键词。当前：<b>'+snapId+'</b>（'+mkt+' · '+rows.length+' 词）</div>') +
             panel('关键词列表（'+rows.length+' 条）', pagedTable(
@@ -566,7 +567,7 @@ page('data-ppc', {
         body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC / SQP 数据…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', '<b style="font-size:12px;color:var(--t-3);margin:0 6px 0 16px">数据周期：</b><select class="sel" style="max-width:180px"><option>全部</option></select>'], []) + '<div id="data-ppc-root">' + ghost('正在加载 PPC / SQP 数据…') + '</div>';
     setTimeout(function(){
       function loadPpc(){
         var root = document.getElementById('data-ppc-root');
@@ -787,7 +788,7 @@ page('data-opp', {
     body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:130px"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>', inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
+    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:130px"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', inp('搜索查询词')], []) + '<div id="data-opp-root">' + ghost('正在加载 ASIN 份额数据…') + '</div>';
     setTimeout(function(){
             var sortCol = '查询总量', sortDesc = true;
       function loadOpp(){
@@ -922,7 +923,7 @@ page('data-import', {
       }
       function openImportDialog(){
         var typeSel = '<div style="margin:2px 0 2px;font-size:12px;color:var(--t-3)">数据类型</div><select class="sel" id="data-type-sel" style="width:100%"><option>搜索表现ASIN视图</option></select>';
-        var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>GB</option><option>DE</option><option>CA</option></select>';
+        var mktSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">目标站点</div><select class="sel" id="data-mkt-sel" style="width:100%"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>';
         var brandInp = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">品牌名（可选，留空则用 CSV 内 ASIN）</div><input class="inp" id="di-brand" style="width:100%;box-sizing:border-box" placeholder="如 BIGM / KOOOLET / Dapman">';
         var seasonSel = '<div style="margin:8px 0 2px;font-size:12px;color:var(--t-3)">季节/假日标记（生成时按此筛选）</div><select class="sel" id="di-season" style="width:100%"><option value="">未标记（全部参与）</option><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option><option value="HALLOWEEN">万圣节</option></select>';
         var fileBox = '<div style="margin:10px 0 2px;font-size:12px;color:var(--t-3)">选择亚马逊导出的 CSV 文件（搜索查询绩效 ASIN 视图 34 列格式）</div><input type="file" id="di-file" accept=".csv" style="width:100%">';
