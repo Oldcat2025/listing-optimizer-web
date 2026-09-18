@@ -882,8 +882,9 @@ page('data-grade', {
 page('data-import', {
   roles:['管理员'],
   guide:[
-    '每次导入都留一条记录，<b>原始文件也保留</b>。',
-    '将来如果解析规则改了，可以拿原始文件重新跑一遍，<b>分清是「数据源变了」还是「我们解析错了」</b>。',
+    '每次导入都留一条记录：导入了多少行、跳过多少行、谁导的、什么时间。',
+    '点每行的<b>「查看」</b>能看到这个批次导进去的内容（按 站点 + 品牌 + 报表区间 从库里取）。',
+    '⚠️ <b>原始 CSV 文件目前没有存档</b> —— 所以只能看「入库后的内容」，不能回放原文件；要能回放需另加存档。',
     '有告警的批次点进去看细节，告警不代表失败。'
   ],
   spec:{
@@ -892,7 +893,7 @@ page('data-import', {
     wf:['无'],
     reads:['import_batch','keyword_snapshot','audit_log'],
     writes:['无'],
-    limits:['原始文件<b>必须保留</b>，用于事后复核解析器是否改错了口径']
+    limits:['原始文件<b>应当保留</b>用于事后复核（<b>当前尚未实现存档</b>，只能按站点+品牌+报表区间回看入库内容）']
   },
       body:function(){
     var el = toolbar([btn('+ 上传 CSV 导入','','')], []) + '<div id="data-import-result" style="margin-bottom:12px"></div>' + '<div id="data-import-root">' + ghost('正在加载导入历史…') + '</div>';
@@ -1019,6 +1020,61 @@ page('data-import', {
             if (s === 'skipped') return '<span style="color:#57606a">全部跳过</span>';
             return s || '—';
           }
+          /* [fix 09-18b] A2：「删除」改成「查看」—— 点开看这个批次导进去的内容。
+             事实说明（不假装）：import_batch 没有存原始文件内容，所以这里取的是
+             「站点 + 品牌 + 报表区间」下已入库的行（读表接口 filter 在切片前生效，total 即命中总数）。
+             站点 → 读表名：SQP_ASIN_<站点>（白名单里已有 US/DE/GB/CA）。 */
+          window.p28BatchView = function(id){
+            var x = null;
+            for (var bi = 0; bi < batches.length; bi++){ if (String(batches[bi]['批次ID']) === String(id)){ x = batches[bi]; break; } }
+            if (!x){ toast('找不到该批次'); return; }
+            var mk = String(x['站点'] || '').toUpperCase();
+            /* [polish] 两列紧凑排布 —— 原来一字段一行，15 行把首屏占满、重点内容要滚才看到 */
+            function _cell(p){ return '<td style="padding:6px 10px;color:var(--t-3);white-space:nowrap;vertical-align:top">' + p[0] + '</td><td style="padding:6px 10px">' + p[1] + '</td>'; }
+            var pairs = [
+              ['批次 ID', x['批次ID']], ['数据类型', x['数据类型'] || '—'],
+              ['站点', mk || '—'], ['品牌', x['品牌'] || '—'],
+              ['报表周期', x['报表周期'] || '—'], ['报表区间', (x['报表开始'] || '—') + ' ~ ' + (x['报表结束'] || '—')],
+              ['总行数', (x['总行数'] == null ? '—' : x['总行数']) + ' 行'], ['新增入库', '<b>' + (x['新增'] == null ? '—' : x['新增']) + '</b> 行'],
+              ['跳过重复', (x['跳过'] == null ? '—' : x['跳过']) + ' 行'], ['状态', stTxt(x['状态'])],
+              ['季节标记', x['季节'] || '—'], ['操作人', x['操作人'] || '—'],
+              ['导入时间', x['时间'] || '—'], ['数据表', mk ? ('SQP_ASIN_' + mk) : '—']
+            ];
+            var info = '<tr><td style="padding:6px 10px;color:var(--t-3);white-space:nowrap;vertical-align:top">文件名</td><td colspan="3" style="padding:6px 10px"><span class="m">' + (x['文件名'] || '—') + '</span></td></tr>';
+            for (var pi = 0; pi < pairs.length; pi += 2){
+              info += '<tr>' + _cell(pairs[pi]) + (pairs[pi + 1] ? _cell(pairs[pi + 1]) : '<td></td><td></td>') + '</tr>';
+            }
+            info += '<tr><td style="padding:6px 10px;color:var(--t-3);white-space:nowrap;vertical-align:top">系统说明</td><td colspan="3" style="padding:6px 10px">' + (x['说明'] || '—') + '</td></tr>';
+            openModal('查看导入批次 #' + x['批次ID'],
+              panel('批次信息', '<table style="width:100%;border-collapse:collapse;font-size:13px">' + info + '</table>', {flush:true})
+              + panel('这个报表区间已入库的内容', '<div id="bv-rows">' + ghost('正在读取…') + '</div>',
+                  {flush:true, note:'原始 CSV 文件未存档，这里显示的是「站点 + 品牌 + 报表区间」下已入库的内容，用于核对本次导入结果。'}),
+              function(close){ close(); }, '关闭');
+            var tblSheet = mk ? ('SQP_ASIN_' + mk) : '';
+            var bx0 = document.getElementById('bv-rows');
+            if (!tblSheet){ if (bx0) bx0.innerHTML = callout('warn','该站点暂不可读','站点为「' + (mk || '空') + '」，没有对应的读表。'); return; }
+            API.table(tblSheet, {'品牌名': x['品牌'], '报表开始日期': x['报表开始'], '报表结束日期': x['报表结束']}, 200).then(function(r){
+              var box = document.getElementById('bv-rows');
+              if (!box) return;
+              if (!r.ok || !r.data || r.data.success === false){ box.innerHTML = callout('warn','读不到内容','站点 ' + mk + ' 的搜索表现数据读取失败：' + ((r.data && r.data.error) || '未知错误')); return; }
+              var rows2 = r.data.data || [];
+              var total2 = (r.data.total == null) ? rows2.length : r.data.total;
+              if (!total2){ box.innerHTML = callout('info','没有匹配到入库行','该批次「新增 0 行」（' + (x['跳过'] == null ? '—' : x['跳过']) + ' 行全部重复跳过），库里也没有该站点 + 品牌 + 报表区间的行。原始文件未存档，无法进一步回放。'); return; }
+              var head = '<div style="margin-bottom:10px;font-size:12px;color:var(--t-3);line-height:1.8">' +
+                  '本批次：总行数 ' + (x['总行数'] == null ? '—' : x['总行数']) + ' 行，新增入库 <b>' + (x['新增'] == null ? '—' : x['新增']) + '</b> 行，跳过重复 ' + (x['跳过'] == null ? '—' : x['跳过']) + ' 行。<br>' +
+                  '⚠️ 系统<b>没有记录「哪一行来自哪一批」</b>（重复行会被跳过、不重复入库），所以下面是「站点 + 品牌 + 报表区间」这个范围内的<b>入库合集</b>，共 ' + total2 + ' 条 —— <b>不等于本批次独有的行数</b>。' +
+                  '</div>' +
+                  ((Number(x['新增']) === 0)
+                    ? callout('info','本批次没有新增行','这 ' + (x['跳过'] == null ? '—' : x['跳过']) + ' 行在导入时已存在（重复跳过）。下面是该范围内库里已有的内容，供核对。')
+                    : '');
+              var tr2 = rows2.map(function(z){
+                return [ z['搜索查询'], '<span class="num">' + (z['查询排名'] == null ? '—' : z['查询排名']) + '</span>', '<span class="num">' + (z['查询总量'] == null ? '—' : z['查询总量']) + '</span>',
+                         '<span class="num">' + (z['点击总数'] == null ? '—' : z['点击总数']) + '</span>', '<span class="num">' + (z['成交转化率'] == null ? '—' : z['成交转化率']) + '</span>', z['ASIN'] || '—' ];
+              });
+              box.innerHTML = head + pagedTable(['搜索查询（原文）','查询排名','查询总量','点击总数','成交转化率','ASIN'], tr2, 10, 'bv-' + id)
+                + '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">命中 ' + total2 + ' 条' + (total2 > rows2.length ? '（本次显示前 ' + rows2.length + ' 条）' : '') + '</div>';
+            });
+          };
           var html = '';
           html += panel('最近导入批次（' + batches.length + ' 条）', batches.length ? pagedTable(
             ['时间','类型','站点','季节','文件名','总数','新增','跳过','状态','操作人','操作'],
@@ -1034,7 +1090,7 @@ page('data-import', {
                 '<span class="num">'+(x['跳过']??'—')+'</span>',
                 stTxt(x['状态']),
                 x['操作人']||'—',
-                '<button class="btn" style="padding:3px 8px;font-size:12px;background:#E0534A;border-color:#E0534A;color:#fff" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post(\'/proj28/api/batch/delete\',{batch_id:'+x['批次ID']+'}, true).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
+                '<button class="btn btn--ghost" style="padding:3px 8px;font-size:12px" onclick="p28BatchView('+x['批次ID']+')">查看</button>'
               ];
             })
           , 20, 'data-import-batches') : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});

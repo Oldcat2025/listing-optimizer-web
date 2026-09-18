@@ -856,13 +856,14 @@ page('adm-user', {
 });page('adm-perm', {
   roles:['管理员'],
   guide:[
-    '这张表是<b>权限的完整说明</b>，只读。',
+    '这张表是<b>权限的完整说明</b>，默认<b>只读</b>。',
+    '要改权限：点<b>「编辑权限」</b>→ 勾选/取消 → 点<b>「保存」</b>才真正生效（中途点「取消」不会改动任何东西）。',
     '重点看倒数第一行和第四行：<b>有些事任何人都不能做</b>，只能由系统判定。',
-    '这不是"界面把按钮藏起来"——服务器会拒绝，数据库也有约束。'
+    '这不是\"界面把按钮藏起来\"——服务器会拒绝，数据库也有约束。'
   ],
   spec:{
     q:'权限矩阵长什么样，哪些能力谁都没有。',
-    acts:['查看','（自定义角色为后续能力）'],
+    acts:['查看','编辑（管理员，需点「编辑权限」进入）'],
     wf:['无'],
     reads:['permission','role'],
     writes:['permission'],
@@ -874,41 +875,76 @@ page('adm-user', {
     body:function(){
     var el = '<div id="adm-perm-root">' + ghost('正在加载权限…') + '</div>';
     setTimeout(function(){
-      API.table('角色权限', {}, 50).then(function(r){
-        var root = document.getElementById('adm-perm-root');
-        if (!root) return;
-        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据，请联系管理员初始化。'); return; }
-        var rows = (r.data.data || []).filter(function(x){ return x && x['能力']; });
-        if (!rows.length){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据。'); return; }
-        var roles = ['运营','审核','管理员','受限管理员'];
+      var ROLES = ['运营','审核','管理员','受限管理员'];
+      /* [fix 09-18b] A1：本页原先是「直接可勾选 + 保存」 —— 与本页自己的说明（「这张表是只读的」）矛盾。
+         现在改回只读：默认只展示 ✓/—，管理员点「编辑权限」才进入编辑态，点「保存」才落库。 */
+      function load(cb){
+        API.table('角色权限', {}, 50).then(function(r){
+          var root = document.getElementById('adm-perm-root');
+          if (!root) return;
+          if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据，请联系管理员初始化。'); return; }
+          var rows = (r.data.data || []).filter(function(x){ return x && x['能力']; });
+          if (!rows.length){ root.innerHTML = callout('warn','暂无权限配置','角色权限表还没有数据。'); return; }
+          cb(root, rows);
+        });
+      }
+      function paintReadOnly(root, rows){
         var tr = rows.map(function(x){
           var name = x['能力'] || '—';
-          return ['<span class="m">'+name+'</span>'].concat(roles.map(function(role){
+          return ['<span class="m">'+name+'</span>'].concat(ROLES.map(function(role){
+            var val = String(x[role]||'').toUpperCase() === 'TRUE';
+            return val ? '<span style="color:#1a7f37;font-weight:600">✓ 允许</span>' : '<span style="color:var(--t-3)">—</span>';
+          }));
+        });
+        var canEdit = (typeof ROLE !== 'undefined') && (ROLE === '管理员');
+        root.innerHTML = panel('权限矩阵（角色 × 能力）· 只读', table(['能力'].concat(ROLES), tr),
+            {flush:true, note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
+          (canEdit
+            ? '<div style="margin-top:12px"><button class="btn" id="perm-edit-btn" style="background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">编辑权限</button> <span style="margin-left:10px;font-size:12px;color:var(--t-3)">改完要点「保存」才生效</span></div>'
+            : '<div style="margin-top:12px;font-size:12px;color:var(--t-3)">当前角色为只读：如需修改权限，请联系管理员。</div>');
+        var eb = document.getElementById('perm-edit-btn');
+        if (eb) eb.onclick = function(){ paintEdit(root, rows); };
+      }
+      function paintEdit(root, rows){
+        var tr = rows.map(function(x){
+          var name = x['能力'] || '—';
+          return ['<span class="m">'+name+'</span>'].concat(ROLES.map(function(role){
             var val = String(x[role]||'').toUpperCase() === 'TRUE';
             return '<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" data-perm="'+encodeURIComponent(name)+'" data-role="'+role+'" '+(val?'checked':'')+' style="vertical-align:middle"> <span style="font-size:12px">'+(val?'允许':'—')+'</span></label>';
           }));
         });
-        root.innerHTML = panel('权限矩阵（角色 × 能力，打勾 / 取消后点保存）', table(['能力'].concat(roles), tr), {flush:true, note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
-          '<div style="margin-top:12px"><button class="btn" id="perm-save-btn" style="background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">保存权限</button> <span id="perm-save-msg" style="margin-left:10px;font-size:12px;color:var(--t-3)"></span></div>';
-        var sb = document.getElementById('perm-save-btn');
-        if (sb) sb.onclick = function(){
+        root.innerHTML = panel('权限矩阵（角色 × 能力）· 编辑中', table(['能力'].concat(ROLES), tr),
+            {flush:true, note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
+          '<div style="margin-top:12px"><button class="btn" id="perm-save-btn" style="background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">保存</button> ' +
+          '<button class="btn btn--ghost" id="perm-cancel-btn" style="padding:8px 18px;border-radius:var(--r-ctl)">取消</button> ' +
+          '<span id="perm-save-msg" style="margin-left:10px;font-size:12px;color:var(--t-3)"></span></div>';
+        document.getElementById('perm-cancel-btn').onclick = function(){
+          if (!confirm('取消编辑？未保存的改动会丢弃。')) return;
+          paintReadOnly(root, rows);
+        };
+        document.getElementById('perm-save-btn').onclick = function(){
           var out = rows.map(function(x){
             var name = x['能力'] || '';
             var row = {'能力': name};
-            roles.forEach(function(role){
+            ROLES.forEach(function(role){
               var cb = document.querySelector('input[data-perm="'+encodeURIComponent(name)+'"][data-role="'+role+'"]');
               row[role] = (cb && cb.checked) ? 'TRUE' : 'FALSE';
             });
             return row;
           });
           var msg = document.getElementById('perm-save-msg');
-          if (msg) msg.textContent = '保存中…';
+          if (msg){ msg.textContent = '保存中…'; msg.style.color = 'var(--t-3)'; }
           API.permSave(out).then(function(r2){
-            if (r2 && r2.ok && r2.data && r2.data.success){ if (msg){ msg.textContent = '✓ 已保存 ' + r2.data.count + ' 条权限'; msg.style.color = 'var(--g-600)'; } }
-            else { if (msg){ msg.textContent = '保存失败：' + ((r2 && r2.data && r2.data.error) || '未知错误'); msg.style.color = 'var(--red)'; } }
+            if (r2 && r2.ok && r2.data && r2.data.success){
+              toast('权限已保存');
+              load(function(root2, rows2){ paintReadOnly(root2, rows2); });   /* 保存后回只读，并以库里的真值重绘 */
+            } else {
+              if (msg){ msg.textContent = '保存失败：' + ((r2 && r2.data && r2.data.error) || '未知错误'); msg.style.color = 'var(--red)'; }
+            }
           });
         };
-      });
+      }
+      load(paintReadOnly);
     }, 0);
     return el;
   }
