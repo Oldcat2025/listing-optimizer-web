@@ -234,7 +234,7 @@ table.t .dim{color:var(--t-4)}
   display:inline-flex;align-items:center;gap:5px;
   font-size:12.5px;padding:6px 14px;border-radius:var(--r-pill);cursor:pointer;
   border:1px solid var(--g-600);background:var(--g-600);color:#fff;
-  font-family:inherit;transition:.15s;
+  font-family:inherit;transition:.15s;white-space:nowrap;
 }
 .btn:hover{background:var(--g-700);border-color:var(--g-700)}
 .btn--ghost{background:#fff;color:var(--g-600);border-color:var(--line-2)}

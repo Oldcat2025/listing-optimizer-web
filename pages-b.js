@@ -1034,7 +1034,7 @@ page('data-import', {
                 '<span class="num">'+(x['跳过']??'—')+'</span>',
                 stTxt(x['状态']),
                 x['操作人']||'—',
-                '<button class="btn" style="padding:3px 8px;font-size:12px;color:#c0392b" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post(\'/proj28/api/batch/delete\',{batch_id:'+x['批次ID']+'}, true).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
+                '<button class="btn" style="padding:3px 8px;font-size:12px;background:#E0534A;border-color:#E0534A;color:#fff" onclick="if(confirm(\'确认删除该导入批次？此操作不可恢复。\')){API._post(\'/proj28/api/batch/delete\',{batch_id:'+x['批次ID']+'}, true).then(function(r){ if(r && r.ok) location.reload(); });}">删除</button>'
               ];
             })
           , 20, 'data-import-batches') : callout('info','还没有导入记录','点右上角「+ 上传 CSV 导入」开始。'), {flush:true, note:'每次上传都会留一条记录：导入了多少、跳过了多少、谁导的、什么时间。'});

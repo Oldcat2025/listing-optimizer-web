@@ -613,10 +613,36 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         });
       }
       var sku = skuParam;
-      Promise.all([
-        API.table('SKU_输入表', sku ? {SKU: sku} : {}, 1),
-        API.table('商品事实表', sku ? {SKU: sku} : {}, 1)
-      ]).then(function(rs){
+      /* [fix 2026-09-18] 「显示哪个商品」原来没有约定：未指定 SKU 时传 limit=1，
+         而读表 SQL 是 ORDER BY id → 取到的是库里【最老】那条；更要命的是「资料」与「事实」
+         是两个独立查询，limit=1 各自取第一条，很可能不是同一个商品。
+         改为：无 SKU 时先取【最近录入】的商品，再按它的 SKU 读商品事实，两边保证同一个商品。 */
+      function pickNewestInput(rows){
+        if (!rows || !rows.length) return null;
+        var toT = function(x){ var s = String((x||{})['创建时间']||'').replace(' ','T'); var v = Date.parse(s); return isNaN(v) ? -1 : v; };
+        var best = null, bestT = -1, anyT = false;
+        for (var i=0;i<rows.length;i++){ var v2 = toT(rows[i]); if (v2 >= 0) anyT = true; if (v2 > bestT){ bestT = v2; best = rows[i]; } }
+        /* 拿不到时间就退回「接口顺序的最后一条」（读表 SQL 是 ORDER BY id → 最后一条即最新录入） */
+        return anyT ? best : rows[rows.length - 1];
+      }
+      function loadDetailInputs(s){
+        if (s){
+          return Promise.all([
+            API.table('SKU_输入表', {SKU: s}, 1),
+            API.table('商品事实表', {SKU: s}, 1)
+          ]);
+        }
+        return API.table('SKU_输入表', {}, 200).then(function(rIn){
+          var rows = (rIn && rIn.ok && rIn.data && rIn.data.data) ? rIn.data.data.filter(function(x){ return x && x['SKU']; }) : [];
+          var pick = pickNewestInput(rows);
+          if (!pick) return [rIn, {ok:true, data:{data:[]}}];
+          return API.table('商品事实表', {SKU: pick['SKU']}, 1).then(function(rF){
+            if (!rF || !rF.ok || !rF.data || rF.data.success === false) rF = {ok:true, data:{data:[]}};
+            return [{ok:true, data:{data:[pick]}}, rF];
+          });
+        });
+      }
+      loadDetailInputs(sku).then(function(rs){
         var root = document.getElementById('sku-detail-root');
         if (!root) return;
         for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
@@ -654,7 +680,7 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         ] : [];
         root.innerHTML =
           '<div class="cols c21">' +
-          panel('商品资料 · ' + skuName, imgHtml + (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。'))) +
+          panel('商品资料 · ' + skuName + (sku ? '' : '（最近录入）'), imgHtml + (leftPairs.length ? kv(leftPairs) : callout('warn','暂无资料','该 SKU 还没有输入资料。')), sku ? null : {flush:true, note:'未指定商品时显示<b>最近录入</b>的那一条；从「商品列表」点 SKU 进来，会显示你点的那一个。'}) +
           panel('商品事实（Product Truth）', (factPairs.length ? kv(factPairs) : callout('warn','暂无事实','该 SKU 还没有商品事实记录。')) + (fact && fact['缺失字段清单'] ? '<div style="margin-top:12px">' + callout('warn','缺失字段', factCn(fact['缺失字段清单'])) + '</div>' : '')) +
           '</div>';
       });
