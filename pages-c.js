@@ -418,26 +418,46 @@ page('cfg-prompt', {
     ]
   },
     body:function(){
-    var el = '<div id="cfg-prompt-root"></div>';
+    var el = '<div id="cfg-prompt-root">' + ghost('正在读取指令版本登记…') + '</div>';
     setTimeout(function(){
-      var root = document.getElementById('cfg-prompt-root');
-      if (!root) return;
-      var versions = [
-        ['v7.1.3','基线版本（内置）','2026-08','全部 AI 环节','当前生效','ok'],
-      ];
-      root.innerHTML =
-        stats([
-          ['当前生效版本', 'v7.1.3', '内置基线', 'ok', false],
-          ['AI 环节数', '3', '识别/前端/后端生成', '', false],
-          ['指令存储', '流程内置', '数据库版本管理待接入', 'warn', false],
-          ['历史版本', '0', '尚未产生回测版本', '', false],
-        ], 4) +
-        panel('AI 指令版本（规划示意）', table(
-          ['版本','说明','发布时间','适用范围','状态',''],
-          versions.map(function(v){ return [v[0], v[1], v[2], v[3], chip(v[4], v[5]), '—']; })
-        ), {flush:true}) +
-        callout('info','当前生效的 AI 指令内容','识别（Product DNA）用 Gemini Vision 看图识别指令；前端/后端文案生成用 LLM 写作指令。这些指令目前<b>内置在流程代码</b>（规范版本 v7.1.3）。计划接入数据库版本管理后，这里会展示每一版指令的全文、改动差异、回测结果。') +
-        panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>告诉 AI「怎么写」的那段指令（Prompt）的版本管理。<br><b>当前状态：</b>指令内置在流程代码（v7.1.3），尚未抽到数据库。<br><b>接入后你能做：</b>对比新旧指令、拿历史任务回测、出问题一键退回、回答「这条文案是哪版指令写的」。</div>', {flush:true});
+      API.table('指令版本', {}, 100).then(function(r){
+        var root = document.getElementById('cfg-prompt-root');
+        if (!root) return;
+        if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('warn','读不到指令版本',(r.data&&r.data.error)||'请稍后重试。'); return; }
+        var rows = (r.data.data || []).filter(function(x){ return x && x['环节']; });
+        if (!rows.length){
+          root.innerHTML = callout('info','还没有登记记录','指令版本是在<b>真实生成</b>时自动登记的 —— 跑一次生成，这里就会出现每个环节的指令版本与指纹。') +
+            callout('info','这一页管什么','系统里有 7 个环节会拼提示词（语义分类 3 个 + 文案生成 4 个）。每次生成时，系统会给所拼出的提示词算一个<b>指纹</b>：<b>指令改了，指纹就变</b>；数据不同不影响同一个指令版本的指纹。') +
+            callout('warn','还不能做什么','<b>在线改指令 / 回测 / 一键退回</b>目前都做不到 —— 指令本身写在流程里，要支持在线编辑需要把它整体抽到数据库，是独立一轮工程。');
+          return;
+        }
+        var steps = {}, latest = '';
+        rows.forEach(function(x){
+          var k = x['环节'] + '|' + (x['最近站点'] || '');
+          steps[k] = (steps[k] || 0) + 1;
+          var t = String(x['最近登记'] || '');
+          if (t > latest) latest = t;
+        });
+        var multi = Object.keys(steps).filter(function(k){ return steps[k] > 1; });
+        var tr = rows.map(function(x){
+          return [ '<span class="m">'+x['环节']+'</span>',
+                   '<span style="color:#1a7f37;font-weight:600">'+(x['版本']||'—')+'</span>',
+                   '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px">'+(x['指令指纹']||'')+'</span>',
+                   x['最近站点']||'—', x['登记次数']||0, x['最近提示词长度']||'—', (x['最近SKU']||'—'),
+                   String(x['首次登记']||'').slice(0,16).replace('T',' '), String(x['最近登记']||'').slice(0,16).replace('T',' ') ];
+        });
+        root.innerHTML = stats([
+          ['已登记指令版本', String(rows.length), '按 环节 分别登记（同一环节改过则多行）', 'ok', false],
+          ['覆盖环节', String(Object.keys(steps).map(function(k){return k.split('|')[0];}).filter(function(v,i,a){return a.indexOf(v)===i;}).length) + ' / 7', '语义 3 + 文案 4', 'ok', false],
+          ['最近登记', latest.slice(5,16).replace('T',' ') || '—', '每次生成自动登记，无需人工维护', '', false],
+        ], 3) + panel('各环节的指令版本（真实登记）', table(['环节','版本','指令指纹','最近站点','登记次数','最近提示词长度','最近SKU','首次登记','最近登记'], tr),
+          {flush:true, note:'「指令指纹」= 该环节<b>指令构建代码</b>的指纹（发布时由工具从代码里的指令文本算出：指令原文 + 规则清单等）。商品数据不同不影响它；<b>指令一改，指纹就变</b>。'}) +
+          (multi.length ? callout('warn','发现同一环节有多个指令版本', '「' + multi.map(function(k){return k.split('|')[0];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join('」「') + '」出现多个版本 —— 属于正常现象（改过指令）。' +
+            '但如果<b>同一次生成</b>里同一环节用了两个版本，那就有问题，请告诉我们。') : '') +
+          callout('info','这一页现在能回答什么','<b>「每个环节当前是哪版指令、什么时候改过、一共跑了多少次、最近一次是哪个 SKU」</b>能答了 —— 每次生成自动登记，不需要人工维护。') +
+          callout('warn','还不能做什么','<b>在线改指令 / 一键回测 / 一键退回</b>还做不到：指令目前写在各工作流里（改指令=改流程，走开发发布）。' +
+            '要是把指令整体抽到数据库、做成可在线编辑+回测，是独立一轮工程（改动面覆盖 7 个提示词构建节点，属生产写作路径，需要单独排期与真跑验证）。');
+      });
     }, 0);
     return el;
   }
