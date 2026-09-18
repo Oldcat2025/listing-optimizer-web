@@ -328,11 +328,11 @@ page('cfg-season', {
   ],
   spec:{
     q:'系统里有哪些季节范围可选，新增商品的季节下拉由谁控制。',
-    acts:['新增季节','停用/启用','删除'], 
+    acts:['新增季节','停用/启用'], 
     wf:['WH-Season-Manage 季节配置管理'],
     reads:['season_config'],
     writes:['season_config'],
-    limits:['停用不等于删除——历史商品保留原值','删除后无法恢复，已有商品引用会保留字符串']
+    limits:['本页<b>只停用、不删除</b>：停用的季节在商品下拉里不再出现，历史商品保留原值','需要彻底下线某个季节时走数据库变更流程——页面不提供删除入口，避免误删不可恢复']
   },
   body:function(){
     var el = '<div id="cfg-season-root">' + ghost('正在加载季节范围…') + '</div>';
@@ -348,8 +348,9 @@ page('cfg-season', {
           var actOn = rows.filter(function(x){ return x['启用'] !== false; }).length;
           function st(x){ return x['启用'] === false ? '<span style="color:#999">已停用</span>' : '<span style="color:#1a7f37">启用</span>'; }
           var btns = function(x){
-            return '<button class="btn btn--ghost" data-toggle="'+x['ID']+'" data-code="'+x['季节代码']+'">'+(x['启用']===false?'启用':'停用')+'</button> ' +
-                   '<button class="btn btn--ghost" data-del="'+x['ID']+'" data-name="'+x['季节名称']+'">删除</button>';
+            /* [fix 09-18c] 去掉「删除」入口 —— 本页已有「停用/启用」（同样能从商品下拉里去掉它，
+               且历史商品不受影响），而「删除」不可恢复。**能停用就不给删**，避免误点丢配置。 */
+            return '<button class="btn btn--ghost" data-toggle="'+x['ID']+'" data-code="'+x['季节代码']+'">'+(x['启用']===false?'启用':'停用')+'</button>';
           };
           var html = panel('季节范围（' + rows.length + ' 项 · 启用 ' + actOn + '）', table(
             ['排序','季节代码','季节名称','状态','操作'],
@@ -372,15 +373,7 @@ page('cfg-season', {
               });
             };
           });
-          Array.prototype.forEach.call(root.querySelectorAll('button[data-del]'), function(b){
-            b.onclick = function(){
-              var nm = b.getAttribute('data-name') || '';
-              if (!confirm('确认删除季节「'+nm+'」？删除后不可恢复（已选该季节的历史商品不受影响）。')) return;
-              API.seasonsManage({ action:'del', id: b.getAttribute('data-del') }).then(function(rr){
-                if (rr.ok && rr.data && rr.data.success){ toast('已删除'); loadSeasonsCfg(); } else { toast((rr.data&&rr.data.error)||'删除失败'); }
-              });
-            };
-          });
+          /* [fix 09-18c] 「删除季节」入口与 handler 一并移除，不留死代码 */
           var addBtn = document.querySelector('[data-todo="cfg-season-add"]');
           if (addBtn && !addBtn.__b){ addBtn.__b = true; addBtn.onclick = function(){
             openModal('新增季节', 
@@ -745,6 +738,7 @@ page('fb-perf', {
 });
 
 page('fb-hypo', {
+  hidden:true,   /* [fix 09-18c] 二期未开发 → 从菜单隐藏（深链仍给明确提示） */
   roles:['审核','管理员'],
   guide:[
     '生成文案时系统<b>假设</b>了买家主要会从哪里找到这个商品；这一页看<b>实际</b>是不是这样。',
@@ -763,6 +757,7 @@ page('fb-hypo', {
 });
 
 page('fb-backtest', {
+  hidden:true,   /* [fix 09-18c] 二期未开发 → 从菜单隐藏（深链仍给明确提示） */
   roles:['管理员'],
   guide:[
     '回测 = <b>拿历史任务用新设置重跑一遍</b>，看结果是变好还是变坏。',
@@ -833,10 +828,10 @@ page('adm-user', {
         root.innerHTML = panel('用户（' + rows.length + ' 个）', table(['用户名','角色','状态','最近登录',''], rows.map(function(x, i){
           var name = x['user_name']||x['用户名']||'—';
           var active = !(x['active'] === false);
-          return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-rp="'+i+'">重置密码</button> <button class="btn btn--ghost" data-del="'+i+'">停用</button>'];
+          return ['<span class="m">'+name+'</span>', x['role']||x['角色']||'—', chip(active?'启用':'停用', active?'ok':'fail'), String(x['last_login_at']||x['最近登录']||'—').slice(0,16).replace('T',' '), '<button class="btn btn--ghost" data-ed="'+i+'">编辑</button> <button class="btn btn--ghost" data-rp="'+i+'">重置密码</button> <button class="btn btn--ghost" data-act="'+i+'">'+(active?'停用':'启用')+'</button>'];
         })), {flush:true});
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-ed]'), function(el){ el.onclick = function(){ openUserModal(rows[parseInt(el.getAttribute('data-ed'),10)]); }; });
-        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-del]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-del'),10); var u = rows[i]; if (!u) return; if (!confirm('确认停用用户 '+(u.user_name||u['用户名'])+' 吗？')) return; API.manageUser({ action:'delete', user_name: u.user_name||u['用户名'] }).then(function(r){ if (r && r.ok && r.data && r.data.success){ toast('用户已停用'); location.reload(); } else { toast((r&&r.data&&r.data.error)||'操作失败'); } }); }; });
+        Array.prototype.forEach.call(root.querySelectorAll('.btn[data-act]'), function(el){ el.onclick = function(){ var i = parseInt(el.getAttribute('data-act'),10); var u = rows[i]; if (!u) return; var nm = u.user_name||u['用户名']; var isOn = !(u['active'] === false); if (isOn && !confirm('确认停用用户 '+nm+' 吗？（账号保留、可随时再启用，不会删数据）')) return; /* [fix 09-18c] 原先只有单向「停用」(action:delete = 软删)，已停用的用户无法再启用 → 改双向；用 update 并显式带 role，避免后端默认值把角色改成「运营」 */ API.manageUser({ action:'update', user_name: nm, role: u['role']||u['角色']||'运营', active: !isOn }).then(function(r){ if (r && r.ok && r.data && r.data.success){ toast(isOn?'用户已停用':'用户已启用'); location.reload(); } else { toast((r&&r.data&&r.data.error)||'操作失败'); } }); }; });
         Array.prototype.forEach.call(root.querySelectorAll('.btn[data-rp]'), function(el){ el.onclick = function(){
           var i = parseInt(el.getAttribute('data-rp'),10); var u = rows[i]; if (!u) return;
           var name = u.user_name || u['用户名'] || '';
@@ -951,6 +946,7 @@ page('adm-user', {
 });
 
 page('adm-db', {
+  hidden:true,   /* [fix 09-18c] 二期未开发 → 从菜单隐藏（深链仍给明确提示） */
   roles:['管理员'],
   guide:[
     '关键词表会越攒越大，<b>旧的快照可以归档到冷存储</b>，但被任务用过的不能删。',
@@ -1017,6 +1013,7 @@ page('adm-audit', {
 });
 
 page('adm-integration', {
+  hidden:true,   /* [fix 09-18c] 二期未开发 → 从菜单隐藏（深链仍给明确提示） */
   roles:['管理员'],
   guide:[
     '这里配的是本系统和 <b>n8n 流程引擎</b>、<b>AI 网关</b>、<b>告警渠道</b>的连接。',
@@ -1039,6 +1036,7 @@ page('adm-integration', {
 });
 
 page('adm-cost', {
+  hidden:true,   /* [fix 09-18c] 二期未开发 → 从菜单隐藏（深链仍给明确提示） */
   roles:['管理员'],
   guide:[
     '这里的数字来自 <b>AI 网关的逐次记账</b>，是精确值不是估算。',

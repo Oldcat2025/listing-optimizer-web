@@ -632,8 +632,11 @@ function allowed(def){
   if (!def || !def.roles) return true;
   return def.roles.indexOf(ROLE) >= 0 || def.roles.indexOf('*') >= 0;
 }
+/* [fix 09-18c] 未开发页「隐藏」：hidden:true 的页面**不进导航、不计入页面数**；
+   直接输地址（#adm-db）打开时给一句明确说明 —— 不能借用「你没权限」那句话冒充（那是误导）。 */
+function isHidden(def){ return !!(def && def.hidden); }
 function groupVisibleCount(g){
-  return g.items.filter(function(it){ return allowed(window.PAGES[it[2]]); }).length;
+  return g.items.filter(function(it){ var dd=window.PAGES[it[2]]; return !isHidden(dd) && allowed(dd); }).length;
 }
 function firstAllowedOf(g){
   for (var i=0;i<g.items.length;i++){
@@ -661,12 +664,13 @@ function renderTabs(cur){
 
 function renderSide(cur){
   var g = cur.g;
+  var vis = g.items.filter(function(it){ return !isHidden(window.PAGES[it[2]]); });   /* [fix 09-18c] 隐藏未开发页 */
   document.getElementById('sideIco').textContent   = g.n;
   document.getElementById('sideTitle').textContent = g.t;
   document.getElementById('sideSub').textContent   =
-    g.items.length + ' 个页面 · ' + ROLE + '可见 ' + groupVisibleCount(g);
+    vis.length + ' 个页面 · ' + ROLE + '可见 ' + groupVisibleCount(g);
 
-  document.getElementById('sideNav').innerHTML = g.items.map(function(it, i){
+  document.getElementById('sideNav').innerHTML = vis.map(function(it, i){
     var def  = window.PAGES[it[2]] || {};
     var lock = allowed(def) ? '' : ' lock';
     var on   = (it[2] === CUR) ? ' on' : '';
@@ -731,7 +735,10 @@ function render(){
       '</div></div>' +
     '</div>';
 
-  var body = allowed(def)
+  var body = isHidden(def)
+    ? callout('warn', '该功能尚未开发，暂不开放',
+        '这一页属于<b>二期规划</b>，数据源还没建立，所以先从菜单里收起来了 —— <b>不是权限问题</b>（你的角色是 '+ROLE+'，本来也看不到它）。等对应数据接上再放出来，清单见「需求追溯矩阵」。')
+    : allowed(def)
     ? guideBar(def.guide) + def.body()
     : callout('stop', '你当前的角色（'+ROLE+'）看不到这一页',
         '本页只对 '+(def.roles||[]).join(' / ')+' 开放。这不只是把按钮藏起来——服务器会拒绝请求，数据库也有约束兜底。想对比不同角色看到什么，换右上角的角色。');
