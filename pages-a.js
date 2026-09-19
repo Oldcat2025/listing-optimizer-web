@@ -1082,7 +1082,8 @@ page('sku-dna', {
               '<div style="font-size:15px;font-weight:600;color:#111;line-height:1.55">' + (mp.local ? esc(mp.local) : '—') + '</div>' +
               (mp.zh ? '<div style="font-size:12.5px;color:#7A857F;margin-top:7px;line-height:1.6">' + esc(mp.zh) + '</div>' : '') +
             '</div>';
-          var identCard = '<div style="border:1px solid #E8ECEA;border-radius:10px;padding:10px 12px;background:#FBFCFB">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
+          try {   /* [fix 09-19] 用 try 包住：万一识别信息取不到，也绝不能把整页渲染打断 */
+            var identCard = '<div style="border:1px solid #E8ECEA;border-radius:10px;padding:10px 12px;background:#FBFCFB">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
             ['SKU', row['SKU'] || '—'],
             ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
             ['产品身份', truth.entity || '—'],
@@ -1090,7 +1091,8 @@ page('sku-dna', {
             ['识别时间', st(row['识别时间']).slice(0,16).replace('T',' ')],
           ]) + '</div>';
           /* [fix 09-19] 识别信息 → 放进方框 + 移到 9 维识别档案的最后（用户反馈图三）*/
-          dimCards.push(identCard);
+            dimCards.push(identCard);
+          } catch(e) { console.warn('识别信息卡片渲染失败，已跳过：', e); }
           var dimsHtml = sec('9 维识别档案', '已识别 ' + dimFilled + ' / ' + dimTotal + ' 维（' + rate + '%）') + grid(dimCards.join(''));
           var KW = [['产品词', kl && kl.product_words], ['差异词', kl && kl.differentiator_words], ['风格场景词', kl && kl.style_scene_words], ['人群动机词', kl && kl.audience_motivation_words], ['Backend 搜索词', kl && kl.backend_terms]];
           var kwHtml = sec('关键词层级', '供文案生成取词 · 4 层 + Backend') +
