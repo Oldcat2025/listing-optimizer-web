@@ -281,7 +281,9 @@ page('dash-flow', {
         API.table('运行日志表', {}, 200),
         API.table('模型绑定', {}, 200),
         API.table('指令版本', {}, 200),
-        API.table('违禁词库', {}, 200)
+        API.table('违禁词库', {}, 200),
+        API.table('上架登记', {}, 200),
+        API.table('周表现', {}, 200)
       ]).then(function(rs){
         var root = document.getElementById('dash-flow-root');
         if (!root) return;
@@ -299,6 +301,7 @@ page('dash-flow', {
         var promptSteps = {};
         for (var p=0;p<promptRow.length;p++){ promptSteps[promptRow[p]['环节']] = 1; }
         var promptN = Object.keys(promptSteps).length; var forbN = tot(rs[14]);
+        var pubN = tot(rs[15]), perfN = tot(rs[16]);
         root.innerHTML =
           stats([
             ['商品累计', fmt(skuN), 'SKU_输入表', '', false],
@@ -329,10 +332,14 @@ page('dash-flow', {
             {t:'AI 指令版本', s:'指令版本 · ' + fmt(promptN) + ' 个环节已登记', go:'cfg-prompt'},
             {t:'违禁词库', s:'违禁词库 · ' + fmt(forbN) + ' 条禁用词', go:'cfg-forbidden'}
           ]), {flush:true, strong:true}) +
-          callout('warn','↻ 回流段（上线后的真实表现）· 待接入',
-            '这一段的设计是：<b>上架登记</b>（ASIN / 站点 / 上架时间）→ <b>周表现回流</b>（词升降级、版本迭代）。' +
-            '但目前 <b>上架登记与周表现的数据表尚未落库</b>（上架登记页的「登记 ASIN」也还没接后端），' +
-            '所以本页<b>不给这一段任何数字</b>，也不提供跳转 —— 宁可空着，也不算估算值。') +
+          (pubN > 0
+            ? panel('↻ 回流段（上线后的真实表现）', flow([
+                {t:'上架登记', s:'上架登记表 · ' + fmt(pubN) + ' 条（已记 ASIN）', go:'fb-publish'},
+                {t:'周表现回流', s:'周表现表 · ' + fmt(perfN) + ' 条记录' + (perfN ? '（词升降级、版本迭代的依据）' : '（待导入第一份周报表）'), go:'fb-perf'}
+              ]), {flush:true, strong:true})
+            : callout('warn','↻ 回流段（上线后的真实表现）· 尚未开始',
+                '这一段的设计是：<b>上架登记</b>（ASIN / 站点 / 上架时间）→ <b>周表现回流</b>（词升降级、版本迭代）。' +
+                '数据表已经建好、接口已通，但<b>还没有任何一条登记</b> —— 去「上线跟踪 → 上架登记」（7.1）填一个 ASIN，这里就会开始出数字。')) +
           panel('这一页怎么读', '<div style="font-size:12.5px;line-height:1.9;color:#444">' +
             '· 数字是<b>累计沉淀</b>：每生成一次、每导入一批，就往对应工序里加记录；<br/>' +
             '· <b>看到差距才是重点</b>：比如「候选台账 1 万条」对上「定稿 95 套」，说明词料很厚、产能还没铺满；<br/>' +

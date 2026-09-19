@@ -740,6 +740,29 @@ page('fb-publish', {
     limits:['没登记 ASIN 的文案<b>不进入效果跟踪</b>，但不影响交付本身']
   },
     body:function(){
+    /* [item4 2026-09-19] 登记 ASIN：真实写库（WH-Publication-Register） */
+    document.addEventListener('click', function(ev){
+      var t = ev.target;
+      if (!t || !t.getAttribute) return;
+      var sk = t.getAttribute('data-pub-sku');
+      if (!sk) return;
+      var mk = t.getAttribute('data-pub-mkt') || 'US';
+      openModal('登记 ASIN · ' + sk,
+        fld('ASIN（亚马逊商品页上的 10 位编号）', '<input class="ctl" id="pub-asin" placeholder="如 B0XXXXXXXX">') +
+        fld('商品链接（可选）', '<input class="ctl" id="pub-url" placeholder="https://www.amazon.com/dp/...">') +
+        fld('站点', '<input class="ctl" id="pub-mkt" value="' + mk + '" readonly>'),
+        function(close){
+          var asin = ((document.getElementById('pub-asin')||{}).value || '').trim().toUpperCase();
+          if (!/^[A-Z0-9]{10}$/.test(asin)){ toast('ASIN 应为 10 位字母数字，如 B0XXXXXXXX'); return; }
+          API.registerPublication({ sku: sk, marketplace: mk, asin: asin,
+            listing_url: ((document.getElementById('pub-url')||{}).value || ''),
+            executed_by: (session()||{}).user_name || '' })
+            .then(function(r){
+              if (r && r.ok && r.data && r.data.success){ toast('已登记：这条商品进入效果跟踪'); close(); setTimeout(function(){ location.reload(); }, 800); }
+              else { toast((r && r.data && r.data.error) || '登记失败'); }
+            });
+        }, '登记');
+    });
     var el = '<div id="fb-publish-root">' + ghost('正在加载已上架待登记…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {'处理状态':'COMPLETED'}, 200).then(function(r){
@@ -756,7 +779,7 @@ page('fb-publish', {
             '<span class="m">' + (x['定稿版本号']||'—') + '</span>',
             chip(x['处理状态']||'—', 'ok'),
             '<span class="m">' + String(x['更新时间']||'—').slice(0,16).replace('T',' ') + '</span>',
-            btn('登记 ASIN','','','','','登记 ASIN 功能暂未开放')
+            '<button class="btn btn--ghost" data-pub-sku="' + (x['SKU']||'') + '" data-pub-mkt="' + (x['目标市场']||'US') + '">登记 ASIN</button>'
            ]; })
         ), {flush:true});
       });
