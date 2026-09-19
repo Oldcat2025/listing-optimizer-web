@@ -989,7 +989,8 @@ page('sku-dna', {
     setTimeout(function(){
       var root = document.getElementById('sku-dna-root');
       if (!root) return;
-      Promise.all([API.table('产品识别结果', {}, 30), API.table('SKU_输入表', {}, 200)]).then(function(rs){
+      Promise.all([API.table('产品识别结果', (sku ? {SKU: sku} : {}), (sku ? 5 : 5)),   /* [fix 09-19] 服务端按 SKU 筛：原先是全表取出再前端筛（1651KB/9s→163KB/1.2s） */
+        API.table('SKU_输入表', (sku ? {SKU: sku} : {}), (sku ? 1 : 200))]).then(function(rs){
         var r1 = rs[0];
         if (!r1.ok || !r1.data || r1.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r1.data&&r1.data.error)||'请检查网络或稍后重试'); return; }
         var _all = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
@@ -1104,7 +1105,7 @@ page('sku-dna', {
                   '<span style="font-size:11px;color:#9AA0A6">'+list.length+' 个</span>' +
                 '</div>' + (tags(list) || '<span style="font-size:11.5px;color:#B0B8B4">未提取</span>') + '</div>';
             }).join(''));
-          return hero + dimsHtml + kwHtml + ident;
+          return hero + dimsHtml + kwHtml;   /* [fix 09-19] identCard 已 push 进 dimCards，此处不再引用 ident（否则 ReferenceError 会让整页停在「加载中」）*/
         }
         var imgMap = {};
         skuRows.forEach(function(sx){ if (sx && sx['SKU']) imgMap[sx['SKU']] = sx['产品图片URL'] || ''; });

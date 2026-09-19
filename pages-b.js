@@ -145,7 +145,7 @@ page('rev-detail', {
           x['Backend Search Terms']||''
         ].filter(Boolean).join('\n\n');
                 /* [fix 09-19] 4.2 右侧显示该文案对应的商品图（来自 2.3 上传/录入的产品图片URL） */
-        (function(){
+        (function(){ setTimeout(function(){ try {   /* [fix 09-19] 推迟到 innerHTML 赋值完成后再取 #rd-prodimg */
           var box = document.getElementById('rd-prodimg'); if (!box) return;
           var sk = (x && (x['SKU'] || x['sku'])) || ''; if (!sk) return;
           API.table('SKU_输入表', {SKU: sk}, 1).then(function(r){
@@ -155,7 +155,8 @@ page('rev-detail', {
             if (!u || String(u).indexOf('http') !== 0){ box2.innerHTML = panel('商品图（' + sk + '）', '<div style="font-size:12.5px;color:var(--t-3);line-height:1.8">该商品还没上传产品图。<br>去「商品资料填写」（2.3）上传后，这里会自动显示——文案里那些视觉词（颜色/图案/风格）就是照它写的。</div>', {sub:'改文案时对照用'}); return; }
             box2.innerHTML = panel('商品图（' + sk + '）', '<img src="' + u + '" style="max-width:100%;border-radius:10px;border:1px solid #E8ECEA">', {sub:'改文案时对照用'});
           });
-        })();
+
+        } catch(e){ console.warn('商品图加载失败，已跳过：', e); } }, 0); })();
         root.innerHTML =
           '<div class="cols c21">' +
             '<div>' +
