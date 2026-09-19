@@ -430,6 +430,30 @@ page('rev-action', {
           '</div>' +
           callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
       });
+      /* [fix 09-19] 与 4.6「需人工处理」合并：同一页处理「系统交给人的活」 */
+      API.table('运行日志表', {}, 200).then(function(r2){
+        var root2 = document.getElementById('rev-action-root'); if (!root2) return;
+        var rr = (r2 && r2.data && r2.data.data) || [];
+        (function(){ var g2 = {}; rr.forEach(function(x){ var k=(x['SKU']||'')+'|'+(x['目标市场']||''); var cur=g2[k];
+          if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k]=x; });
+          rr = Object.keys(g2).map(function(k){ return g2[k]; }); })();
+        var mrows = rr.filter(function(x){ return String(x['最终状态']||'').toUpperCase() === 'REVIEW_REQUIRED'; });
+        mrows.sort(function(a,b2){ var ta=String(a['结束时间']||''), tb=String(b2['结束时间']||''); return ta<tb?1:(ta>tb?-1:0); });
+        var html = panel('系统转人工的（' + mrows.length + ' 条）',
+          (mrows.length
+            ? pagedTable(['运行ID','商品 / 站点','最终状态','错误详情','结束时间'],
+                mrows.map(function(x){
+                  return ['<span class="m">'+(x['运行ID']||'—')+'</span>',
+                          '<span class="m">'+(x['SKU']||'—')+'</span> ' + (x['目标市场']||''),
+                          chip(x['最终状态']||'—','warn'),
+                          '<span style="font-size:12px">' + String(x['错误详情']||x['错误码']||'—').slice(0,120) + '</span>',
+                          '<span class="m">' + String(x['结束时间']||'—').slice(0,16).replace('T',' ') + '</span>'];
+                }))
+            : '<div style="font-size:12.5px;color:var(--t-3);padding:2px">当前没有被系统转人工的任务。</div>') +
+          '<div style="font-size:12px;color:var(--t-3);margin-top:10px;line-height:1.8">这一块原先在「需人工处理」（4.6）单独一页 —— 它和上面的放行/打回是<b>同一件工作</b>（都是"系统交给人的活"），所以合并到这里，原 4.6 已从菜单收起。</div>',
+          {flush:true});
+        root2.insertAdjacentHTML('beforeend', html);
+      });
       var ra = document.getElementById('rel-all-btn'); if (ra) ra.onclick = function(){ toast('放行接口暂未接入，请联系管理员'); };
     }, 0);
     return el;
@@ -437,6 +461,7 @@ page('rev-action', {
 });
 
 page('rev-manual', {
+  hidden:true,   /* [fix 09-19] 与 4.5「审核放行」合并：同一件工作（人工处置）。本页保留可达，但不再出现在菜单 */
   roles:['运营','审核','管理员'],
   guide:[
     '进到这里的都是<b>系统已经放弃自动修复</b>的，必须人来判断。',

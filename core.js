@@ -52,7 +52,9 @@ var API = {
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
-  generate: function(sku){ return this._post('/proj28/api/generate', sku, true); },
+  generate: function(sku){ /* [fix 09-19] 带上登录账号：让 8.4 操作记录能显示「谁提交的」，不再是系统 UUID */
+    try { var _s = session(); if (_s && _s.user_name && sku && typeof sku === 'object' && !sku.executed_by) sku.executed_by = _s.user_name; } catch(e){}
+    return this._post('/proj28/api/generate', sku, true); },
   seasonsManage: function(o){ return this._post('/proj28/api/seasons/manage', o, true); },
   /* [fix 09-17b] 系统参数保存（6.x 系统参数页的开关用它） */
   saveConfig: function(c){ return this._post('/proj28/api/config/save', c, true); },
@@ -119,7 +121,7 @@ const NAV = [
     ['4.2','文案详情（可复制）','rev-detail','定稿详情'],
     ['4.3','质量检查报告','rev-audit','审计报告 · 五证书'],
     ['4.4','选词记录','rev-ledger','候选台账 Field Candidate Ledger'],
-    ['4.5','审核放行','rev-action','审核操作 · override 台账'],
+    ['4.5','审核放行与人工处理','rev-action','审核操作 · override 台账'],
     ['4.6','需人工处理','rev-manual','人工复核队列 Manual Review'],
   ]},
   { g:'⑤', n:'5', t:'数据管理', k:'data', items:[
