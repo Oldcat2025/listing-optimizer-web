@@ -422,13 +422,13 @@ page('rev-action', {
     ]
   },
     body:function(){
-    var el = '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
+    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
     setTimeout(function(){
       API.table('定稿输出表', {}, 200).then(function(r){
         var root = document.getElementById('rev-action-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE'; });
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE' && mktHit(x); });
         var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待审核文案';
         var body0 = rows.length ? '五项检查已完成。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。' : '当前没有待审核的定稿文案。';
         root.innerHTML = callout('', head, body0) + '<div class="cols c2">' +

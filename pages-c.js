@@ -763,13 +763,13 @@ page('fb-publish', {
             });
         }, '登记');
     });
-    var el = '<div id="fb-publish-root">' + ghost('正在加载已上架待登记…') + '</div>';
+    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="fb-publish-root">' + ghost('正在加载已上架待登记…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {'处理状态':'COMPLETED'}, 200).then(function(r){
         var root = document.getElementById('fb-publish-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU']; });
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && mktHit(x); });
         if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         root.innerHTML = panel('已上架待登记（' + rows.length + ' 条）', table(
           ['SKU','站点','定稿版本','处理状态','更新时间',''],
@@ -1078,13 +1078,13 @@ page('adm-audit', {
     limits:['操作记录<b>只增不改不删</b>','改判、配置变更、密钥轮换、规则复核必须全部留痕']
   },
     body:function(){
-    var el = '<div id="adm-audit-root">' + ghost('正在加载操作记录…') + '</div>';
+    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="adm-audit-root">' + ghost('正在加载操作记录…') + '</div>';
     setTimeout(function(){
       API.table('运行日志表', {}, 200).then(function(r){
         var root = document.getElementById('adm-audit-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['运行ID']; });
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['运行ID'] && mktHit(x); });
         if (!rows.length) { root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
 
         function ftone(s){ var u=String(s||'').toUpperCase(); return u==='SUCCESS'?'ok':(u==='FAILED'?'fail':(u==='REVIEW_REQUIRED'?'warn':'')); }
