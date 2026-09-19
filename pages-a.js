@@ -678,7 +678,40 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
             step(k + 1);
           });
         }
-        step(0);
+        /* [fix 09-19] ★同父体跨站事实一致性校验（保存前报警）
+           实证：同款 SPRING-45 六站 material 出现 "Polyester / Poliester / Waterproof Polyester Fabric" 三种写法，
+           同父体的 GERANIUM55 又是 "faux linen" —— 事实不一致会一路流到定稿。这里在保存前报警并请人确认。 */
+        (function(){
+          function norm(v){ return String(v||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+          var body0 = baseBody();
+          var fam = String(body0.family_id || '').trim();
+          var myMat = norm(body0.material), myCraft = norm(body0.craft);
+          if (!fam || (!myMat && !myCraft)) { step(0); return; }
+          Promise.all([ API.table('SKU_输入表', {}, 500), API.table('商品事实表', {}, 500) ]).then(function(rs){
+            var skus = (rs[0] && rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
+            var facts = (rs[1] && rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
+            var famSkus = {};
+            skus.forEach(function(x){ if (String(x['父体ID']||'').trim() === fam) famSkus[String(x['SKU']||'')] = 1; });
+            var mats = {}, crafts = {};
+            facts.forEach(function(x){
+              if (!famSkus[String(x['SKU']||'')]) return;
+              var m = String(x['材质']||'').trim(), c = String(x['工艺']||'').trim();
+              if (m) mats[m] = 1;
+              if (c) crafts[c] = 1;
+            });
+            var ms = Object.keys(mats), cs = Object.keys(crafts);
+            var warns = [];
+            if (myMat && ms.length && ms.filter(function(x){ return norm(x) !== myMat; }).length)
+              warns.push('材质：本父体已有「' + ms.join('、') + '」，你填的是「' + body0.material + '」');
+            if (myCraft && cs.length && cs.filter(function(x){ return norm(x) !== myCraft; }).length)
+              warns.push('工艺：本父体已有「' + cs.join('、') + '」，你填的是「' + body0.craft + '」');
+            if (warns.length){
+              if (!confirm('⚠️ 同父体事实不一致（同一父体的商品应共享材质/工艺）：\n\n' + warns.join('\n') + '\n\n确定按现在填的保存吗？（点取消回去改）')) return;
+            }
+            step(0);
+          }).catch(function(){ step(0); });
+        })();
+
       });
     }
     function bindSkuUpload(){
