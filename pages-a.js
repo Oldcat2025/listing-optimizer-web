@@ -245,72 +245,108 @@ page('dash-quality', {
 page('dash-flow', {
   roles:['运营','审核','管理员'],
   guide:[
-    '这一页回答：<b>文案从收到商品到交付，一共要过哪 12 道工序</b>，以及每道工序到现在<b>累计积累了多少数据</b>。',
-    '卡片上的大数字是<b>系统启用以来的累计值</b>，不是今天的量--它展示的是这套系统"越用越好"的底子有多厚。',
-    '每张卡片都可以点，直接跳到承载这道工序数据的页面。最后还有一条<b>回流段</b>：上线后的真实表现反过来喂给词评级和版本迭代。'
+    '这一页回答：<b>文案从收到商品到交付，一共要过哪 12 道工序</b>，以及每道工序到现在<b>累计沉淀了多少条记录</b>。',
+    '统计口径已按<b>当前系统实况</b>对齐：词库按<b>全部站点</b>汇总（不再只算美国站）、新增<b>商品模板</b>与<b>父体（共享边界）</b>两道工序、识别口径为 <b>9 问</b>。',
+    '卡片上的数字是<b>系统启用以来的累计值</b>，不是今天的量 —— 它展示的是这套系统“越用越好”的底子有多厚。',
+    '每张卡片都可点，直接跳到承载这道工序数据的页面。<b>回流段（上线后的真实表现）数据源尚未接入</b>，本页如实标出，不编数字。'
   ],
   spec:{
     q:'整个工作流总共 12 道工序是什么，每道工序累计沉淀了多少条记录。',
     acts:['查看各工序累计数据','点击工序卡片跳转'],
     wf:['WF-28-00 ~ WF-28-07 全链路（只读聚合）'],
-    reads:['sku','fact_registry','keyword_raw','opportunity','field_candidate','listing_final','certificate','publication','performance_weekly'],
+    reads:['sku_input','product_template','product_parent','product_dna','keyword_db','ppc_terms','sqp_query','candidate_ledger','listing_final','certificate','run_log','model_profile_binding','prompt_version','forbidden_words','dimension_lexicon'],
     writes:['无'],
     limits:[
       '本页<b>只读</b>，不在此页触发任何生成',
       '全部数字为各工序落库记录的<b>累计统计</b>，不允许显示估算值',
-      '回流段不属于 12 道工序，是闭环的第四段，单独标出'
+      '回流段不属于 12 道工序，是闭环的第四段，单独标出',
+      '<b>回流段数据源未接入</b>（上架登记/周表现表尚未落库）—— 页面标注「待接入」，不给数字'
     ]
   },
-    body:function(){
+  body:function(){
     var el = '<div id="dash-flow-root">' + ghost('正在加载全流程数据…') + '</div>';
     setTimeout(function(){
       Promise.all([
         API.table('SKU_输入表', {}, 200),
-        API.table('商品事实表', {}, 200),
-        API.table('站点词库_US', {}, 200),
+        API.table('商品模板表', {}, 200),
+        API.table('父体表', {}, 200),
+        API.table('产品识别结果', {}, 200),
+        API.table('词库站点汇总', {}, 200),
+        API.table('PPC站点汇总', {}, 200),
+        API.table('SQP站点汇总', {}, 200),
         API.table('候选台账', {}, 200),
+        API.table('定稿输出表', {}, 200),
+        API.table('定稿质量汇总', {}, 200),
         API.table('证书表', {}, 200),
-        API.table('定稿输出表', {}, 200)
+        API.table('运行日志表', {}, 200),
+        API.table('模型绑定', {}, 200),
+        API.table('指令版本', {}, 200),
+        API.table('违禁词库', {}, 200)
       ]).then(function(rs){
         var root = document.getElementById('dash-flow-root');
         if (!root) return;
-        for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].data.error)||'请检查网络或稍后重试'); return; } }
-        function cnt(r, key){ if (r && r.data && r.data.total !== undefined && r.data.total !== null) return r.data.total; var rows = (r && r.data && r.data.data) || []; return rows.filter(function(x){ return x && x[key]; }).length; }
+        for (var i=0;i<rs.length;i++){ if (!rs[i] || !rs[i].ok || !rs[i].data || rs[i].data.success === false){ root.innerHTML = callout('stop','数据加载失败',(rs[i]&&rs[i].data&&rs[i].error)||'请检查网络或稍后重试'); return; } }
+        function rows(r){ return (r && r.data && r.data.data) || []; }
+        function tot(r, key){ if (r && r.data && r.data.total !== undefined && r.data.total !== null) return Number(r.data.total); var a=rows(r); return key ? a.filter(function(x){return x && x[key];}).length : a.length; }
         function fmt(n){ n = Number(n || 0); try { return n.toLocaleString(); } catch(e){ return String(n); } }
-        var skuN = cnt(rs[0], 'SKU'), factN = cnt(rs[1], 'SKU'), kwN = cnt(rs[2], '关键词'), ledgerN = cnt(rs[3], '候选ID'), certN = cnt(rs[4], '运行ID'), finN = cnt(rs[5], 'SKU');
+        function sumSite(r){ var a = rows(r), n = 0; for (var i=0;i<a.length;i++){ n += Number(a[i]['词数'] || 0); } return { n:n, detail:a.map(function(x){ return x['站点'] + ' ' + fmt(x['词数']); }).join(' · ') }; }
+        var skuN = tot(rs[0]), tplN = tot(rs[1]), parN = tot(rs[2]), dnaN = tot(rs[3]);
+        var kw = sumSite(rs[4]), ppc = sumSite(rs[5]), sqp = sumSite(rs[6]);
+        var ledN = tot(rs[7]), finN = tot(rs[8]);
+        var q = rows(rs[9])[0] || {};
+        var certN = tot(rs[10]), runN = tot(rs[11]);
+        var bindN = rows(rs[12]).length, promptRow = rows(rs[13]);
+        var promptSteps = {};
+        for (var p=0;p<promptRow.length;p++){ promptSteps[promptRow[p]['环节']] = 1; }
+        var promptN = Object.keys(promptSteps).length; var forbN = tot(rs[14]);
         root.innerHTML =
           stats([
             ['商品累计', fmt(skuN), 'SKU_输入表', '', false],
-            ['关键词累计', fmt(kwN), '站点词库_US', 'ok', false],
-            ['候选词累计', fmt(ledgerN), '候选台账', '', false],
-            ['定稿累计', fmt(finN), '定稿输出表', 'ok', false],
+            ['词库累计（全站点）', fmt(kw.n), '7 个站点合计', 'ok', false],
+            ['候选词累计', fmt(ledN), '候选台账', '', false],
+            ['定稿累计', fmt(finN), '定稿输出表', 'ok', false]
           ], 4) +
-          panel('① 资料与识别段（工序 1-2）', flow([
-          {t:'商品事实表录入', s:'SKU_输入表 · ' + fmt(skuN) + ' 条', go:'sku-detail'},
-          {t:'Product DNA 识别', s:'商品事实表 · ' + fmt(factN) + ' 条', go:'sku-dna'}
-        ]), {flush:true, strong:true}) +
-        panel('② 数据摄取与机会发现段（工序 3-6）', flow([
-          {t:'卖家精灵全表', s:'站点词库_US · ' + fmt(kwN) + ' 行', go:'data-kw'},
-          {t:'12 类分类', s:'机会清单 · ' + fmt(ledgerN) + ' 条', go:'data-opp'},
-          {t:'PPC/SQP 归因', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-ppc'},
-          {t:'Reverse ASIN 入口簇', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'data-aba'}
-        ]), {flush:true, strong:true}) +
-        panel('③ 生成与审核段（工序 7-12）', flow([
-          {t:'字段路由准入', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
-          {t:'四层入口组合', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
-          {t:'仲裁顺序', s:'候选台账 · ' + fmt(ledgerN) + ' 条', go:'rev-ledger'},
-          {t:'八项质量门禁', s:'证书表 · ' + fmt(certN) + ' 份', go:'rev-audit'},
-          {t:'审核放行', s:'定稿输出表 · ' + fmt(finN) + ' 套', go:'rev-list'},
-          {t:'上架记录', s:'上线跟踪', go:'fb-publish'}
-        ]), {flush:true, strong:true}) +
-        panel('↻ 回流段（持续迭代）', flow([
-          {t:'ASIN 登记', s:'周表现 → 词升降级 → 版本迭代', go:'fb-publish'}
-        ]), {flush:true, strong:true, note:'这就是系统「越用越好」的底子：<b>每一次生成都往这些工序里沉淀记录</b>，数据越多，词评级、意图标注和参数版本越准。'});
+          panel('① 资料与识别段（工序 1-4）', flow([
+            {t:'商品资料录入', s:'SKU_输入表 · ' + fmt(skuN) + ' 条', go:'sku-detail'},
+            {t:'商品模板', s:'商品模板表 · ' + fmt(tplN) + ' 个（2.0 新增）', go:'sku-detail'},
+            {t:'父体 · 共享边界', s:'父体表 · ' + fmt(parN) + ' 个父体（2.0 新增）', go:'sku-family'},
+            {t:'9 问产品识别', s:'产品识别结果 · ' + fmt(dnaN) + ' 份（7 站统一 9 问）', go:'sku-dna'}
+          ]), {flush:true, strong:true}) +
+          panel('② 摄取与机会发现段（工序 5-8）', flow([
+            {t:'全站点词库摄取', s:'词库站点汇总 · 合计 ' + fmt(kw.n) + ' 词' + (kw.detail ? '（' + kw.detail + '）' : ''), go:'data-kw'},
+            {t:'PPC 出单词归因', s:'PPC站点汇总 · ' + fmt(ppc.n) + ' 条' + (ppc.detail ? '（' + ppc.detail + '）' : ''), go:'data-ppc'},
+            {t:'SQP 搜索词归因', s:'SQP站点汇总 · ' + fmt(sqp.n) + ' 条' + (sqp.detail ? '（' + sqp.detail + '）' : ''), go:'data-aba'},
+            {t:'候选台账 · 准入路由', s:'候选台账 · ' + fmt(ledN) + ' 条候选', go:'rev-ledger'}
+          ]), {flush:true, strong:true}) +
+          panel('③ 生成与交付段（工序 9-12）', flow([
+            {t:'前台文案定稿', s:'定稿输出表 · ' + fmt(finN) + ' 套（覆盖 ' + fmt(q['覆盖SKU']) + ' 个 SKU）', go:'rev-list'},
+            {t:'Backend 搜索词', s:'已有 Backend ' + fmt(q['已有Backend']) + ' / 定稿 ' + fmt(q['定稿总数']), go:'rev-list'},
+            {t:'审计与证书', s:'证书表 · ' + fmt(certN) + ' 份（五证书）', go:'rev-audit'},
+            {t:'生成运行记录', s:'运行日志表 · ' + fmt(runN) + ' 次运行', go:'gen-run'}
+          ]), {flush:true, strong:true}) +
+          panel('④ 治理与配置（支撑上面 12 道工序，不单独计为工序）', flow([
+            {t:'AI 模型绑定', s:'模型绑定 · ' + fmt(bindN) + ' 个环节可配', go:'cfg-binding'},
+            {t:'AI 指令版本', s:'指令版本 · ' + fmt(promptN) + ' 个环节已登记', go:'cfg-prompt'},
+            {t:'违禁词库', s:'违禁词库 · ' + fmt(forbN) + ' 条禁用词', go:'cfg-forbidden'}
+          ]), {flush:true, strong:true}) +
+          callout('warn','↻ 回流段（上线后的真实表现）· 待接入',
+            '这一段的设计是：<b>上架登记</b>（ASIN / 站点 / 上架时间）→ <b>周表现回流</b>（词升降级、版本迭代）。' +
+            '但目前 <b>上架登记与周表现的数据表尚未落库</b>（上架登记页的「登记 ASIN」也还没接后端），' +
+            '所以本页<b>不给这一段任何数字</b>，也不提供跳转 —— 宁可空着，也不算估算值。') +
+          panel('这一页怎么读', '<div style="font-size:12.5px;line-height:1.9;color:#444">' +
+            '· 数字是<b>累计沉淀</b>：每生成一次、每导入一批，就往对应工序里加记录；<br/>' +
+            '· <b>看到差距才是重点</b>：比如「候选台账 1 万条」对上「定稿 95 套」，说明词料很厚、产能还没铺满；<br/>' +
+            '· 卡片跳转直达该工序的明细页（明细页才是核对数据的地方）。</div>', {flush:true}) +
+          callout('info','与旧版的差别（本页已按当前系统重做）',
+            '① 词库统计<b>从只算美国站改为全部站点</b>；② 新增<b>商品模板 / 父体（共享边界）</b>两道工序；' +
+            '③ 识别口径写明 <b>7 站统一 9 问</b>；④ 新增<b>Backend 覆盖率</b>与<b>治理段（模型绑定 / 指令版本 / 违禁词库）</b>；' +
+            '⑤ 六张卡片共用一个数字的问题已修（每张卡现在都是<b>各自工序的真实指标</b>）。');
       });
     }, 0);
     return el;
   }
 });
+
 page('sku-list', {
   roles:['运营','审核','管理员'],
   guide:[
