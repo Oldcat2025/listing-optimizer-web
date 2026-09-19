@@ -219,6 +219,19 @@ function toolbar(filters, actions, opt){
 /* [4.2/4.3 改造] 站点全集（原先两页硬编码 5 站，漏了 DE 与 CA） */
 var MARKETS_ALL = ['US','GB','DE','FR','IT','ES','CA'];
 
+/* ═══ [需求 09-19] 通用「站点/国家」筛选（4.4 / 2.1 / 3.2 / 3.4 等列表页共用）═══
+   用法：① 工具栏里插 mktSel()  ② 渲染时用 rows.filter(mktHit)
+   选择结果存在 window.__mkt；change 用文档级监听 → 改页面不用每页接线 */
+function mktSel(){ var v = window.__mkt || ''; return '<select class="sel" id="mkt-sel" title="按站点筛选"><option value="">全部站点</option>' +
+  MARKETS_ALL.map(function(m){ return '<option value="'+m+'"'+(v===m?' selected':'')+'>'+m+'</option>'; }).join('') + '</select>'; }
+function mktCur(){ return window.__mkt || ''; }
+function mktHit(x){ var m = window.__mkt; if (!m) return true;
+  return String((x && (x['站点'] || x['目标市场'] || x['marketplace'] || x['市场'])) || '').toUpperCase() === m; }
+document.addEventListener('change', function(e){
+  if (e.target && e.target.id === 'mkt-sel'){ window.__mkt = e.target.value || ''; if (typeof render === 'function') render(); }
+});
+
+
 /* [4.2/4.3 共用] 「最近 10 条成功文案」
    成功 = 证书「全部通过」= TRUE（fail-closed：未通过的写进定稿也不算成功文案）
    用法：recentTenPanel().then(function(h){ 容器.innerHTML = h; wireRecent(fn); })      */

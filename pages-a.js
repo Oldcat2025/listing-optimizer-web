@@ -371,7 +371,7 @@ page('sku-list', {
   },
   body:function(){
     var html = toolbar(
-      ['<input class="inp" id="sku-search" placeholder="搜索 SKU">', sel('全部状态',['待处理','生成中','待审核','需人工','已上架'])],
+      ['<input class="inp" id="sku-search" placeholder="搜索 SKU">', sel('全部状态',['待处理','生成中','待审核','需人工','已上架']), mktSel()],
       ['<button class="btn" id="sku-search-btn">搜索</button>', btn('批量导入','','','','','批量导入功能暂未开放'), btn('新建商品','btn','sku-detail')]
     ) + '<div id="sku-data" style="margin-top:14px">' + ghost('正在加载商品列表…') + '</div>';
     setTimeout(function(){
@@ -405,6 +405,7 @@ page('sku-list', {
           return '<span style="font-size:11px;color:var(--t-3)">本地图</span>';
         }
         function renderList(list){
+          list = mktCur() ? list.filter(mktHit) : list;   /* [需求 09-19] 站点筛选：所有调用路径统一生效 */
           var tr = list.map(function(x){
           return [
             thumbHtml(x['产品图片URL']),
@@ -426,7 +427,7 @@ page('sku-list', {
         });
           el.innerHTML = pagedTable(['图片','SKU','产品族','类目','季节范围','市场','状态','处理时间',''], tr, 20, 'sku-list-all');
         }
-        renderList(rows);
+        renderList(mktCur() ? rows.filter(mktHit) : rows);
         var searchBtn = document.getElementById('sku-search-btn');
         if (searchBtn) searchBtn.onclick = function(){
           var q = (document.getElementById('sku-search')||{}).value || '';
@@ -1345,7 +1346,7 @@ page('gen-queue', {
       function p(n){ return (n<10?'0':'')+n; }
       return u.getUTCFullYear()+'-'+p(u.getUTCMonth()+1)+'-'+p(u.getUTCDate())+' '+p(u.getUTCHours())+':'+p(u.getUTCMinutes());
     }
-    var el = '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
+    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {}, 200).then(function(r){
         var root = document.getElementById('gen-queue-root');
@@ -1364,9 +1365,9 @@ page('gen-queue', {
             ['处理中', running, 'PROCESSING', 'run', false],
             ['排队等待', pending, 'PENDING', '', false],
           ], 2) +
-          panel('队列（' + q.length + ' 条）', pagedTable(
+          panel('队列（' + (qQ = mktCur() ? q.filter(mktHit) : q).length + ' 条）', pagedTable(
             ['图片','SKU','产品族','站点','处理状态','优先级','更新时间',''],
-            q.map(function(x){ return [
+            qQ.map(function(x){ return [
               thumbHtml(x['产品图片URL']),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',
@@ -1622,7 +1623,7 @@ page('gen-retry', {
         else toast('重新提交失败：' + ((r.data && r.data.error) || '请检查网络'));
       });
     };
-    var el = '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
+    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {}, 200).then(function(r){
         var root = document.getElementById('gen-retry-root');
@@ -1652,9 +1653,9 @@ page('gen-retry', {
         }
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
-          panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
+          panel('失败 / 需人工任务（共 ' + (fQ = mktCur() ? failed.filter(mktHit) : failed).length + ' 条）', pagedTable(
             ['图片','SKU','产品族','站点','错误信息','处理时间','操作',''],
-            failed.map(function(x){ return [
+            fQ.map(function(x){ return [
               thumbHtml(x['产品图片URL']),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['产品族ID']||'—',

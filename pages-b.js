@@ -341,7 +341,7 @@ page('rev-ledger', {
     ]
   },
     body:function(){
-    var el = toolbar([sel('全部',['US','GB']), sel('全部',['进标题','进亮点','进五点/后台','被拒绝'])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
+    var el = toolbar([mktSel(), sel('全部',['进标题','进亮点','进五点/后台','被拒绝'])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
     setTimeout(function(){
             function loadLedger(){
         var root = document.getElementById('rev-ledger-root');
@@ -380,9 +380,9 @@ page('rev-ledger', {
               ['下沉到五点/后台', intoBackend, '', ' ', false],
               ['被拒绝', rejected, '每条都有理由', '', false],
             ], 5) +
-            panel('候选词台账（'+rows.length+' 条）', pagedTable(
+            panel('候选词台账（'+(rowsTemp=(mktCur()?rows.filter(mktHit):rows)).length+' 条）', pagedTable(
               ['候选词','类型','证据','字段决策','目的地理由','最终状态'],
-              rows.map(function(x){ return [
+              rowsTemp.map(function(x){ return [
                 '<span class="m">'+(x['表面文本']||'')+'</span>',
                 x['候选类型']||'—',
                 evNum(x['证据标志']),
