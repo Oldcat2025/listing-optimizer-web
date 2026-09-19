@@ -222,6 +222,38 @@ var MARKETS_ALL = ['US','GB','DE','FR','IT','ES','CA'];
 /* ═══ [需求 09-19] 通用「站点/国家」筛选（4.4 / 2.1 / 3.2 / 3.4 等列表页共用）═══
    用法：① 工具栏里插 mktSel()  ② 渲染时用 rows.filter(mktHit)
    选择结果存在 window.__mkt；change 用文档级监听 → 改页面不用每页接线 */
+/* ═══ [需求 09-19b] 通用「搜索框 + 排序」助手（大数据列表页共用）═══
+   搜索：kwBox() 插工具栏 → 渲染时 rows.filter(kwHit)；查询词存 window.__kw（切页面/重渲染不丢）
+   排序：sortSel() 插工具栏 → 渲染时 rows = applySort(rows, mapFn)；选择存 window.__sort
+   事件用文档级监听，改页面不用每页接线 */
+window.__kw = window.__kw || '';
+window.__sort = window.__sort || '';
+function kwBox(ph, id){ var v = String(window.__kw || '').replace(/"/g, '&quot;');
+  return '<input class="inp" id="' + (id || 'kw-box') + '" placeholder="' + (ph || '搜索关键词 / SKU') + '" value="' + v + '">'; }
+function kwBtn(id){ return '<button class="btn" id="' + (id || 'kw-btn') + '">搜索</button>'; }
+function kwCur(){ return String(window.__kw || '').toLowerCase(); }
+function kwHit(x){ var q = kwCur(); if (!q) return true;
+  for (var k in x){ if (x[k] != null && String(x[k]).toLowerCase().indexOf(q) >= 0) return true; }
+  return false; }
+function sortSel(opts, id){ var cur = window.__sort || '';
+  return '<select class="sel" id="' + (id || 'sort-sel') + '">' + (opts || []).map(function(o){
+    var v = o[0], t = o[1]; return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>'; }
+function sortNum(v){ var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
+/* mapFn(x, field) → 该行在 field 上的取值；字段里有 _desc/_asc 决定方向 */
+function applySort(rows, mapFn, dirField){ var s = window.__sort || ''; if (!s || !mapFn) return rows;
+  var parts = s.split('|'), f = parts[0], d = parts[1] || 'desc';
+  return rows.slice().sort(function(a, b){ var va = mapFn(a, f), vb = mapFn(b, f);
+    if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+    var na = sortNum(va), nb = sortNum(vb);
+    var cmp = (na != null && nb != null) ? (na - nb) : String(va).localeCompare(String(vb));
+    return d === 'asc' ? cmp : -cmp; }); }
+document.addEventListener('keydown', function(e){
+  if (e.target && e.target.id === 'kw-box' && e.key === 'Enter'){ window.__kw = e.target.value || ''; if (typeof render === 'function') render(); } });
+document.addEventListener('click', function(e){
+  if (e.target && e.target.id === 'kw-btn'){ var b = document.getElementById('kw-box'); window.__kw = b ? (b.value || '') : ''; if (typeof render === 'function') render(); } });
+document.addEventListener('change', function(e){
+  if (e.target && e.target.id === 'sort-sel'){ window.__sort = e.target.value || ''; if (typeof render === 'function') render(); } });
+
 function mktSel(){ var v = window.__mkt || ''; return '<select class="sel" id="mkt-sel" title="按站点筛选"><option value="">全部站点</option>' +
   MARKETS_ALL.map(function(m){ return '<option value="'+m+'"'+(v===m?' selected':'')+'>'+m+'</option>'; }).join('') + '</select>'; }
 function mktCur(){ return window.__mkt || ''; }

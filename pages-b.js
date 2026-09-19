@@ -341,7 +341,7 @@ page('rev-ledger', {
     ]
   },
     body:function(){
-    var el = toolbar([mktSel(), sel('全部',['进标题','进亮点','进五点/后台','被拒绝'])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
+    var el = toolbar([kwBox('搜索候选词'), kwBtn(), mktSel(), sel('全部',['进标题','进亮点','进五点/后台','被拒绝']), sortSel([['','默认排序'],['表面文本|asc','候选词 A→Z'],['表面文本|desc','候选词 Z→A'],['候选类型|asc','按类型']])], []) + '<div id="rev-ledger-root">' + ghost('正在加载候选台账…') + '</div>';
     setTimeout(function(){
             function loadLedger(){
         var root = document.getElementById('rev-ledger-root');
@@ -352,7 +352,7 @@ page('rev-ledger', {
         API.table('候选台账', {}, 200).then(function(r){
           if (!root) return;
           if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-          var rows = (r.data.data||[]).filter(function(x){ return x && x['候选ID']; });
+          var rows = (r.data.data||[]).filter(function(x){ return x && x['候选ID'] && kwHit(x); });
           function has(v, kw){ return String(v||'').indexOf(kw) >= 0; }
           if (mkt && mkt !== '全部'){ rows = rows.filter(function(x){ return x['目标市场'] === mkt; }); }
           if (dest && dest !== '全部'){
@@ -361,6 +361,7 @@ page('rev-ledger', {
             else if (dest === '进五点/后台') rows = rows.filter(function(x){ return has(x['字段决策'],'五点')||has(x['字段决策'],'后台'); });
             else if (dest === '被拒绝') rows = rows.filter(function(x){ return has(x['字段决策'],'拒绝'); });
           }
+          rows = applySort(rows, function(x, f){ return x[f]; });   /* [需求 09-19b] 排序 */
           if (!rows.length){ root.innerHTML = callout('warn','没有匹配的候选词','换个筛选条件试试。'); return; }
           var intoTitle = rows.filter(function(x){ return has(x['字段决策'],'标题'); }).length;
           var intoHL = rows.filter(function(x){ return has(x['字段决策'],'亮点'); }).length;
@@ -422,13 +423,13 @@ page('rev-action', {
     ]
   },
     body:function(){
-    var el = toolbar([mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
+    var el = toolbar([kwBox('搜索 SKU / 标题'), kwBtn(), mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
     setTimeout(function(){
       API.table('定稿输出表', {}, 200).then(function(r){
         var root = document.getElementById('rev-action-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE' && mktHit(x); });
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE' && mktHit(x) && kwHit(x); });
         var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待审核文案';
         var body0 = rows.length ? '五项检查已完成。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。' : '当前没有待审核的定稿文案。';
         root.innerHTML = callout('', head, body0) + '<div class="cols c2">' +
@@ -571,16 +572,16 @@ page('data-kw', {
     body:function(){
     function pageParam(){ var h = (location.hash || '').replace(/^#/, ''); var idx = h.indexOf('/'); return idx >= 0 ? decodeURIComponent(h.slice(idx + 1)) : ''; }
     var preMkt = pageParam();
-    var el = toolbar(['<b style="font-size:12px;color:var(--t-3);margin-right:6px">平台站点：</b><select class="sel" style="max-width:150px"><option>US</option><option>GB</option><option>DE</option><option>FR</option><option>IT</option><option>ES</option><option>CA</option></select>', '<select class="sel" style="max-width:260px;margin-left:16px"><option>全部</option></select>'], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
+    var el = toolbar([mktSel(), '<select class="sel" style="max-width:260px;margin-left:8px"><option>全部</option></select>', kwBox('搜索关键词'), kwBtn(), sortSel([['','默认排序'],['月搜索量|desc','搜索量 大→小'],['月搜索量|asc','搜索量 小→大'],['相关度|desc','相关度 高→低'],['关键词|asc','关键词 A→Z']])], []) + '<div id="data-kw-root">' + ghost('正在加载词库…') + '</div>';
     setTimeout(function(){
             function loadKw(){
         var root = document.getElementById('data-kw-root');
         if (root) root.innerHTML = ghost('正在加载词库…');
         var sels = document.querySelectorAll('.tb .sel');
-        if (preMkt && sels[0]) sels[0].value = preMkt;
-        var mkt = (sels[0]||{}).value || 'US';
-        var snapId = (sels[1]||{}).value || '全部';
-        var sheet = (mkt === 'GB') ? '站点词库_GB' : '站点词库_US';
+        if (preMkt) window.__mkt = preMkt;          /* [fix 09-19] 深链带站点参数 */
+        var mkt = window.__mkt || 'US';
+        var snapId = (sels[1]||{}).value || '全部';  /* [fix 09-19] 工具栏 .sel 顺序：0=站点(mktSel) 1=类目 2=排序 → 类目取 sels[1] */
+        var sheet = '站点词库_' + mkt;
         API.table(sheet, {}, 200).then(function(r){
           if (!root) return;
           if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
@@ -593,6 +594,8 @@ page('data-kw', {
           if (sel2){ var cur = snapId; sel2.innerHTML = '<option value="全部">全部（'+ids.length+' 个类目）</option>' + ids.map(function(id){ return '<option value="'+id+'"'+(id===cur?' selected':'')+'>'+id+'</option>'; }).join(''); }
           var rows = all;
           if (snapId && snapId !== '全部'){ rows = rows.filter(function(x){ return x['所属类目'] === snapId; }); }
+          rows = rows.filter(kwHit);                                        /* 关键词搜索 */
+          rows = applySort(rows, function(x, f){ return x[f]; });            /* 排序 */
           if (!rows.length){ root.innerHTML = callout('warn','该类目暂无关键词','换个类目或站点试试。'); return; }
           root.innerHTML =
             panel('类目清单（' + ids.length + ' 个）', '<div style="font-size:13px;color:var(--t-2)">上方下拉里选类目，下方显示该类目的关键词。当前：<b>'+snapId+'</b>（'+mkt+' · '+rows.length+' 词）</div>') +
@@ -751,13 +754,14 @@ page('data-adgroup', {
     limits:['置信度由商品个数自动派生（数据库生成列），不允许手填','没建对应关系的广告组只贡献花费，不参与任何商品级判断']
   },
         body:function(){
-    var el = '<div id="data-adgroup-root">' + ghost('正在加载广告组对应关系…') + '</div>';
+    var el = toolbar([kwBox('搜索广告活动 / 广告组 / SKU'), kwBtn(), mktSel(), sortSel([['','默认排序'],['SKU数量|desc','SKU数量 多→少'],['SKU数量|asc','SKU数量 少→多'],['广告活动名称|asc','广告活动 A→Z']])], [], {tight:true}) + '<div id="data-adgroup-root">' + ghost('正在加载广告组对应关系…') + '</div>';
     setTimeout(function(){
       API.table('广告组SKU映射', {}, 200).then(function(r){
         var root = document.getElementById('data-adgroup-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data||[]).filter(function(x){ return x && x['广告活动名称']; });
+        var rows = (r.data.data||[]).filter(function(x){ return x && x['广告活动名称'] && mktHit(x) && kwHit(x); });
+        rows = applySort(rows, function(x, f){ return x[f]; });
         root.innerHTML =
           panel('广告组对应关系（'+rows.length+' 条）', pagedTable(
             ['广告活动名称','广告组名称','SKU列表','SKU数量','站点','映射置信度','核对日期'],
@@ -874,6 +878,7 @@ page('data-opp', {
           if (!root) return;
           if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
           var rows = (r.data.data||[]).filter(function(x){ return x && x['搜索查询']; });
+          rows = applySort(rows, function(x, f){ return x[f]; });   /* [需求 09-19b] 排序（默认不排） */
           if (q){ var ql = q.toLowerCase(); rows = rows.filter(function(x){ return String(x['搜索查询']||'').toLowerCase().indexOf(ql) >= 0; }); }
           if (!rows.length) { root.innerHTML = callout('warn','没有匹配的查询','换个关键词试试。'); return; }
           rows.sort(function(x,y){ var vx = parseFloat(x[sortCol])||0, vy = parseFloat(y[sortCol])||0; return sortDesc ? vy-vx : vx-vy; });
