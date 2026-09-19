@@ -111,8 +111,7 @@ page('rev-detail', {
     setTimeout(function(){
             function loadDetail(){
         var root = document.getElementById('rev-detail-root');
-        if (root) root.innerHTML = ghost('正在加载文案详情…');
-        var q = ((document.querySelector('.tb .inp')||{}).value || '').trim();
+        if (root) root.innerHTML = ghost('正在加载文案详情…');        var q = ((document.querySelector('.tb .inp')||{}).value || '').trim();
         var mkt = (document.querySelector('.tb .sel')||{}).value || '';
         var flt = (window.CUR_SKU && !q) ? {SKU: window.CUR_SKU} : {};
         API.table('定稿输出表', flt, 200).then(function(r){
@@ -145,6 +144,18 @@ page('rev-detail', {
           x['Bullet 1']||'', x['Bullet 2']||'', x['Bullet 3']||'', x['Bullet 4']||'', x['Bullet 5']||'',
           x['Backend Search Terms']||''
         ].filter(Boolean).join('\n\n');
+                /* [fix 09-19] 4.2 右侧显示该文案对应的商品图（来自 2.3 上传/录入的产品图片URL） */
+        (function(){
+          var box = document.getElementById('rd-prodimg'); if (!box) return;
+          var sk = (x && (x['SKU'] || x['sku'])) || ''; if (!sk) return;
+          API.table('SKU_输入表', {SKU: sk}, 1).then(function(r){
+            var box2 = document.getElementById('rd-prodimg'); if (!box2) return;
+            var row = ((r && r.data && r.data.data) || [])[0] || {};
+            var u = row['产品图片URL'] || '';
+            if (!u || String(u).indexOf('http') !== 0){ box2.innerHTML = panel('商品图（' + sk + '）', '<div style="font-size:12.5px;color:var(--t-3);line-height:1.8">该商品还没上传产品图。<br>去「商品资料填写」（2.3）上传后，这里会自动显示——文案里那些视觉词（颜色/图案/风格）就是照它写的。</div>', {sub:'改文案时对照用'}); return; }
+            box2.innerHTML = panel('商品图（' + sk + '）', '<img src="' + u + '" style="max-width:100%;border-radius:10px;border:1px solid #E8ECEA">', {sub:'改文案时对照用'});
+          });
+        })();
         root.innerHTML =
           '<div class="cols c21">' +
             '<div>' +
@@ -154,6 +165,7 @@ page('rev-detail', {
               copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cpBtn(x['Backend Search Terms']||''), true) +
             '</div>' +
             '<div>' +
+              '<div id="rd-prodimg"></div>' +
               panel('这套文案是怎么来的', kv([
                 ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—')],
                 ['任务编号', x['运行ID']||'—'],
@@ -276,11 +288,15 @@ page('rev-audit', {
               ['是否通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
               ['证书数量', String(certCols.length), '', '', false],
               ['站点', x['目标市场']||'—', '', '', false],
-              ['商品名称', '<span style="font-size:12px;font-weight:400">'+(x['SKU']||'—')+'</span>', '', '', false],
               ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
-            ], 5) +
+            ], 4) +
+            /* [fix 09-19] 商品名称与标题改为上下两行：原先并列，标题一长就把「商品名称」挤出方框 */
+            '<div class="card" style="padding:12px 16px;margin:-4px 0 16px">'
+            + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
+            + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div>'
+            + '<div style="font-size:12px;color:var(--t-3);margin-top:6px">生成时间 '+bjTime(x['生成时间'])+'</div></div>' +
             panel('证书通过概况（通过数 / 总数）', table(['证书','结论','通过 / 总数'], passSummary), {flush:true}) +
-            certCols.map(function(col){ return panel(certTitles[col] || col, verdict(x[col]), {flush:true}); }).join('');
+            certCols.map(function(col){ return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', verdict(x[col]), {flush:true}); }).join('');
         });
       }
       loadAudit();
@@ -607,7 +623,7 @@ page('data-ppc', {
             var orders = rows.reduce(function(s,x){ return s + (parseInt(x['订单']||'0',10)||0); }, 0);
             var spend = rows.reduce(function(s,x){ return s + (parseFloat(x['花费']||'0')||0); }, 0);
             function f3(v){ var n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(3); }
-            html += panel('PPC 出单词（' + mkt + ' · ' + dlist.length + ' 个日期）', '<div style="font-size:13px;color:var(--t-2)">广告报告：上方下拉选报表日期，下方显示该日期出单词。当前：<b>'+date+'</b> · '+rows.length+' 词</div>' + kv([['出单词总数（当前筛选）', rows.length],['点击合计', clicks],['订单合计', orders],['花费合计', '$' + spend.toFixed(2)]]) + pagedTable(['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'], rows.map(function(x){ return ['<span class="m">'+(x['客户搜索词']||'')+'</span>', x['广告活动名称']||'—', x['曝光']||'—', x['点击']||'—', x['花费']||'—', x['订单']||'—', '<span class="num">'+f3(x['ACOS'])+'</span>']; })), {flush:true});
+            html += panel('PPC 出单词（' + mkt + ' · ' + dlist.length + ' 个日期）', '<div style="font-size:13px;color:var(--t-2);line-height:1.85">广告报告：上方下拉选报表日期，下方显示该日期出单词。当前：<b>'+date+'</b> · '+rows.length+' 词</div>' + '<div style="max-width:520px;margin-top:10px">' + kv([['出单词总数（当前筛选）', rows.length],['点击合计', clicks],['订单合计', orders],['花费合计', '$' + spend.toFixed(2)]]) + '</div>' + pagedTable(['客户搜索词','广告活动','曝光','点击','花费','订单','ACOS'], rows.map(function(x){ return ['<span class="m">'+(x['客户搜索词']||'')+'</span>', x['广告活动名称']||'—', x['曝光']||'—', x['点击']||'—', x['花费']||'—', x['订单']||'—', '<span class="num">'+f3(x['ACOS'])+'</span>']; })), {flush:true});
             } // end if(!all.length) else
           } else {
             if (sels[1]) sels[1].innerHTML = '<option value="全部">全部</option>';

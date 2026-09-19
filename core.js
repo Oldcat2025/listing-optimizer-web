@@ -17,9 +17,18 @@ var API = {
   _post: function(path, body, needKey){
     var headers = {'Content-Type':'application/json'};
     if (needKey) headers['x-api-key'] = this.apiKey;
-    return fetch(this.base + path, {method:'POST', headers:headers, body:JSON.stringify(body||{})})
-      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, data:j}; }); })
-      .catch(function(e){ return {ok:false, status:0, data:{error:String(e)}}; });
+    var url = this.base + path, payload = JSON.stringify(body||{});
+    function once(){
+      return fetch(url, {method:'POST', headers:headers, body:payload})
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, data:j}; }); });
+    }
+    /* [fix 09-19] 网络瞬时失败（TypeError: Failed to fetch —— 常见于服务端容器重启/网络抖动）
+       → 800ms 后自动重试一次，仍失败才报错。避免"数据加载失败"直接糊在页面上。 */
+    return once().catch(function(){
+      return new Promise(function(res){ setTimeout(res, 800); })
+        .then(once)
+        .catch(function(e2){ return {ok:false, status:0, data:{error:String(e2)}}; });
+    });
   },
   login: function(u,p){ return this._post('/proj28/api/login', {user_name:u, password:p}, false); },
   skus: function(q){ return this._post('/proj28/api/skus', {query:q||{}}, true); },
@@ -69,7 +78,7 @@ function doLogin(){
       var role = ROLE_MAP[r.data.role] || '运营';
       saveSession({user_name:r.data.user_name, role:r.data.role, display_role:role});
       ROLE = role;
-      var av = document.getElementById('avatar'); if(av) av.textContent = (r.data.user_name||'?').slice(0,1);
+      var av = document.getElementById('avatar'); if(av) av.textContent = (role==='管理员'?'管':(role==='审核'?'审':'运')); av.title = (r.data.user_name||'')+' · '+role;
       hideLogin();
       render();
     } else {
@@ -746,6 +755,7 @@ function render(){
         '本页只对 '+(def.roles||[]).join(' / ')+' 开放。这不只是把按钮藏起来——服务器会拒绝请求，数据库也有约束兜底。想对比不同角色看到什么，换右上角的角色。');
 
   document.getElementById('page').innerHTML = head + body;
+  try { refreshSideVersion(); } catch(e){}
   renderSpec(def, nv);
   window.scrollTo(0, 0);
 }
@@ -1013,4 +1023,13 @@ function BOOT(){
 
   window.onhashchange = render;
   render();
+}
+
+
+/* ─── 侧栏「当前生效版本」后两行实时读取 ─── */
+function refreshSideVersion(){
+  try {
+    API.table('指令版本', {}, 200).then(function(r){ var el=document.getElementById('svPrompt'); if(!el) return; var rows=(r&&r.data&&r.data.data)||[]; var s={}; for(var i=0;i<rows.length;i++){ s[rows[i]['环节']]=1; } var n=Object.keys(s).length; el.textContent = n?(n+' 个环节已登记'):'未登记'; });
+    API.table('模型绑定', {}, 200).then(function(r){ var el=document.getElementById('svModel'); if(!el) return; var rows=(r&&r.data&&r.data.data)||[]; el.textContent = rows.length?(rows.length+' 个环节已绑定'):'未绑定'; });
+  } catch(e){}
 }

@@ -270,7 +270,7 @@ page('dash-flow', {
         API.table('SKU_输入表', {}, 200),
         API.table('商品模板表', {}, 200),
         API.table('父体表', {}, 200),
-        API.table('产品识别结果', {}, 200),
+        API.table('产品识别结果', {}, 30),
         API.table('词库站点汇总', {}, 200),
         API.table('PPC站点汇总', {}, 200),
         API.table('SQP站点汇总', {}, 200),
@@ -989,7 +989,7 @@ page('sku-dna', {
     setTimeout(function(){
       var root = document.getElementById('sku-dna-root');
       if (!root) return;
-      Promise.all([API.table('产品识别结果', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
+      Promise.all([API.table('产品识别结果', {}, 30), API.table('SKU_输入表', {}, 200)]).then(function(rs){
         var r1 = rs[0];
         if (!r1.ok || !r1.data || r1.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r1.data&&r1.data.error)||'请检查网络或稍后重试'); return; }
         var _all = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
@@ -1082,6 +1082,15 @@ page('sku-dna', {
               '<div style="font-size:15px;font-weight:600;color:#111;line-height:1.55">' + (mp.local ? esc(mp.local) : '—') + '</div>' +
               (mp.zh ? '<div style="font-size:12.5px;color:#7A857F;margin-top:7px;line-height:1.6">' + esc(mp.zh) + '</div>' : '') +
             '</div>';
+          var identCard = '<div style="border:1px solid #E8ECEA;border-radius:10px;padding:10px 12px;background:#FBFCFB">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
+            ['SKU', row['SKU'] || '—'],
+            ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
+            ['产品身份', truth.entity || '—'],
+            ['识别模型', ev.vision_model || row['识别模型'] || '—'],
+            ['识别时间', st(row['识别时间']).slice(0,16).replace('T',' ')],
+          ]) + '</div>';
+          /* [fix 09-19] 识别信息 → 放进方框 + 移到 9 维识别档案的最后（用户反馈图三）*/
+          dimCards.push(identCard);
           var dimsHtml = sec('9 维识别档案', '已识别 ' + dimFilled + ' / ' + dimTotal + ' 维（' + rate + '%）') + grid(dimCards.join(''));
           var KW = [['产品词', kl && kl.product_words], ['差异词', kl && kl.differentiator_words], ['风格场景词', kl && kl.style_scene_words], ['人群动机词', kl && kl.audience_motivation_words], ['Backend 搜索词', kl && kl.backend_terms]];
           var kwHtml = sec('关键词层级', '供文案生成取词 · 4 层 + Backend') +
@@ -1093,13 +1102,6 @@ page('sku-dna', {
                   '<span style="font-size:11px;color:#9AA0A6">'+list.length+' 个</span>' +
                 '</div>' + (tags(list) || '<span style="font-size:11.5px;color:#B0B8B4">未提取</span>') + '</div>';
             }).join(''));
-          var ident = panel('识别信息', kv([
-            ['SKU', row['SKU'] || '—'],
-            ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
-            ['产品身份', truth.entity || '—'],
-            ['识别模型', ev.vision_model || row['识别模型'] || '—'],
-            ['识别时间', st(row['识别时间']).slice(0,16).replace('T',' ')],
-          ]));
           return hero + dimsHtml + kwHtml + ident;
         }
         var imgMap = {};
@@ -1377,7 +1379,7 @@ page('gen-run', {
     var runParam = pageParam();
     var el = '<div id="gen-run-root">' + ghost('正在加载运行详情…') + '</div>';
     setTimeout(function(){
-      Promise.all([API.table('运行日志表', {}, 200), API.table('产品识别结果', {}, 200), API.table('证书表', {}, 200), API.table('定稿输出表', {}, 200)]).then(function(RS){
+      Promise.all([API.table('运行日志表', {}, 200), API.table('产品识别结果', {}, 30), API.table('证书表', {}, 200), API.table('定稿输出表', {}, 200)]).then(function(RS){
         var r = RS[0];
         var _dnaRows   = (((RS[1]||{}).data||{}).data) || [];
         var _certRows  = (((RS[2]||{}).data||{}).data) || [];

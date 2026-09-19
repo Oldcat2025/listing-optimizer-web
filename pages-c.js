@@ -362,8 +362,7 @@ page('cfg-season', {
               st(x),
               btns(x)
             ]; })
-          ), {flush:true}) +
-          '<div style="margin-top:12px">' + btn('+ 新增季节','','','','','cfg-season-add') + '</div>' +
+          ), {flush:true, sub: btn('+ 新增季节','','','','','cfg-season-add')}) +
           panel('这里管什么', '<div style="font-size:13px;line-height:1.8"><b>这一页维护「季节范围」可选项</b>：新增商品（2.3）和新建生成任务（3.1）里的季节下拉从这里读取，<b>新增/停用即时生效，无需改代码或重新部署</b>。<br><b>提醒：</b>停用只影响新选择，已经选了该季节的历史商品不受影响。</div>', {flush:true});
           root.innerHTML = html;
           // 绑定操作
@@ -672,10 +671,10 @@ page('cfg-model', {
       var btn = '';
       if (canEdit){
         btn = state.editing
-          ? '<div style="margin-top:12px"><button class="btn" id="mb-save-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">保存</button> ' +
+          ? '<div style="text-align:right;white-space:nowrap"><button class="btn" id="mb-save-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">保存</button> ' +
             '<button class="btn" id="mb-cancel-btn" style="padding:8px 18px;border-radius:var(--r-ctl)">取消</button> ' +
             '<span id="mb-msg" style="margin-left:10px;font-size:12px;color:var(--t-3)"></span></div>'
-          : '<div style="margin-top:12px"><button class="btn" id="mb-edit-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">编辑绑定</button>' +
+          : '<div style="text-align:right;white-space:nowrap"><button class="btn" id="mb-edit-btn" style="'+'background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer'+'">编辑绑定</button>' +
             '<span style="margin-left:10px;font-size:12px;color:var(--t-3)">改完要点「保存」才生效；保存后<b>下一次生成</b>即按新值调用</span></div>';
       } else {
         btn = '<div style="margin-top:12px;font-size:12px;color:var(--t-3)">当前角色为只读：如需修改模型绑定，请联系管理员。</div>';
@@ -685,8 +684,8 @@ page('cfg-model', {
         ['用指定模型的', String(on) + ' / ' + String(rows.length), on===rows.length ? '全部用指定的模型' : '其余走系统默认模型', on===rows.length?'ok':'warn', false],
         ['生效时机', '下一次生成', '保存后，下次生成即按新值调用', '', false],
       ], 3) + panel(head, table(['环节','模型','模型来源','说明','更新人','更新时间'], tr),
-        {flush:true, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
-        btn + callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
+        {flush:true, sub: btn, note:'这一页读的是 p28.model_profile_binding 表，不是写死的示意数据。当前生效值：llm 环节 gpt-5.6-sol、图片识别 gpt-4o，其余为规则引擎（不调模型）。'}) +
+        callout('info','这一页管什么','系统里有 <b>8 个环节会调用 AI</b>（图片识别 1 个 + 语义分类 3 个 + 文案生成 4 个），每个环节单独一行、单独一个模型——不是全局一个模型。' +
           '「备用模型」是主模型失败时自动顶上的，顶上会写进检查报告。<b>改这里的模型会影响下一次生成</b>，请确认后再保存。' +
           '<br><br>⚠️ 说明：这里选「<b>用系统默认</b>」<b>不是关掉这个环节的 AI</b> —— 它的意思是：这一格<b>不用你指定的模型</b>，改用系统自带的默认模型。该环节<b>照样会调模型、照样产生费用</b>。');
       var eb = document.getElementById('mb-edit-btn');
@@ -799,7 +798,7 @@ page('fb-perf', {
             '<span class="num">' + (x['花费']||'0') + '</span>',
             '<span class="num">' + (x['订单']||'0') + '</span>',
             '<span class="num">' + (x['销售额']||'0') + '</span>',
-            '<span class="num">' + (x['ACOS']||'—') + '</span>'
+            '<span class="num">' + (function(v){ var n=parseFloat(v); return isNaN(n) ? (v||'—') : n.toFixed(3); })(x['ACOS']) + '</span>'
            ]; })
         ), {flush:true});
       });
@@ -964,9 +963,9 @@ page('adm-user', {
         });
         var canEdit = (typeof ROLE !== 'undefined') && (ROLE === '管理员');
         root.innerHTML = panel('权限矩阵（角色 × 能力）· 只读', table(['能力'].concat(ROLES), tr),
-            {flush:true, note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
+            {flush:true, sub:(canEdit ? '<button class="btn" id="perm-edit-btn" style="background:var(--g-600);color:#fff;border:none;padding:7px 16px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer;white-space:nowrap">编辑权限</button>' : ''), note:'「手动标记可上架」没有任何角色能做——只能由系统五项检查判定。'}) +
           (canEdit
-            ? '<div style="margin-top:12px"><button class="btn" id="perm-edit-btn" style="background:var(--g-600);color:#fff;border:none;padding:8px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">编辑权限</button> <span style="margin-left:10px;font-size:12px;color:var(--t-3)">改完要点「保存」才生效</span></div>'
+            ? '<div style="margin-top:12px;font-size:12px;color:var(--t-3)">改完要点「保存」才生效</div>'
             : '<div style="margin-top:12px;font-size:12px;color:var(--t-3)">当前角色为只读：如需修改权限，请联系管理员。</div>');
         var eb = document.getElementById('perm-edit-btn');
         if (eb) eb.onclick = function(){ paintEdit(root, rows); };
@@ -1071,7 +1070,7 @@ page('adm-audit', {
             '<span class="m">' + (x['运行ID']||'—') + '</span>',
             '<span class="m">' + (x['SKU']||'—') + '</span>',
             x['目标市场'] || '—',
-            x['执行人'] || '—',
+            (function(v){ v = String(v||''); if (!v.trim()) return '—'; return /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(v) ? '（早期待补）' : v; })(x['执行人']),
             chip(x['最终状态']||'—', ftone(x['最终状态'])),
             '<span class="m">' + String(x['开始时间']||'—').slice(0,16).replace('T',' ') + '</span>',
             btn('详情', '', 'rev-detail', (x['SKU']||''))

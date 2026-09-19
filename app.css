@@ -594,3 +594,12 @@ table.t .dim{color:var(--t-4)}
 .login-form .btn:hover{background:var(--g-700)}
 .login-form .btn:disabled{opacity:.6;cursor:default}
 .login-foot{margin-top:18px;font-size:12px;color:var(--t-4);text-align:center}
+
+.st--stack{flex-direction:column;align-items:flex-start;gap:2px}
+.st--stack .st__k{margin-top:3px}
+.st--stack .st__v{font-size:15px !important;font-weight:600 !important;color:var(--t-1) !important;line-height:1.35 !important;white-space:normal}
+.side__vernote{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--t-4)}
+.pnl__bd>.pnl__note{padding:0 2px}
+/* 表格/说明文字不要贴边（6.x 页面说明、5.2 报告）*/
+.pnl__bd>.tw{margin-left:0;margin-right:0}
+.pnl__bd .kv{padding:0 2px}
