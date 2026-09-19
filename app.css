@@ -605,7 +605,7 @@ table.t .dim{color:var(--t-4)}
 .pnl__bd .kv{padding:0 2px}
 /* ═══ [fix 09-19 UI 批次] 前端反馈 12 项 ═══ */
 /* 1) 头像字母放大到圆形的 ~80%（38px × 0.8 ≈ 30px） */
-.avatar{font-size:30px;line-height:1;font-weight:700;letter-spacing:0}
+.avatar{font-size:24px;line-height:1;font-weight:700;letter-spacing:0}
 /* 2) 键值对：值不再靠右被切边；标签固定宽、值紧随其后并自动换行 */
 .kv{grid-template-columns:104px minmax(0,1fr);gap:9px 14px;padding:0 18px 6px}
 .kv dt{white-space:normal;line-height:1.55;padding-top:1px}
