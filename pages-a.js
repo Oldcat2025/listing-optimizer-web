@@ -1125,7 +1125,7 @@ page('sku-dna', {
               (mp.zh ? '<div style="font-size:12.5px;color:#7A857F;margin-top:7px;line-height:1.6">' + esc(mp.zh) + '</div>' : '') +
             '</div>';
           try {   /* [fix 09-19] 用 try 包住：万一识别信息取不到，也绝不能把整页渲染打断 */
-            var identCard = '<div style="border:1px solid #E4E9E7;border-radius:10px;padding:10px 12px;background:#F2F4F3">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
+            var identCard = '<div class="identcard" style="border:1px solid #E4E9E7;border-radius:10px;padding:10px 12px;background:#F2F4F3;display:flex;flex-direction:column">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
             ['SKU', row['SKU'] || '—'],
             ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
             ['产品身份', truth.entity || '—'],

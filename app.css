@@ -631,3 +631,14 @@ table.t .dim{color:var(--t-4)}
 .cert-seg__t{font-size:13.5px;font-weight:700;color:#2C3B36;line-height:1.45;margin-bottom:7px}
 .cert-seg__c{display:flex;justify-content:center}
 .cert-seg__n{font-size:12.5px;color:#5D6B65;margin-top:7px;font-family:var(--mono)}
+
+/* ═══ [需求 09-19c-v3] 2.4「识别信息」：真凶是全局 .kv{display:grid} 把 <table> 也变成了 grid
+   （实测 display 被算成 grid、标签列 36px → 4 字标签竖排、值列挤成 38px、方块被拉高）。
+   修法：强制恢复表格布局，标签列固定 66px 不换行，值列吃剩余宽度并右对齐；行高 1px 技巧让 5 行均分高度 ═══ */
+.identcard{display:flex;flex-direction:column}
+.identcard table.kv{display:table;width:100%;height:100%;border-collapse:collapse;table-layout:auto;padding:0}
+.identcard table.kv tbody{display:table-row-group}
+.identcard table.kv tr{display:table-row;height:1px}
+.identcard table.kv td{display:table-cell;vertical-align:middle;line-height:1.5;font-size:12px;padding:3px 0}
+.identcard table.kv td.k{width:66px;white-space:nowrap;color:var(--t-3);padding-right:8px}
+.identcard table.kv td.v{text-align:right;word-break:break-word;overflow-wrap:anywhere;font-family:var(--mono);color:var(--t-1)}
