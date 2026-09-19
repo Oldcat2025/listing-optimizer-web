@@ -621,3 +621,13 @@ table.t .dim{color:var(--t-4)}
 .cert-tbl{padding:2px}
 /* 5) 表单底部按钮行居中 */
 .btnrow.center{justify-content:center;text-align:center}
+
+/* ── [fix 09-19] 4.3 证书通过概况：紧凑方块组（相邻底色交替，不切边） ── */
+.cert-seg{display:flex;flex-wrap:wrap;gap:10px;padding:2px 0 2px 0}
+.cert-seg__item{flex:1 1 168px;min-width:168px;border-radius:10px;padding:12px 10px 11px;text-align:center;
+  border:1px solid transparent;box-sizing:border-box}
+.cert-seg__item.alt0{background:#F1F7F3;border-color:#DFEBE4}
+.cert-seg__item.alt1{background:#F7F8F9;border-color:#E9ECEE}
+.cert-seg__t{font-size:13.5px;font-weight:700;color:#2C3B36;line-height:1.45;margin-bottom:7px}
+.cert-seg__c{display:flex;justify-content:center}
+.cert-seg__n{font-size:12.5px;color:#5D6B65;margin-top:7px;font-family:var(--mono)}

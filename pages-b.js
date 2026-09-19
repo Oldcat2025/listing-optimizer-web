@@ -297,7 +297,7 @@ page('rev-audit', {
             + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
             + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div>'
             + '<div style="font-size:12px;color:var(--t-3);margin-top:6px">生成时间 '+bjTime(x['生成时间'])+'</div></div>' +
-            panel('证书通过概况（通过数 / 总数）', '<div class="cert-tbl">' + table(['证书','结论','通过 / 总数'], passSummary) + '</div>', {flush:true}) +
+            panel('证书通过概况（通过数 / 总数）', '<div class="cert-seg">' + passSummary.map(function(r, i){ return '<div class="cert-seg__item alt' + (i % 2) + '">' + '<div class="cert-seg__t">' + r[0] + '</div>' + '<div class="cert-seg__c">' + r[1] + '</div>' + '<div class="cert-seg__n">' + r[2] + '</div>' + '</div>'; }).join('') + '</div>', {flush:true}) +
             certCols.map(function(col){ return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', '<div class="cert-card-body" style="text-align:center">' + verdict(x[col]) + '</div>', {flush:true}); }).join('');
         });
       }
