@@ -603,3 +603,21 @@ table.t .dim{color:var(--t-4)}
 /* 表格/说明文字不要贴边（6.x 页面说明、5.2 报告）*/
 .pnl__bd>.tw{margin-left:0;margin-right:0}
 .pnl__bd .kv{padding:0 2px}
+/* ═══ [fix 09-19 UI 批次] 前端反馈 12 项 ═══ */
+/* 1) 头像字母放大到圆形的 ~80%（38px × 0.8 ≈ 30px） */
+.avatar{font-size:30px;line-height:1;font-weight:700;letter-spacing:0}
+/* 2) 键值对：值不再靠右被切边；标签固定宽、值紧随其后并自动换行 */
+.kv{grid-template-columns:104px minmax(0,1fr);gap:9px 14px;padding:0 18px 6px}
+.kv dt{white-space:normal;line-height:1.55;padding-top:1px}
+.kv dd{text-align:left;word-break:break-word;overflow-wrap:anywhere;white-space:normal;line-height:1.55}
+.pnl__bd>.kv{padding:0 16px 8px}
+/* 3) 说明文字统一留边（5.2 / 6.1 / 6.2 / 6.3 / 6.4 / 6.6 的"贴边"问题） */
+.hint{padding:0 2px 4px;line-height:1.65}
+.pnl__bd>.hint{padding:0 16px 6px}
+.pnl__bd>.pnl__note{padding:12px 14px;margin:4px 0 6px;border-radius:8px;border-top:none;background:var(--mint-50)}
+.pnl__bd .card__sub,.pnl__bd .sub{padding-left:16px;padding-right:16px;line-height:1.65}
+/* 4) 4.3 报告表：五个小标题与其内容居中，留出内边距 */
+.cert-tbl th,.cert-tbl td{text-align:center !important;padding:11px 14px;white-space:normal;line-height:1.6}
+.cert-tbl{padding:2px}
+/* 5) 表单底部按钮行居中 */
+.btnrow.center{justify-content:center;text-align:center}

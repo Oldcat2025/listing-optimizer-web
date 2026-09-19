@@ -157,10 +157,10 @@ const NAV = [
   { g:'⑧', n:'8', t:'管理后台', k:'adm', items:[
     ['8.1','用户与权限','adm-user','App User / Role'],
     ['8.2','权限说明','adm-perm','Permission Matrix'],
-    ['8.3','数据维护','adm-db','DB Maintenance'],
-    ['8.4','操作记录','adm-audit','Audit Log'],
-    ['8.5','系统对接','adm-integration','Integration · LLM Gateway'],
-    ['8.6','用量与费用','adm-cost','Cost & Quota'],
+    ['8.9','数据维护','adm-db','DB Maintenance'],
+    ['8.3','操作记录','adm-audit','Audit Log'],
+    ['8.4','系统对接','adm-integration','Integration · LLM Gateway'],
+    ['8.5','用量与费用','adm-cost','Cost & Quota'],
   ]},
 ];
 

@@ -164,15 +164,16 @@ page('rev-detail', {
               copybox('亮点 Highlights', x['Highlights']||'', '<b>'+(x['Highlights字符数']||'')+'</b> 字符' + (x['Highlights短语数']?' · '+x['Highlights短语数']+' 个短语':''), cpBtn(x['Highlights']||'')) +
               bm +
               copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cpBtn(x['Backend Search Terms']||''), true) +
-            '</div>' +
-            '<div>' +
-              '<div id="rd-prodimg"></div>' +
               panel('这套文案是怎么来的', kv([
                 ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—')],
                 ['任务编号', x['运行ID']||'—'],
                 ['文案版本', x['定稿版本号']||'—'],
                 ['生成时间', bjTime(x['生成时间'])],
               ]), {sub:'出问题时按这几项就能复现'}) +
+            '</div>' +
+            '<div>' +
+              '<div id="rd-prodimg"></div>' +
+
               panel('中文对照（仅供核对，不要上架）', '<div style="font-size:13px;color:var(--t-2);line-height:1.7">' +
                 '<b>标题</b>：'+(x['Title中文对照']||'—')+'<br><br>' +
                 '<b>亮点</b>：'+(x['Highlights中文对照']||'—') + (cn?'<br><br>'+cn:'') +
@@ -296,7 +297,7 @@ page('rev-audit', {
             + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
             + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div>'
             + '<div style="font-size:12px;color:var(--t-3);margin-top:6px">生成时间 '+bjTime(x['生成时间'])+'</div></div>' +
-            panel('证书通过概况（通过数 / 总数）', table(['证书','结论','通过 / 总数'], passSummary), {flush:true}) +
+            panel('证书通过概况（通过数 / 总数）', '<div class="cert-tbl">' + table(['证书','结论','通过 / 总数'], passSummary) + '</div>', {flush:true}) +
             certCols.map(function(col){ return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', verdict(x[col]), {flush:true}); }).join('');
         });
       }

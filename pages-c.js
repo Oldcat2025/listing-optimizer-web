@@ -819,7 +819,7 @@ page('fb-perf', {
             x['广告活动名称'] || '—',
             '<span class="num">' + (x['曝光']||'0') + '</span>',
             '<span class="num">' + (x['点击']||'0') + '</span>',
-            '<span class="num">' + (x['花费']||'0') + '</span>',
+            '<span class="num">' + (function(v){ var n=parseFloat(v); return isNaN(n) ? (v||'—') : n.toFixed(3); })(x['花费']) + '</span>',
             '<span class="num">' + (x['订单']||'0') + '</span>',
             '<span class="num">' + (x['销售额']||'0') + '</span>',
             '<span class="num">' + (function(v){ var n=parseFloat(v); return isNaN(n) ? (v||'—') : n.toFixed(3); })(x['ACOS']) + '</span>'

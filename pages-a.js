@@ -1091,7 +1091,7 @@ page('sku-dna', {
               (mp.zh ? '<div style="font-size:12.5px;color:#7A857F;margin-top:7px;line-height:1.6">' + esc(mp.zh) + '</div>' : '') +
             '</div>';
           try {   /* [fix 09-19] 用 try 包住：万一识别信息取不到，也绝不能把整页渲染打断 */
-            var identCard = '<div style="border:1px solid #E8ECEA;border-radius:10px;padding:10px 12px;background:#FBFCFB">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
+            var identCard = '<div style="border:1px solid #E4E9E7;border-radius:10px;padding:10px 12px;background:#F2F4F3">' + '<div style="font-size:12.5px;font-weight:700;color:#2C3B36;margin-bottom:7px">识别信息</div>' + kv([
             ['SKU', row['SKU'] || '—'],
             ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
             ['产品身份', truth.entity || '—'],
@@ -1197,7 +1197,7 @@ page('gen-new', {
         fld('竞品 ASIN 2', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
         fld('竞品 ASIN 3', '<input id="gen-asin3" class="ctl" placeholder="B0XXXXXXXXX">') +
       '</div>' +
-      '<div class="btnrow" style="margin-top:16px">' +
+      '<div class="btnrow center" style="margin-top:16px;justify-content:center">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
       '</div>' +
       '<div id="gen-result" style="margin-top:12px"></div>') +
@@ -1247,6 +1247,8 @@ page('gen-new', {
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
         skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
       });
+      /* [fix 09-19] 季节范围默认「四季通用」（不改用户已选值） */
+      try { var _gs = document.getElementById('gen-season'); if (_gs && !_gs.getAttribute('data-touched')) _gs.value = 'ALL_SEASON'; } catch(e){}   /* gen-season 默认四季通用 */
       var btn = document.getElementById('gen-submit');
       if (btn) btn.onclick = function(){
         function val(id){ return (document.getElementById(id)||{}).value || ''; }
@@ -1618,7 +1620,7 @@ page('gen-retry', {
         if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
         root.innerHTML =
           panel('失败 / 需人工任务（共 ' + failed.length + ' 条）', pagedTable(
-            ['图片','SKU','产品族','站点','错误信息','处理时间',''],
+            ['图片','SKU','产品族','站点','错误信息','处理时间','操作',''],
             failed.map(function(x){ return [
               thumbHtml(x['产品图片URL']),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
@@ -1626,7 +1628,7 @@ page('gen-retry', {
               x['目标市场']||'—',
               '<span style="font-size:12px">' + errorCn(x['错误信息']) + '</span>',
               '<span class="m">' + bjTime(x['处理时间']) + '</span>',
-              btn('编辑并重新提交', '', 'gen-new', (x['SKU']||''))
+              btn('编辑并重新提交', '', 'gen-new', (x['SKU']||'')) + btn('查看', '', 'rev-audit', (x['SKU']||''))
             ]; })
           ), {flush:true, note:'失败的按原因归类后<b>批量重跑</b>。每个字段最多重做 3 次，超限自动转人工。'});
       });
