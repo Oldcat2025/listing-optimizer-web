@@ -22,8 +22,8 @@ page('rev-list', {
   },
   body:function(){
         var html = toolbar(
-      [inp('搜索标题或 SKU') + ' <button class="btn" id="rev-search-btn" style="margin-left:6px">搜索</button>'],
-      [btn('导出 Excel','','','','','导出功能暂未开放')]
+      [inp('搜索标题或 SKU') + sel('全部站点', MARKETS_ALL) + ' <button class="btn" id="rev-search-btn" style="margin-left:6px">搜索</button>'],
+      [btn('导出 Excel','','','','','导出功能暂未开放')], {tight:true}
     ) + '<div id="rev-data" style="margin-top:14px">' + ghost('正在加载文案列表…') + '</div>';
     setTimeout(function(){
       function renderList(list, pendingRev){
@@ -70,12 +70,22 @@ page('rev-list', {
         var pendingRev = skuRows.filter(function(x){ var st = String(x['处理状态']||'').toUpperCase(); return (st === 'REVIEW_REQUIRED' || st === 'FAILED') && x['SKU'] && !doneSku[x['SKU']]; });
         if (!rows.length && !pendingRev.length){ el.innerHTML = callout('warn','还没有文案','生成任务完成后，文案会出现在这里。'); return; }
         renderList(rows, pendingRev);
-        var sb = document.getElementById('rev-search-btn');
-        if (sb) sb.onclick = function(){
+        /* [需求 09-19] 4.1 加「站点/国家」筛选：关键词与站点同时生效；排序在 renderList 内已按生成时间倒序 */
+        function applyRevFilter(){
           var q = ((document.querySelector('.tb .inp')||{}).value || '').trim().toLowerCase();
-          var pr = pendingRev.filter(function(x){ return !q || String(x['SKU']||'').toLowerCase().indexOf(q)>=0; });
-          renderList(q ? rows.filter(function(x){ return String(x['Title']||'').toLowerCase().indexOf(q)>=0 || String(x['SKU']||'').toLowerCase().indexOf(q)>=0; }) : rows, pr);
-        };
+          var ms0 = document.querySelector('.tb .sel');
+          var mkt = ms0 ? String(ms0.value || '') : '';
+          function byMkt(x){ return !mkt || mkt === '全部站点' || String(x['目标市场']||'') === mkt; }
+          function hit(x){ return !q || String(x['Title']||'').toLowerCase().indexOf(q) >= 0 || String(x['SKU']||'').toLowerCase().indexOf(q) >= 0; }
+          renderList(rows.filter(function(x){ return byMkt(x) && hit(x); }),
+                     pendingRev.filter(function(x){ return byMkt(x) && (!q || String(x['SKU']||'').toLowerCase().indexOf(q) >= 0); }));
+        }
+        var sb = document.getElementById('rev-search-btn');
+        if (sb) sb.onclick = applyRevFilter;
+        var msSel = document.querySelector('.tb .sel');
+        if (msSel) msSel.onchange = applyRevFilter;
+        var qInp = document.querySelector('.tb .inp');
+        if (qInp) qInp.onkeydown = function(e){ if (e.key === 'Enter') applyRevFilter(); };
       });
     }, 0);
     return html;
