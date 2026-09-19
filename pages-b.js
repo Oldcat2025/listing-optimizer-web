@@ -420,16 +420,36 @@ page('rev-action', {
         var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE'; });
         var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待审核文案';
         var body0 = rows.length ? '五项检查已完成。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。' : '当前没有待审核的定稿文案。';
-        root.innerHTML = callout('', head, body0) + (rows.length ? '<div class="btnrow" style="margin:12px 0"><button class="btn" id="rel-all-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">一键放行全部待审核</button></div>' : '') +
-          '<div class="cols c2">' +
+        root.innerHTML = callout('', head, body0) + '<div class="cols c2">' +
             panel('放行 / 打回', '<div class="form">'+
-              fld('你的结论', pick(['放行','打回 · 让运营补商品资料','打回 · 只重做某个字段','转人工处理'])) +
-              fld('打回哪个字段（选了打回才需要填）', pick(['—','标题','亮点','五点描述','后台搜索词'])) +
-              fld('审核意见', '<textarea class="ctl" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
-            '</div><div class="btnrow" style="margin-top:14px">'+btn('提交结论','btn','','','','提交结论功能暂未开放')+'</div>') +
+              fld('你的结论', '<select class="ctl" id="rel-action"><option value="pass">放行（可上架）</option><option value="reject">打回 · 让运营补商品资料</option><option value="reject">打回 · 只重做某个字段</option></select>') +
+              fld('打回哪个字段（选了打回才需要填）', '<select class="ctl" id="rel-field"><option value="">—</option><option>标题</option><option>亮点</option><option>五点描述</option><option>后台搜索词</option></select>') +
+              fld('审核意见（<b>必填</b>，会进操作记录）', '<textarea class="ctl" id="rel-reason" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
+            '</div><div class="hint">' + (rows.length ? ('本次作用于：<b>' + (rows[0]['SKU']||'') + ' / ' + (rows[0]['目标市场']||'—') + '</b>') : '当前没有待审核文案（定稿都是「已放行」状态），没有可提交的对象。') + '</div>' +
+            '<div class="btnrow" style="margin-top:14px">' + (rows.length ? '<button class="btn" id="rel-submit-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">提交结论</button>' : '') + '</div>') +
             panel('待审核列表', pagedTable(['SKU','站点','定稿版本',''], rows.map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn','rev-action',(x['SKU']||''))]; })), {flush:true}) +
           '</div>' +
           callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
+      /* [item2 2026-09-19] 提交结论 → WH-Listing-Release（放行必须写理由，落 audit_trail） */
+      var rsb = document.getElementById('rel-submit-btn');
+      if (rsb) rsb.onclick = function(){
+        /* val() 是 core.js 的局部函数、此处不可见 → 直接取值 */
+        function _v(id){ return ((document.getElementById(id)||{}).value) || ''; }
+        var a = _v('rel-action'), fl = _v('rel-field'), rs = _v('rel-reason');
+        var act = (a === 'pass') ? 'pass' : 'reject';
+        if (!String(rs || '').trim()){ toast('必须填写审核意见（会进操作记录）'); return; }
+        if (act === 'reject' && !fl){ toast('打回必须指定要改哪个字段'); return; }
+        rsb.disabled = true; rsb.textContent = '提交中…';
+        var s0 = rows[0] || {};
+        API.release({ sku: s0['SKU']||'', marketplace: s0['目标市场']||'US', action: act, field: fl, reason: rs, executed_by: (session()||{}).user_name || '' })
+          .then(function(r){
+            rsb.disabled = false; rsb.textContent = '提交结论';
+            if (r && r.ok && r.data && r.data.success){
+              toast(act === 'pass' ? '已放行：这条文案现在可以上架了' : '已打回：运营会按意见修改后重新提交');
+              setTimeout(function(){ location.reload(); }, 900);
+            } else { toast((r && r.data && (r.data.error || r.data.message)) || '提交失败'); }
+          });
+      };
       });
       /* [fix 09-19] 与 4.6「需人工处理」合并：同一页处理「系统交给人的活」 */
       API.table('运行日志表', {}, 200).then(function(r2){
@@ -455,7 +475,6 @@ page('rev-action', {
           {flush:true});
         root2.insertAdjacentHTML('beforeend', html);
       });
-      var ra = document.getElementById('rel-all-btn'); if (ra) ra.onclick = function(){ toast('放行接口暂未接入，请联系管理员'); };
     }, 0);
     return el;
   }

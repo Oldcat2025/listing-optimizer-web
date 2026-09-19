@@ -52,6 +52,8 @@ var API = {
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
   listServiceAccounts: function(){ return this._post('/proj28/api/google/sa-list', {}, true); },
+  /* [item2 2026-09-19] 文案放行/打回（WH-Listing-Release）—— 放行必须写理由并留痕 */
+  release: function(b){ return this._post('/proj28/api/listings/release', b, true); },
   generate: function(sku){ /* [fix 09-19] 带上登录账号：让 8.4 操作记录能显示「谁提交的」，不再是系统 UUID */
     try { var _s = session(); if (_s && _s.user_name && sku && typeof sku === 'object' && !sku.executed_by) sku.executed_by = _s.user_name; } catch(e){}
     return this._post('/proj28/api/generate', sku, true); },
