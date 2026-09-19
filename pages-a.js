@@ -291,7 +291,7 @@ page('dash-flow', {
         function rows(r){ return (r && r.data && r.data.data) || []; }
         function tot(r, key){ if (r && r.data && r.data.total !== undefined && r.data.total !== null) return Number(r.data.total); var a=rows(r); return key ? a.filter(function(x){return x && x[key];}).length : a.length; }
         function fmt(n){ n = Number(n || 0); try { return n.toLocaleString(); } catch(e){ return String(n); } }
-        function sumSite(r){ var a = rows(r), n = 0; for (var i=0;i<a.length;i++){ n += Number(a[i]['词数'] || 0); } return { n:n, detail:a.map(function(x){ return x['站点'] + ' ' + fmt(x['词数']); }).join(' · ') }; }
+        function sumSite(r){ var a = rows(r), n = 0; for (var i=0;i<a.length;i++){ n += Number(a[i]['词数'] || 0); } return { n:n, rows:a, detail:a.map(function(x){ return x['站点'] + ' ' + fmt(x['词数']); }).join(' · ') }; }
         var skuN = tot(rs[0]), tplN = tot(rs[1]), parN = tot(rs[2]), dnaN = tot(rs[3]);
         var kw = sumSite(rs[4]), ppc = sumSite(rs[5]), sqp = sumSite(rs[6]);
         var ledN = tot(rs[7]), finN = tot(rs[8]);
@@ -316,7 +316,7 @@ page('dash-flow', {
             {t:'9 问产品识别', s:'产品识别结果 · ' + fmt(dnaN) + ' 份（7 站统一 9 问）', go:'sku-dna'}
           ]), {flush:true, strong:true}) +
           panel('② 摄取与机会发现段（工序 5-8）', flow([
-            {t:'全站点词库摄取', s:'词库站点汇总 · 合计 ' + fmt(kw.n) + ' 词' + (kw.detail ? '（' + kw.detail + '）' : ''), go:'data-kw'},
+            {t:'全站点词库摄取', s:'词库站点汇总 · 合计 ' + fmt(kw.n) + ' 词' + (kw.detail ? '（' + kw.detail + '）' : '') + (function(){ var thin = []; for (var i2=0;i2<kw.rows.length;i2++){ var r2=kw.rows[i2]; if (String(r2['站点'])!=='US' && Number(r2['词数']||0) < 400) thin.push(r2['站点']+' '+r2['词数']); } return thin.length ? '<br><span style="color:#B45309">⚠️ 词池偏薄：' + thin.join('、') + ' —— 这些站点的 Backend 会偏弱，建议按站点补导词库（5.1）</span>' : ''; })(), go:'data-kw'},
             {t:'PPC 出单词归因', s:'PPC站点汇总 · ' + fmt(ppc.n) + ' 条' + (ppc.detail ? '（' + ppc.detail + '）' : ''), go:'data-ppc'},
             {t:'SQP 搜索词归因', s:'SQP站点汇总 · ' + fmt(sqp.n) + ' 条' + (sqp.detail ? '（' + sqp.detail + '）' : ''), go:'data-aba'},
             {t:'候选台账 · 准入路由', s:'候选台账 · ' + fmt(ledN) + ' 条候选', go:'rev-ledger'}
