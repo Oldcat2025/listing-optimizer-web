@@ -896,13 +896,13 @@ page('adm-user', {
         var isEdit = !!u;
         var fields = [
           fld('用户名', '<input class="ctl" id="u-name" ' + (isEdit ? 'value="'+(u.user_name||u['用户名']||'')+'"' : '') + ' placeholder="登录名">'),
-          fld('角色', '<select class="ctl" id="u-role"><option>运营</option><option>审核</option><option>管理员</option></select>'),
+          fld('角色', '<select class="ctl" id="u-role"><option value="运营">运营</option><option value="内容管理员">审核</option><option value="系统管理员">管理员</option></select>'),
           (!isEdit ? fld('初始密码', '<input class="ctl" id="u-pwd" type="password" placeholder="至少 8 位">') : '')
         ];
         openModal(isEdit ? '编辑用户' : '新增用户', fields.join(''), function(close){
           var name = (document.getElementById('u-name')||{}).value || '';
           if (!name){ toast('请填写用户名'); return; }
-          var role = (document.getElementById('u-role')||{}).value || '运营';
+          var role = (document.getElementById('u-role')||{}).value || '运营';   /* [fix 09-23a] value 必须是库内真名(系统管理员/内容管理员/运营)，界面显示简称由 ROLE_MAP 负责 */
           var pwd = (document.getElementById('u-pwd')||{}).value || '';
           if (!isEdit && !pwd){ toast('请填写初始密码'); return; }
           var payload = isEdit ? { action: 'update', user_name: name, role: role } : { action: 'create', user_name: name, role: role, password: pwd };

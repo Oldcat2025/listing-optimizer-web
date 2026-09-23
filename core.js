@@ -19,8 +19,18 @@ var API = {
     if (needKey) headers['x-api-key'] = this.apiKey;
     var url = this.base + path, payload = JSON.stringify(body||{});
     function once(){
+      /* [fix 09-23a] 空响应/非 JSON 响应（实测：工作流中途出错 → Webhook 返回空 body →
+         前端 r.json() 抛 "SyntaxError: Unexpected end of JSON input"，真错误被吞掉）
+         → 改先取文本再解析，解析失败给可读提示，保留 HTTP 状态码供排查。 */
       return fetch(url, {method:'POST', headers:headers, body:payload})
-        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, data:j}; }); });
+        .then(function(r){
+          return r.text().then(function(txt){
+            var j;
+            if (!txt) { j = {success:false, error:'服务端未返回内容（HTTP '+r.status+'）——请查看系统日志或联系管理员'}; }
+            else { try { j = JSON.parse(txt); } catch(e){ j = {success:false, error:'服务端返回了非 JSON 内容（HTTP '+r.status+'）'}; } }
+            return {ok:r.ok, status:r.status, data:j};
+          });
+        });
     }
     /* [fix 09-19] 网络瞬时失败（TypeError: Failed to fetch —— 常见于服务端容器重启/网络抖动）
        → 800ms 后自动重试一次，仍失败才报错。避免"数据加载失败"直接糊在页面上。 */
