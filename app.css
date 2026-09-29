@@ -279,6 +279,7 @@ table.t .dim{color:var(--t-4)}
 
 /* ═══ 统计块 ═══ */
 .stats{display:grid;gap:12px;margin-bottom:16px}
+.stats.s2{grid-template-columns:repeat(2,1fr)}
 .stats.s3{grid-template-columns:repeat(3,1fr)}
 .stats.s4{grid-template-columns:repeat(4,1fr)}
 .stats.s5{grid-template-columns:repeat(5,1fr)}
