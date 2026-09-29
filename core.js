@@ -57,7 +57,7 @@ var API = {
   importForbidden: function(f){ return this._post('/proj28/api/forbidden/import', f, true); },
   queueManage: function(q){ return this._post('/proj28/api/queue/manage', q, true); },
   permSave: function(rows){ return this._post('/proj28/api/perms/save', {rows: rows}, true); },
-  // [fix 09-18f] 6.9 模型绑定保存（WH-ModelBinding-Save）
+  // [fix 09-18f] 6.10 模型绑定保存（WH-ModelBinding-Save）
   bindingSave: function(rows){ return this._post('/proj28/api/model-binding/save', {rows: rows}, true); },
   uploadImage: function(img){ return this._post('/proj28/api/images/upload', img, true); },
   saveServiceAccount: function(sa){ return this._post('/proj28/api/google/sa', sa, true); },
@@ -153,11 +153,11 @@ const NAV = [
     ['6.3','平台规则','cfg-rules','Amazon Compliance Rules'],
     ['6.4','违禁词','cfg-forbidden','Forbidden Word Registry'],
     ['6.5','季节范围','cfg-season','Season Scope Config'],
-    ['6.6','AI 指令版本','cfg-prompt','Prompt Version'],
-    ['6.7','参数版本','cfg-param','Param Version'],
-    ['6.8','AI 模型与密钥','cfg-model','Model Provider / Key Vault'],
-    ['6.9','各环节用哪个模型','cfg-binding','Model Profile Binding'],
-    ['6.10','产品尺寸','cfg-size','Size Option Registry'],
+    ['6.6','产品尺寸','cfg-size','Size Option Registry'],
+    ['6.7','AI 指令版本','cfg-prompt','Prompt Version'],
+    ['6.8','参数版本','cfg-param','Param Version'],
+    ['6.9','AI 模型与密钥','cfg-model','Model Provider / Key Vault'],
+    ['6.10','各环节用哪个模型','cfg-binding','Model Profile Binding'],
   ]},
   { g:'⑦', n:'7', t:'上线跟踪', k:'fb', items:[
     ['7.1','上架登记','fb-publish','Publication Registry'],
@@ -437,7 +437,7 @@ var SIZE_BY_UNIT = {
   inch: ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch','12x20 inch'],
   cm:   ['40x40 cm','45x45 cm','50x50 cm','55x55 cm','60x60 cm']
 };
-/* [0929] 6.10 产品尺寸维护：清单存 p28.system_config（键 size_inch / size_cm），
+/* [0929] 6.6 产品尺寸维护：清单存 p28.system_config（键 size_inch / size_cm），
    此处做**运行时缓存** —— 维护页保存后立即写入缓存，2.2 新增父体弹窗 / 2.3 商品资料页
    都从 sizeOptionsForMarket() 取清单，故「改完即时生效」，无需改代码或重新部署。
    读不到（未配置 / 网络失败）时回退上面的硬编码默认值，保证页面始终可用。 */
@@ -1116,7 +1116,7 @@ function BOOT(){
   window.onhashchange = render;
   render();
 
-  /* [0929] 预热 6.10 尺寸清单缓存（2.2 新增父体 / 2.3 商品资料两个入口即时生效的数据源） */
+  /* [0929] 预热 6.6 尺寸清单缓存（2.2 新增父体 / 2.3 商品资料两个入口即时生效的数据源） */
   loadSizeOptions();
 }
 

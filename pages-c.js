@@ -46,7 +46,7 @@ page('cfg-category', {
             '<span class="m">' + bjTime(x['更新时间']) + '</span>',
             '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true}) + '<div id="cfg-cat-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每种商品类目的文案规格 —— 标题最长多少字符、卖点短语几条、五点描述几条、用词有没有人群限制。<br><b>范例：</b>类目 PILLOW_COVER 配置 Title 最大 150 字符、Highlights 6~8 短语、Bullet 5 条、人群守卫「无」。<br><b>和 6.2 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」（语言、标点、词库表）。</div>', {flush:true});
+        ), {flush:true}) + '<div id="cfg-cat-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每种商品类目的文案规格 —— 标题最长多少字符、卖点短语几条、五点描述几条、用词有没有人群限制。<br><b>范例：</b>类目 PILLOW_COVER 配置 Title 最大 150 字符、Highlights 6~8 短语、Bullet 5 条、人群守卫「无」。<br><b>和 6.2 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」（语言、标点、词库表）。</div>', {});
         Array.prototype.forEach.call(document.querySelectorAll('#cfg-category-root .btn[data-idx]'), function(el){
           el.onclick = function(){
             var i = parseInt(el.getAttribute('data-idx'), 10);
@@ -137,7 +137,7 @@ page('cfg-market', {
             '<span class="m">' + String(x['合规规则核对日期']||'—').slice(0,10) + '</span>',
             '<button class="btn btn--ghost" data-idx="'+i+'">详情</button>'
            ]; })
-        ), {flush:true}) + '<div id="cfg-market-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每个亚马逊站点（US/GB/DE/FR/IT/ES）的合规规则 —— 语言区域、Backend 搜索词字节上限、标点/分词/复合词策略、用哪个词库表。<br><b>范例：</b>站点 US 配置 Backend 最大 249 字节、Title 用美式标点、词库表「站点词库_US」。<br><b>和 6.1 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」。<br><b>和 5.1 的关系：</b>5.1 是往「站点词库_US」导入关键词数据，6.2 决定这个站点用哪张词库表。</div>', {flush:true});
+        ), {flush:true}) + '<div id="cfg-market-detail" style="margin-top:14px"></div>' + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页配置的是：</b>每个亚马逊站点（US/GB/DE/FR/IT/ES）的合规规则 —— 语言区域、Backend 搜索词字节上限、标点/分词/复合词策略、用哪个词库表。<br><b>范例：</b>站点 US 配置 Backend 最大 249 字节、Title 用美式标点、词库表「站点词库_US」。<br><b>和 6.1 的区别：</b>6.1 管「每种商品怎么写」，6.2 管「每个站点怎么合规」。<br><b>和 5.1 的关系：</b>5.1 是往「站点词库_US」导入关键词数据，6.2 决定这个站点用哪张词库表。</div>', {});
         Array.prototype.forEach.call(document.querySelectorAll('#cfg-market-root .btn[data-idx]'), function(el){
           el.onclick = function(){
             var i = parseInt(el.getAttribute('data-idx'), 10);
@@ -222,7 +222,7 @@ page('cfg-rules', {
             x['版本']||'—',
             btn('查看','')
           ] +
-          panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>亚马逊官方规则快照（标题多长、图片要求、变体规则等），供生成时对照。<br><b>范例：</b>规则「Title 不超过 200 字符」——所有商品的标题不能超过这个限制。<br><b>和 6.2 的区别：</b>6.2 是站点自己的合规配置，这一页是平台（亚马逊）通用规则。</div>', {flush:true}); })
+          panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>亚马逊官方规则快照（标题多长、图片要求、变体规则等），供生成时对照。<br><b>范例：</b>规则「Title 不超过 200 字符」——所有商品的标题不能超过这个限制。<br><b>和 6.2 的区别：</b>6.2 是站点自己的合规配置，这一页是平台（亚马逊）通用规则。</div>', {}); })
         ), {flush:true, note:'这是亚马逊官方平台规则的快照（会过期，需定期核对）。规则变更只产出受影响清单，不自动重写已上架文案。'});
       });
     }, 0);
@@ -285,7 +285,7 @@ page('cfg-forbidden', {
               x['添加人'] || '—'
             ];
           }))
-          , {flush:true}) + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>不能出现在文案里的违禁词（夸大词、医疗词、平台禁用词）。<br><b>范例：</b>「waterproof」在部分站点/类目是禁词，文案里不能出现。<br><b>和 5.1 的关系：</b>5.1 是往词库导「能用的词」，这一页是「不能用的词」。</div>', {flush:true});
+          , {flush:true}) + panel('这一页管什么（范例）', '<div style="font-size:13px;line-height:1.8"><b>这一页管的是：</b>不能出现在文案里的违禁词（夸大词、医疗词、平台禁用词）。<br><b>范例：</b>「waterproof」在部分站点/类目是禁词，文案里不能出现。<br><b>和 5.1 的关系：</b>5.1 是往词库导「能用的词」，这一页是「不能用的词」。</div>', {});
         });
       }
       function openForbiddenModal(){
@@ -364,7 +364,7 @@ page('cfg-season', {
               btns(x)
             ]; })
           ), {flush:true, sub: btn('+ 新增季节','','','','','cfg-season-add')}) +
-          panel('这里管什么', '<div style="font-size:13px;line-height:1.8"><b>这一页维护「季节范围」可选项</b>：新增商品（2.3）和新建生成任务（3.1）里的季节下拉从这里读取，<b>新增/停用即时生效，无需改代码或重新部署</b>。<br><b>提醒：</b>停用只影响新选择，已经选了该季节的历史商品不受影响。</div>', {flush:true});
+          panel('这里管什么', '<div style="font-size:13px;line-height:1.8"><b>这一页维护「季节范围」可选项</b>：新增商品（2.3）和新建生成任务（3.1）里的季节下拉从这里读取，<b>新增/停用即时生效，无需改代码或重新部署</b>。<br><b>提醒：</b>停用只影响新选择，已经选了该季节的历史商品不受影响。</div>', {});
           root.innerHTML = html;
           // 绑定操作
           Array.prototype.forEach.call(root.querySelectorAll('button[data-toggle]'), function(b){
@@ -505,7 +505,7 @@ page('cfg-param', {
           el.innerHTML = panel('新增商品后自动识别',
             sw + state + exp +
             '<div style="margin-top:16px"><button class="btn btn--primary" id="cfg-recog-save">保存</button>' +
-            '<span id="cfg-recog-msg" style="margin-left:12px;font-size:13px"></span></div>', {flush:true});
+            '<span id="cfg-recog-msg" style="margin-left:12px;font-size:13px"></span></div>', {});
           var btn = document.getElementById('cfg-recog-save');
           if (btn) btn.onclick = function(){
             var cb = document.getElementById('cfg-recog-on');
@@ -526,7 +526,7 @@ page('cfg-param', {
     }
 });
 
-/* ─── 6.10 产品尺寸维护 ─── */
+/* ─── 6.6 产品尺寸维护 ─── */
 
 page('cfg-size', {
   roles:['管理员'],
@@ -578,19 +578,23 @@ page('cfg-size', {
               '<button class="btn btn--ghost" data-delunit="' + unit + '" data-idx="' + i + '">删除</button>'
             ]; }));
             var sub = '<button class="btn btn--primary" data-addunit="' + unit + '">＋ 新增尺寸</button>';
-            return panel(label + '（' + list.length + ' 项）', tbl, {flush:true, sub:sub}) +
-              '<div style="margin-top:-6px;margin-bottom:14px;font-size:12px;color:var(--t-3)">存储键：<span class="m">' + key + '</span> · 值：<span class="m">' + list.join(',') + '</span></div>';
+            return '<div style="flex:1 1 340px;min-width:340px">' +
+              panel(label + '（' + list.length + ' 项）', tbl, {flush:true, sub:sub}) +
+              '<div style="margin-top:-6px;margin-bottom:14px;font-size:12px;color:var(--t-3)">存储键：<span class="m">' + key + '</span> · 值：<span class="m">' + list.join(',') + '</span></div>' +
+              '</div>';
           }
 
           root.innerHTML =
+            '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">' +
             unitPanel('inch', '美 / 加 / 英站尺寸（inch）', inch) +
             unitPanel('cm', '德 / 法 / 意 / 西站尺寸（cm）', cm) +
+            '</div>' +
             panel('这里管什么',
               '<div style="font-size:13px;line-height:1.8">' +
               '<b>这一页维护「常用尺寸」可选项</b>：新增父体（2.2）的尺寸勾选、新增商品（2.3）的商品尺寸都从这里读取，' +
               '<b>新增/删除即时生效，无需改代码或重新部署</b>。<br>' +
               '<b>提醒：</b>删除只影响以后的新勾选，已经用了该尺寸的历史商品不受影响。' +
-              '</div>', {flush:true});
+              '</div>', {});
 
           function saveList(unit, list){
             var key = unit === 'inch' ? 'size_inch' : 'size_cm';

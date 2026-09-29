@@ -1438,7 +1438,8 @@ page('gen-run', {
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['运行ID'] && x['SKU']; });
         if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
-        function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return ''; }
+        function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED'||s==='ABORTED_STUCK') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'run'; }
+        function statusCn(st){ var s = String(st||'').toUpperCase(); var m = { 'SUCCESS':'成功', 'COMPLETED':'完成', 'FAILED':'失败', 'ABORTED_STUCK':'中止/卡住', 'REVIEW_REQUIRED':'需人工', 'CANDIDATE_WRITTEN':'候选已写', 'DRAFT_WRITTEN':'草稿已写' }; return m[s] || (st||'—'); }
         function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
         // 同 run 会按阶段 append 多行（PROCESSING/SUCCESS/DRAFT_WRITTEN…），选代表行：终态优先，同态取时间最新
         (function(){ var g = {}; rows.forEach(function(x){ var rid = x['运行ID'] || ('SKU:'+x['SKU']); (g[rid] = g[rid] || []).push(x); });
@@ -1560,8 +1561,8 @@ page('gen-run', {
         (function(){ var g2 = {}; rows.forEach(function(x){ var k = (x['SKU']||'') + '|' + (x['目标市场']||''); var cur = g2[k];
           if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k] = x; });
           rows = Object.keys(g2).map(function(k){ return g2[k]; }); })();
-        var succ = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='SUCCESS'; }).length;
-        var fail = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='FAILED'; }).length;
+        var succ = rows.filter(function(x){ var s=String(x['最终状态']||'').toUpperCase(); return s==='SUCCESS'||s==='COMPLETED'; }).length;
+        var fail = rows.filter(function(x){ var s=String(x['最终状态']||'').toUpperCase(); return s==='FAILED'||s==='ABORTED_STUCK'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
         /* [fix 09-16al] 排序口径：**新创建/待处理的排最前**（原先新商品的「处理状态」不在已知取值里 → 被判成 5 → 沉到列表最底部，客户反馈"新建的找不到"）。
    分组：0 需人工处理 / 1 新创建·待处理 / 2 生成中 / 3 已完成 / 4 失败 / 5 其他 */
@@ -1571,7 +1572,7 @@ page('gen-run', {
           if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
           if (u === 'PROCESSING') return 2;
           if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
-          if (u === 'FAILED') return 4;
+          if (u === 'FAILED' || u === 'ABORTED_STUCK') return 4;
           return 5;
         }
         
@@ -1580,7 +1581,7 @@ rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['
           stats([
             ['运行总数', rows.length, '运行日志表', '', false],
             ['成功', succ, '', 'ok', false],
-            ['失败', fail, '', 'fail', false],
+            ['失败', fail, '含中止/卡住', 'fail', false],
             ['需人工', revw, '', 'warn', false],
           ], 4) +
           panel('运行列表（' + rows.length + ' 条）', pagedTable(
@@ -1588,7 +1589,7 @@ rows.sort(function(a,b){ var ra=statusRank(a['最终状态']), rb=statusRank(b['
             rows.map(function(x){ return [
               x['SKU']||'—',
               x['目标市场']||'—',
-              chip(x['最终状态']||'', t(x['最终状态'])),
+              chip(statusCn(x['最终状态']), t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
               btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-manual'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
