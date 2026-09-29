@@ -282,29 +282,46 @@ document.addEventListener('change', function(e){
 function recentTenPanel(opt){
   opt = opt || {};
   // 证书表载荷大（每行含 5 份证书 JSON），只取最近 80 行足够覆盖「最近 10 条」的筛选 → 降低耗时
-  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, 80)]).then(function(rs){
+  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, opt.all ? 200 : 80)]).then(function(rs){
     var fin  = ((rs[0].data||{}).data) || [];
     var cert = ((rs[1].data||{}).data) || [];
     var pass = {};
     cert.forEach(function(c){ if (String(c['全部通过']||'').toUpperCase()==='TRUE') pass[String(c['SKU']||'')] = 1; });
-    var rows = fin.filter(function(x){
-      if (!x || !x['Title']) return false;
-      return opt.onlyPassed === false ? true : !!pass[String(x['SKU']||'')];
-    });
+    var rows = fin.filter(function(x){ return x && x['Title']; });
+    var showAllFin = opt.all || opt.onlyPassed === false;
+    if (!showAllFin) rows = rows.filter(function(x){ return !!pass[String(x['SKU']||'')]; });
+    /* [fix 09-29] opt.all：4.3 质检报告要显示「所有文案」（含失败）——证书未通过、没写定稿的记录也列出 */
+    if (opt.all) {
+      var _seen = {};
+      rows.forEach(function(x){ _seen[String(x['SKU']||'')+'|'+String(x['目标市场']||'')] = 1; });
+      cert.forEach(function(c){
+        if (String(c['全部通过']||'').toUpperCase() !== 'FALSE') return;
+        var _key = String(c['SKU']||'')+'|'+String(c['目标市场']||'');
+        if (_seen[_key]) return; _seen[_key] = 1;
+        var _code = '';
+        try { var _inner = JSON.parse(((c['完整性证书']||{}).detail) || '{}'); _code = _inner.code || ''; } catch(e){}
+        rows.push({ SKU: c['SKU'], 目标市场: c['目标市场'], 生成时间: c['生成时间'], Title: '', _failCode: _code });
+      });
+    }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
     var top = rows.slice(0, 10);
     var sub = '点「查看」直接把这一条载入下面的结果区';
     if (!top.length) return panel('最近 10 条成功文案', callout('warn','暂时还没有成功的文案','五证书全部通过后会自动出现在这里。'), {sub:sub});
     var trs = top.map(function(x){
       var sku = String(x['SKU']||''), tt = String(x['Title']||'');
+      var titleCell = tt
+        ? '<span style="font-size:12px">'+(tt.length>44?tt.slice(0,44)+'…':tt)+'</span>'
+        : '<span style="font-size:12px;color:var(--r-600)">证书未通过'+(x['_failCode']?' · '+x['_failCode']:'')+'</span>';
       return [ '<span class="m">'+sku+'</span>',
                x['目标市场']||'—',
                '<span style="font-size:12px;color:var(--t-3)">'+bjTime(x['生成时间'])+'</span>',
-               '<span style="font-size:12px">'+(tt.length>44?tt.slice(0,44)+'…':tt)+'</span>',
+               titleCell,
                '<button class="btn btn--ghost" data-recent-sku="'+sku+'">查看</button>' ];
     });
-    return panel('最近 10 条成功文案（共 '+rows.length+' 条成功，按生成时间倒序）',
-                 table(['SKU','站点','生成时间','标题',''], trs), {flush:true, sub:sub});
+    var _title = opt.all
+      ? '最近 10 条文案（共 '+rows.length+' 条，按生成时间倒序）'
+      : '最近 10 条成功文案（共 '+rows.length+' 条成功，按生成时间倒序）';
+    return panel(_title, table(['SKU','站点','生成时间','标题',''], trs), {flush:true, sub:sub});
   });
 }
 /* 绑定「查看」：回填查询框 → 调 onPick（页面自己的重载函数）

@@ -334,7 +334,7 @@ page('rev-audit', {
       var sb = document.getElementById('rd-audit-search'); if (sb) sb.onclick = loadAudit;
       // [4.3 改造] 最近 10 条成功文案（与 4.2 同一套助手）
       var rc = document.getElementById('ra-recent');
-      if (rc) recentTenPanel().then(function(h){ rc.innerHTML = h; wireRecent(loadAudit); })
+      if (rc) recentTenPanel({all:true}).then(function(h){ rc.innerHTML = h; wireRecent(loadAudit); })
                              .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;
