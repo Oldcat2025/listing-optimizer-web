@@ -299,7 +299,7 @@ function recentTenPanel(opt){
         if (['REVIEW_REQUIRED','FAILED'].indexOf(String(s['处理状态']||'')) < 0) return;
         var _key = String(s['SKU']||'')+'|'+String(s['目标市场']||'');
         if (_seen[_key]) return; _seen[_key] = 1;
-        rows.push({ SKU: s['SKU'], 目标市场: s['目标市场'], 生成时间: (s['更新时间'] || s['处理时间'] || ''), Title: '', _failCode: String(s['错误信息']||'').replace(/^CERTIFICATE_FAIL:/,'') });
+        rows.push({ SKU: s['SKU'], 目标市场: s['目标市场'], 生成时间: (s['处理时间'] || s['更新时间'] || ''), Title: '', _failCode: String(s['错误信息']||'').replace(/^CERTIFICATE_FAIL:/,'') });
       });
     }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
