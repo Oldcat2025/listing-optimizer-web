@@ -232,6 +232,8 @@ page('rev-audit', {
     ) + '<div id="ra-recent">' + ghost('正在加载最近成功文案…') + '</div>'
       + '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
     setTimeout(function(){
+      /* [fix 09-29] 从「人工审核重做」进来：自动按该 SKU 查证书（含失败/需人工的），不再只看最近成功文案 */
+      (function(){ var _h=(location.hash||'').replace(/^#/,''); var _i=_h.indexOf('/'); var _pre=window.CUR_SKU || (_i>=0?decodeURIComponent(_h.slice(_i+1)):''); if(_pre){ var _q=document.querySelector('.tb .inp'); if(_q)_q.value=_pre; } })();
       function verdict(v){
         var o = v;
         if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }

@@ -1380,7 +1380,20 @@ page('gen-new', {
         if (!skuSel) return;
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
         skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
-      });
+        /* [fix 09-29] 从「人工审核重做」进来：带出原任务内容（目标市场/品牌名/季节/竞品ASIN），改完直接重提交 */
+        if (preSku){
+          var pre = skuRows.find(function(x){ return x['SKU'] === preSku; });
+          if (pre){
+            var _m = document.getElementById('gen-market'); if (_m && pre['目标市场']) _m.value = pre['目标市场'];
+            var _b = document.getElementById('gen-brand'); if (_b && pre['品牌名']) _b.value = pre['品牌名'];
+            var _s = document.getElementById('gen-season');
+            if (_s && pre['季节范围']){ var _sc = pre['季节范围']; if (_s.querySelector('option[value="'+_sc+'"]')) _s.value = _sc; }
+            var _a1 = document.getElementById('gen-asin1'); if (_a1 && pre['竞品ASIN1']) _a1.value = pre['竞品ASIN1'];
+            var _a2 = document.getElementById('gen-asin2'); if (_a2 && pre['竞品ASIN2']) _a2.value = pre['竞品ASIN2'];
+            var _a3 = document.getElementById('gen-asin3'); if (_a3 && pre['竞品ASIN3']) _a3.value = pre['竞品ASIN3'];
+          }
+        }
+        });
       /* [fix 09-19] 季节范围默认「四季通用」（不改用户已选值） */
       try { var _gs = document.getElementById('gen-season'); if (_gs && !_gs.getAttribute('data-touched')) _gs.value = 'ALL_SEASON'; } catch(e){}   /* gen-season 默认四季通用 */
       var btn = document.getElementById('gen-submit');
