@@ -1360,7 +1360,7 @@ page('gen-new', {
       });
     }
             var useKw = document.getElementById('gen-use-kw');
-            function syncLibraryInputs(){ var enabled=!!(useKw && useKw.checked); ['gen-kw-season','gen-asin1','gen-asin2','gen-asin3'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=!enabled;}); }
+            function syncLibraryInputs(){ var enabled=!!(useKw && useKw.checked); ['gen-kw-season'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=!enabled;}); }
             if(useKw)useKw.onchange=syncLibraryInputs; syncLibraryInputs();
             var skuRows = [];
             var marketSel = document.getElementById('gen-market');
