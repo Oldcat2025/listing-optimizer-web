@@ -526,6 +526,121 @@ page('cfg-param', {
     }
 });
 
+/* ─── 6.10 产品尺寸维护 ─── */
+
+page('cfg-size', {
+  roles:['管理员'],
+  guide:[
+    '这里维护<b>常用商品尺寸</b>（如 18x18 inch、45x45 cm）。新增父体（2.2）和新增商品（2.3）的尺寸勾选项从这里读取——<b>这里加一个，两个入口就多一个</b>，不用改代码。',
+    '美/加/英站用 <b>inch</b>，德/法/意/西站用 <b>cm</b>，两套清单分开维护。',
+    '改完<b>即时生效</b>：已打开的商品页刷新一次即可看到新清单；历史商品上已勾选的尺寸不受影响。'
+  ],
+  spec:{
+    q:'系统里有哪些常用尺寸可选、新增父体/新增商品的尺寸勾选项由谁控制。',
+    acts:['新增尺寸','删除尺寸'],
+    wf:['WH-Config-Save 配置保存（复用「系统参数」通道）'],
+    reads:['system_config'],
+    writes:['system_config'],
+    limits:[
+      '清单以<b>逗号分隔</b>存于系统参数表的 <span class="m">size_inch</span> / <span class="m">size_cm</span> 两个键，落库可审计',
+      '删除只影响新的勾选列表，<b>历史商品已选尺寸不受影响</b>',
+      '读不到配置时回退到内置默认清单，页面始终可用'
+    ]
+  },
+  body:function(){
+    var el = '<div id="cfg-size-root">' + ghost('正在加载尺寸清单…') + '</div>';
+    setTimeout(function(){
+      function loadSizesCfg(){
+        var root = document.getElementById('cfg-size-root');
+        if (!root) return;
+        root.innerHTML = ghost('正在加载尺寸清单…');
+        API.table('系统参数', {}, 200).then(function(r){
+          if (!root) return;
+          if (!r.ok || !r.data || r.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络'); return; }
+          var rows = (r.data.data || []);
+          function listOf(k, fallback){
+            var hit = null;
+            rows.forEach(function(x){ if (String(x['参数名']) === k) hit = String(x['值'] || ''); });
+            if (hit === null) return fallback.slice();
+            var arr = hit.split(',').map(function(s){ return s.trim(); }).filter(function(s){ return s; });
+            return arr.length ? arr : fallback.slice();
+          }
+          var inch = listOf('size_inch', SIZE_BY_UNIT.inch);
+          var cm   = listOf('size_cm',   SIZE_BY_UNIT.cm);
+          /* 同步运行时缓存，保证本次会话内两个入口立即用上新清单 */
+          setSizeOptions('inch', inch); setSizeOptions('cm', cm);
+
+          function unitPanel(unit, label, list){
+            var key = unit === 'inch' ? 'size_inch' : 'size_cm';
+            var tbl = table(['序号','尺寸','操作'], list.map(function(s, i){ return [
+              '<span class="num">' + (i + 1) + '</span>',
+              '<span class="m">' + s + '</span>',
+              '<button class="btn btn--ghost" data-delunit="' + unit + '" data-idx="' + i + '">删除</button>'
+            ]; }));
+            var sub = '<button class="btn btn--primary" data-addunit="' + unit + '">＋ 新增尺寸</button>';
+            return panel(label + '（' + list.length + ' 项）', tbl, {flush:true, sub:sub}) +
+              '<div style="margin-top:-6px;margin-bottom:14px;font-size:12px;color:var(--t-3)">存储键：<span class="m">' + key + '</span> · 值：<span class="m">' + list.join(',') + '</span></div>';
+          }
+
+          root.innerHTML =
+            unitPanel('inch', '美 / 加 / 英站尺寸（inch）', inch) +
+            unitPanel('cm', '德 / 法 / 意 / 西站尺寸（cm）', cm) +
+            panel('这里管什么',
+              '<div style="font-size:13px;line-height:1.8">' +
+              '<b>这一页维护「常用尺寸」可选项</b>：新增父体（2.2）的尺寸勾选、新增商品（2.3）的商品尺寸都从这里读取，' +
+              '<b>新增/删除即时生效，无需改代码或重新部署</b>。<br>' +
+              '<b>提醒：</b>删除只影响以后的新勾选，已经用了该尺寸的历史商品不受影响。' +
+              '</div>', {flush:true});
+
+          function saveList(unit, list){
+            var key = unit === 'inch' ? 'size_inch' : 'size_cm';
+            return API.saveConfig({ key:key, value:list.join(',') }).then(function(rr){
+              if (rr && rr.ok && !(rr.data && rr.data.success === false)){
+                setSizeOptions(unit, list);
+                toast('已保存，新增父体 / 新增商品两个入口即时生效');
+                loadSizesCfg();
+              } else {
+                toast((rr && rr.data && rr.data.error) || '保存失败');
+              }
+            });
+          }
+
+          Array.prototype.forEach.call(root.querySelectorAll('button[data-delunit]'), function(b){
+            b.onclick = function(){
+              var unit = b.getAttribute('data-delunit'), idx = parseInt(b.getAttribute('data-idx'), 10);
+              var list = (unit === 'inch' ? inch : cm).slice();
+              var gone = list[idx];
+              if (!confirm('确定删除尺寸「' + gone + '」？\n（只影响以后的新勾选，历史商品不受影响）')) return;
+              list.splice(idx, 1);
+              if (!list.length){ toast('至少要保留一个尺寸'); return; }
+              saveList(unit, list);
+            };
+          });
+
+          Array.prototype.forEach.call(root.querySelectorAll('button[data-addunit]'), function(b){
+            b.onclick = function(){
+              var unit = b.getAttribute('data-addunit');
+              var list = (unit === 'inch' ? inch : cm).slice();
+              var unitTxt = unit === 'inch' ? 'inch' : 'cm';
+              openModal('新增尺寸（' + (unit === 'inch' ? '美/加/英站 inch' : '德/法/意/西站 cm') + '）',
+                fld('尺寸', '<input class="ctl" id="cfs-size" placeholder="如 22x22 ' + unitTxt + '">', '按「数字x数字 单位」填写，保存后两个入口立即可选'),
+                function(close){
+                  var v = ((document.getElementById('cfs-size') || {}).value || '').trim();
+                  if (!v){ toast('请填写尺寸'); return; }
+                  if (list.indexOf(v) >= 0){ toast('该尺寸已存在'); return; }
+                  saveList(unit, list.concat([v])).then(function(){ close(); });
+                }, '保存');
+            };
+          });
+        });
+      }
+      loadSizesCfg();
+    }, 0);
+    return el;
+  }
+});
+
+
 /* ─── 模型配置两页 ─── */
 
 page('cfg-model', {

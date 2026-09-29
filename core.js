@@ -157,6 +157,7 @@ const NAV = [
     ['6.7','参数版本','cfg-param','Param Version'],
     ['6.8','AI 模型与密钥','cfg-model','Model Provider / Key Vault'],
     ['6.9','各环节用哪个模型','cfg-binding','Model Profile Binding'],
+    ['6.10','产品尺寸','cfg-size','Size Option Registry'],
   ]},
   { g:'⑦', n:'7', t:'上线跟踪', k:'fb', items:[
     ['7.1','上架登记','fb-publish','Publication Registry'],
@@ -436,9 +437,36 @@ var SIZE_BY_UNIT = {
   inch: ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch','12x20 inch'],
   cm:   ['40x40 cm','45x45 cm','50x50 cm','55x55 cm','60x60 cm']
 };
-function sizeOptionsForMarket(mkt){
+/* [0929] 6.10 产品尺寸维护：清单存 p28.system_config（键 size_inch / size_cm），
+   此处做**运行时缓存** —— 维护页保存后立即写入缓存，2.2 新增父体弹窗 / 2.3 商品资料页
+   都从 sizeOptionsForMarket() 取清单，故「改完即时生效」，无需改代码或重新部署。
+   读不到（未配置 / 网络失败）时回退上面的硬编码默认值，保证页面始终可用。 */
+var SIZE_LIVE = { inch: null, cm: null };
+function sizeUnitOf(mkt){
   var m = String(mkt || 'US').toUpperCase();
-  return (m === 'US' || m === 'CA' || m === 'GB') ? SIZE_BY_UNIT.inch : SIZE_BY_UNIT.cm;
+  return (m === 'US' || m === 'CA' || m === 'GB') ? 'inch' : 'cm';
+}
+function setSizeOptions(unit, list){
+  var u = (String(unit || '').toLowerCase() === 'inch') ? 'inch' : 'cm';
+  if (Array.isArray(list) && list.length) SIZE_LIVE[u] = list.slice();
+}
+function sizeOptionsForMarket(mkt){
+  var u = sizeUnitOf(mkt);
+  return (SIZE_LIVE[u] && SIZE_LIVE[u].length) ? SIZE_LIVE[u] : SIZE_BY_UNIT[u];
+}
+function loadSizeOptions(){
+  /* 从「系统参数」读回 size_inch / size_cm 填充运行时缓存；失败静默（保持默认清单） */
+  try {
+    API.table('系统参数', {}, 200).then(function(r){
+      var rows = (r && r.ok && r.data && r.data.data) ? r.data.data : [];
+      rows.forEach(function(x){
+        var k = String(x['参数名'] || ''), v = String(x['值'] || '');
+        if (k !== 'size_inch' && k !== 'size_cm') return;
+        var list = v.split(',').map(function(s){ return s.trim(); }).filter(function(s){ return s; });
+        if (list.length) SIZE_LIVE[k === 'size_inch' ? 'inch' : 'cm'] = list;
+      });
+    })['catch'](function(){});
+  } catch(e){}
 }
 function sizeCheckboxesHtml(mkt){
   return sizeOptionsForMarket(mkt).map(function(s){ return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;margin-right:14px;white-space:nowrap"><input type="checkbox" value="'+s+'"> '+s+'</label>'; }).join('');
@@ -1087,6 +1115,9 @@ function BOOT(){
 
   window.onhashchange = render;
   render();
+
+  /* [0929] 预热 6.10 尺寸清单缓存（2.2 新增父体 / 2.3 商品资料两个入口即时生效的数据源） */
+  loadSizeOptions();
 }
 
 
