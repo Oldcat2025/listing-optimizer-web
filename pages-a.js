@@ -1557,10 +1557,8 @@ page('gen-run', {
                 '<div style="border:1px solid #E8ECEA;border-radius:12px;padding:2px 14px;background:#fff">'+S.join('')+'</div>' +
                 '<div style="font-size:11.5px;color:#9AA0A6;margin-top:7px;line-height:1.7">第 2/6/7/8/9 段的数据来自<b>实际落库产物</b>（识别结果 / 定稿 / 证书）；第 3/4/5 段目前未按任务落库独立指标，只标链路位次、<b>不编造数字</b>。</div>';
             })();        } else {
-        // SKU 级折叠：同 SKU+站点 只保留「最新一次 run」（按结束时间最晚），旧 run 失败记录不冒充当前状态
-        (function(){ var g2 = {}; rows.forEach(function(x){ var k = (x['SKU']||'') + '|' + (x['目标市场']||''); var cur = g2[k];
-          if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k] = x; });
-          rows = Object.keys(g2).map(function(k){ return g2[k]; }); })();
+        /* [0929] 去掉 SKU 级折叠：直接展示每个 run（同一 SKU 多次运行各占一行），
+           配合 pagedTable 分页（每页 20 条）翻看全部运行记录；统计口径随之按 run 计数。 */
         var succ = rows.filter(function(x){ var s=String(x['最终状态']||'').toUpperCase(); return s==='SUCCESS'||s==='COMPLETED'; }).length;
         var fail = rows.filter(function(x){ var s=String(x['最终状态']||'').toUpperCase(); return s==='FAILED'||s==='ABORTED_STUCK'; }).length;
         var revw = rows.filter(function(x){ return String(x['最终状态']||'').toUpperCase()==='REVIEW_REQUIRED'; }).length;
