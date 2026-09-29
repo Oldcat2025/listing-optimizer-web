@@ -282,9 +282,10 @@ document.addEventListener('change', function(e){
 function recentTenPanel(opt){
   opt = opt || {};
   // 证书表载荷大（每行含 5 份证书 JSON），只取最近 80 行足够覆盖「最近 10 条」的筛选 → 降低耗时
-  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, opt.all ? 200 : 80)]).then(function(rs){
+  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, opt.all ? 200 : 80), opt.all ? API.table('SKU_输入表', {}, 200) : Promise.resolve(null)]).then(function(rs){
     var fin  = ((rs[0].data||{}).data) || [];
     var cert = ((rs[1].data||{}).data) || [];
+    var skus = (opt.all && rs[2] && rs[2].data) ? (rs[2].data.data || []) : [];
     var pass = {};
     cert.forEach(function(c){ if (String(c['全部通过']||'').toUpperCase()==='TRUE') pass[String(c['SKU']||'')] = 1; });
     var rows = fin.filter(function(x){ return x && x['Title']; });
@@ -294,13 +295,11 @@ function recentTenPanel(opt){
     if (opt.all) {
       var _seen = {};
       rows.forEach(function(x){ _seen[String(x['SKU']||'')+'|'+String(x['目标市场']||'')] = 1; });
-      cert.forEach(function(c){
-        if (String(c['全部通过']||'').toUpperCase() !== 'FALSE') return;
-        var _key = String(c['SKU']||'')+'|'+String(c['目标市场']||'');
+      skus.forEach(function(s){
+        if (['REVIEW_REQUIRED','FAILED'].indexOf(String(s['处理状态']||'')) < 0) return;
+        var _key = String(s['SKU']||'')+'|'+String(s['目标市场']||'');
         if (_seen[_key]) return; _seen[_key] = 1;
-        var _code = '';
-        try { var _inner = JSON.parse(((c['完整性证书']||{}).detail) || '{}'); _code = _inner.code || ''; } catch(e){}
-        rows.push({ SKU: c['SKU'], 目标市场: c['目标市场'], 生成时间: c['生成时间'], Title: '', _failCode: _code });
+        rows.push({ SKU: s['SKU'], 目标市场: s['目标市场'], 生成时间: (s['更新时间'] || s['处理时间'] || ''), Title: '', _failCode: String(s['错误信息']||'').replace(/^CERTIFICATE_FAIL:/,'') });
       });
     }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });

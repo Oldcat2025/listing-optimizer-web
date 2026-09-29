@@ -229,7 +229,7 @@ page('rev-audit', {
       [inp('搜索 SKU'), sel('全部站点', MARKETS_ALL),
        '<button class="btn" id="rd-audit-search">查询</button>'],
       [], {tight:true}
-    ) + '<div id="ra-recent">' + ghost('正在加载最近成功文案…') + '</div>'
+    ) + '<div id="ra-recent">' + ghost('正在加载文案…') + '</div>'
       + '<div id="rev-audit-root">' + ghost('正在加载检查报告…') + '</div>';
     setTimeout(function(){
       /* [fix 09-29] 从「人工审核重做」进来：自动按该 SKU 查证书（含失败/需人工的），不再只看最近成功文案 */
