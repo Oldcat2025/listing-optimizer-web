@@ -421,6 +421,8 @@ page('sku-list', {
               var todo = (st === '' || st === 'PENDING' || st === '待处理');
               // [fix 09-16aq] 待生成的行给一个直达按钮，一眼知道下一步点哪（客户反馈：只看到 PENDING 不知道要干嘛）
               return '<div style="white-space:nowrap">' + btn('详情', '', 'sku-dna', (x.SKU||'')) +
+                ' ' + btn('编辑', '', 'sku-detail?edit=1', (x.SKU||'')) +
+                ' ' + '<button class="btn btn--ghost" data-del-sku="' + (x.SKU||'') + '" style="color:var(--red)">删除</button>' +
                 (todo ? ' ' + btn('去生成 →', '', 'gen-new', (x.SKU||'')) : '') + '</div>';
             })()
           ];
@@ -434,6 +436,19 @@ page('sku-list', {
           var filtered = q ? rows.filter(function(x){ return String(x.SKU||'').toLowerCase().indexOf(q.toLowerCase()) >= 0; }) : rows;
           renderList(filtered);
         };
+        /* [0929] 删除商品：data-del-sku 点击 → 二次确认 → API.deleteSku → 刷新 */
+        el.addEventListener('click', function(e){
+          var t = e.target && e.target.closest ? e.target.closest('[data-del-sku]') : null;
+          if (!t) return;
+          var sku = t.getAttribute('data-del-sku');
+          if (!sku) return;
+          if (!confirm('确定删除商品「' + sku + '」吗？\n删除后不可恢复，会连同它的识别结果、运行记录一起删除。')) return;
+          t.disabled = true; t.textContent = '删除中…';
+          API.deleteSku({sku: sku}).then(function(r2){
+            if (r2 && r2.ok && r2.data && r2.data.success){ toast('已删除 ' + sku); if (typeof render === 'function') render(); }
+            else { toast('删除失败：' + ((r2 && r2.data && r2.data.error) || '网络异常')); t.disabled = false; t.textContent = '删除'; }
+          });
+        });
       });
     }, 0);
     return html;
@@ -715,6 +730,79 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
 
       });
     }
+    /* [0929] 编辑模式：加载现有商品数据预填表单（SKU 名锁定，改名走删除重建） */
+    function loadSkuForEdit(sku){
+      function setV(id, v){ var e = document.getElementById(id); if (e) e.value = (v === null || v === undefined) ? '' : String(v); }
+      Promise.all([
+        API.table('SKU_输入表', {SKU: sku}, 1),
+        API.table('商品事实表', {SKU: sku}, 1)
+      ]).then(function(rs){
+        var input = ((rs[0] && rs[0].data && rs[0].data.data) || []).filter(function(x){ return x && x['SKU']; })[0] || {};
+        var fact = ((rs[1] && rs[1].data && rs[1].data.data) || []).filter(function(x){ return x && x['SKU']; })[0] || {};
+        window._EDIT_RECORD_ID = input['记录ID'] || '';
+        window._EDIT_OLD_SKU = input['SKU'] || sku || '';
+        window._EDIT_OLD_DIM = fact['尺寸'] || input['尺寸'] || '';
+        setV('nsku-sku', input['SKU']);
+        setV('nsku-entity', fact['产品实体']);
+        setV('nsku-quantity', fact['数量']);
+        setV('nsku-category', input['类目']);
+        setV('nsku-season', input['季节范围']);
+        setV('nsku-market', input['目标市场'] || 'US');
+        setV('nsku-brand', input['品牌名']);
+        setV('nsku-image', input['产品图片URL']);
+        setV('nsku-material', fact['材质']);
+        setV('nsku-craft', fact['工艺']);
+        setV('nsku-structure', fact['结构']);
+        setV('nsku-function', fact['功能']);
+        setV('nsku-inclusion', fact['包含物']);
+        setV('nsku-care', fact['护理']);
+        setV('nsku-certification', fact['认证安全']);
+        setV('nsku-family', input['产品族ID'] || input['父体ID'] || '');
+        /* 尺寸：勾选与旧值匹配的 checkbox */
+        var dv = String(fact['尺寸'] || input['尺寸'] || '').toLowerCase();
+        var box = document.getElementById('nsku-dims');
+        if (box && dv){
+          var cbs = box.querySelectorAll('input[type=checkbox]');
+          for (var i=0;i<cbs.length;i++){
+            var v = String(cbs[i].value || '').toLowerCase();
+            if (v && (dv.indexOf(v) >= 0 || v.indexOf(dv) >= 0)) cbs[i].checked = true;
+          }
+        }
+        /* SKU 名锁定 */
+        var skuInp = document.getElementById('nsku-sku');
+        if (skuInp){ skuInp.setAttribute('readonly','readonly'); skuInp.style.background = '#F1F3F2'; skuInp.style.color = '#7A857F'; }
+        var thumb = document.getElementById('nsku-thumb');
+        if (thumb && input['产品图片URL'] && String(input['产品图片URL']).indexOf('http') === 0){ thumb.src = input['产品图片URL']; thumb.style.display = 'block'; }
+        if (typeof _matPaint === 'function') _matPaint();
+      });
+    }
+    /* [0929] 编辑模式保存：带 record_id 走 create（UPSERT 覆盖），SKU 名不变 */
+    function submitEditSku(){
+      function val(id){ return (document.getElementById(id)||{}).value || ''; }
+      var required = [['nsku-entity','商品是什么'],['nsku-quantity','数量']];
+      var missing = required.filter(function(x){ return !val(x[0]); });
+      if (missing.length > 0){ toast('还缺必填项：' + missing.map(function(x){return x[1];}).join('、')); return; }
+      var dims = checkedVals('nsku-dims');
+      var body = {
+        record_id: window._EDIT_RECORD_ID || '',
+        sku: window._EDIT_OLD_SKU || val('nsku-sku'),
+        marketplace: val('nsku-market') || 'US',
+        category: val('nsku-category'), season_scope: val('nsku-season'),
+        family_id: val('nsku-family'),
+        brand_name: val('nsku-brand'), product_image_url: val('nsku-image'),
+        product_entity: val('nsku-entity'), quantity: val('nsku-quantity'),
+        material: val('nsku-material'), craft: val('nsku-craft'),
+        structure: val('nsku-structure'), function: val('nsku-function'),
+        inclusion: val('nsku-inclusion'), care: val('nsku-care'),
+        certification: val('nsku-certification'), prohibited_claims: val('nsku-prohibited'),
+        dimensions: dims[0] || window._EDIT_OLD_DIM || ''
+      };
+      var btn = document.getElementById('sku-save-btn'); if (btn){ btn.disabled = true; btn.textContent = '保存中…'; }
+      API.create(body).then(function(r){
+        if (r && r.ok && r.data && r.data.success){ toast('已保存修改'); if (typeof render === 'function') render(); }
+        else { toast('保存失败：' + ((r && r.data && r.data.error) || '网络异常')); if (btn){ btn.disabled = false; btn.textContent = '保存修改'; } }
+      });
+    }
     function bindSkuUpload(){
       setTimeout(function(){
         var upBtn = document.getElementById('nsku-upload-btn');
@@ -758,16 +846,18 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
       document.body.appendChild(fab);
     }
     var skuParam = window.CUR_SKU || pageParam();
+    var isEdit = (location.hash || '').indexOf('edit=1') >= 0;
     var _tplNeedInit = !window.CUR_SKU && !pageParam();
     var formPart = '';
-    if (!skuParam){
-      formPart = tplBarHtml() + panel('新增商品（保存后即可去「新建生成任务」生成文案）', skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">保存商品</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
+    if (!skuParam || isEdit){
+      var formTitle = isEdit ? '编辑商品 · ' + (skuParam || '') : '新增商品（保存后即可去「新建生成任务」生成文案）';
+      formPart = (isEdit ? '' : tplBarHtml()) + panel(formTitle, skuFormHtml() + '<div style="margin-top:12px"><button class="btn" id="sku-save-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">' + (isEdit ? '保存修改' : '保存商品') + '</button><button class="btn" id="go-gen-btn" style="display:none;margin-left:8px">去生成文案</button></div>');
     }
     var el = formPart + '<div id="sku-detail-root">' + ghost('正在加载商品资料…') + '</div>';
     setTimeout(function(){
     if (_tplNeedInit) tplInit();   // [二期需求1] 初始化模板下拉
-      if (!skuParam){
-        var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = submitNewSku;
+      if (!skuParam || isEdit){
+        var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = (isEdit ? submitEditSku : submitNewSku);
         bindSkuUpload();
         loadSeasons('nsku-season', '');
         loadMaterialChips();   // [fix 2026-09-18] 材质候选词快选
@@ -780,6 +870,11 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
             famSel.innerHTML = '<option>无（独立商品）</option>' + ids.map(function(id){ return '<option value="'+id+'">'+id+'</option>'; }).join('');
           }
         });
+      }
+      /* [0929] 编辑模式：加载现有数据预填表单，SKU 名锁定，保存走 submitEditSku（带 record_id） */
+      if (isEdit){
+        loadSkuForEdit(skuParam);
+        return;
       }
       var sku = skuParam;
       /* [fix 2026-09-18] 「显示哪个商品」原来没有约定：未指定 SKU 时传 limit=1，

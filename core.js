@@ -46,6 +46,7 @@ var API = {
   listings: function(){ return this._post('/proj28/api/listings', {}, true); },
   create: function(sku){ return this._post('/proj28/api/skus/create', sku, true); },
   createFamily: function(fam){ return this._post('/proj28/api/families/create', fam, true); },
+  deleteSku: function(sku){ return this._post('/proj28/api/skus/delete', sku, true); },
   // [二期需求1] 商品模板：save / list / delete（WH-Template）
   template: function(t){ return this._post('/proj28/api/templates', t, true); },
   auditSku: function(a){ return this._post('/proj28/api/skus/audit', a, true); },
