@@ -1115,6 +1115,8 @@ page('sku-dna', {
             reg(card('8','差异化卖点', null, '', arr(diff && diff.unique_selling_points ? diff.unique_selling_points : (diff ? [st(diff)] : []))), !!(diff && (arr(diff.unique_selling_points).length || st(diff).length)));
           }
           var rate = dimTotal ? Math.round(dimFilled * 100 / dimTotal) : 0;
+          /* [0929] 识别中判断：9 维全空 = 识别还没出结果（刚添加的商品，或图片不可用走降级），提示等待 3-5 分钟 */
+          var recognizePending = (dimFilled === 0);
           var hero =
             '<div style="border:1px solid #DDEBE4;background:linear-gradient(180deg,#F5FBF8,#fff);border-radius:12px;padding:14px 16px;margin-bottom:6px">' +
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
@@ -1130,7 +1132,7 @@ page('sku-dna', {
             ['识别方式', mode === 'functional' ? '功能识别' : '视觉识别（9 维）'],
             ['产品身份', truth.entity || '—'],
             ['识别模型', ev.vision_model || row['识别模型'] || '—'],
-            ['识别时间', st(row['识别时间']).slice(0,16).replace('T',' ')],
+            ['识别时间', bjTime(row['识别时间'])],
           ]) + '</div>';
           /* [fix 09-19] 识别信息 → 放进方框 + 移到 9 维识别档案的最后（用户反馈图三）*/
             dimCards.push(identCard);
@@ -1146,7 +1148,7 @@ page('sku-dna', {
                   '<span style="font-size:11px;color:#9AA0A6">'+list.length+' 个</span>' +
                 '</div>' + (tags(list) || '<span style="font-size:11.5px;color:#B0B8B4">未提取</span>') + '</div>';
             }).join(''));
-          return hero + dimsHtml + kwHtml;   /* [fix 09-19] identCard 已 push 进 dimCards，此处不再引用 ident（否则 ReferenceError 会让整页停在「加载中」）*/
+          return (recognizePending ? callout('info', '系统自动识别中', '这个商品刚添加，系统正在自动识别产品图片，一般需要 <b>3-5 分钟</b>。请稍后刷新本页查看识别结果。') : '') + hero + dimsHtml + kwHtml;   /* [fix 09-19] identCard 已 push 进 dimCards，此处不再引用 ident（否则 ReferenceError 会让整页停在「加载中」）*/
         }
         var imgMap = {};
         skuRows.forEach(function(sx){ if (sx && sx['SKU']) imgMap[sx['SKU']] = sx['产品图片URL'] || ''; });
