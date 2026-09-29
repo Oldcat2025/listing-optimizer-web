@@ -825,7 +825,7 @@ function render(){
    ① 生成父体：该父体下所有商品逐个提交；首个变体生成共享内容（9维档案/五点/Backend），
       其余变体自动【复用】父体共享产物，只各做自己尺寸的标题+亮点。
    ② 单独重生成某变体标题：同父体共享内容复用，只重做该尺寸的标题+亮点。 */
-function _genBodyFromRow(row, sku){
+function _genBodyFromRow(row, sku, useKeywordDb){
   var LOCALE = { US:'en_US', CA:'en_CA', GB:'en_GB', DE:'de_DE', FR:'fr_FR', IT:'it_IT', ES:'es_ES' };
   var mkt = String(row['目标市场'] || row.marketplace || 'US').toUpperCase();
   return {
@@ -838,8 +838,8 @@ function _genBodyFromRow(row, sku){
     product_image_url: row['产品图片URL'] || row.product_image_url || '',
     locale: row['语言'] || LOCALE[mkt] || 'en_US',
     recognition_mode: row['识别方式'] || row.recognition_mode || 'VISUAL',
-    title_include_material: true,
-    use_keyword_db: true,
+    title_include_material: false,
+    use_keyword_db: useKeywordDb === true,
     executed_by: (typeof session === 'function' && session() && session().user_name) || 'Frontend'
   };
 }
@@ -889,6 +889,7 @@ function _genFamilySubmit(fid, all){
         '<b>不勾任何站点</b> = 生成全部站点（会再确认一次）。<br>' +
         '提交后：<b>第一个变体做共享内容</b>（识别结果 / 五点 / 后台搜索词），其余尺寸自动复用，只各写自己的标题和亮点。' +
       '</div>';
+    mHtml += '<label style="display:flex;gap:8px;margin-top:14px;align-items:center"><input type="checkbox" id="fam-use-kw"> 应用关键词库 / 广告词库（可选，默认关闭）</label>';
     openModal('生成文案 · 父体 ' + fid, mHtml, function(close){
       var picks = [];
       Array.prototype.forEach.call(document.querySelectorAll('input.fam-pick'), function(cb){ if (cb.checked) picks.push(cb.value); });
@@ -900,12 +901,13 @@ function _genFamilySubmit(fid, all){
         for (var wi = 0; wi < picks.length; wi++){ if (byMkt[picks[wi]]) rows = rows.concat(byMkt[picks[wi]]); }
       }
       if (!rows.length){ toast('没有匹配的商品'); return; }
+      var useKeywordDb = (document.getElementById('fam-use-kw') || {}).checked === true;
       close();
-      _runFamilyGen(fid, rows, picks.length ? picks.join('、') : '全部站点');
+      _runFamilyGen(fid, rows, picks.length ? picks.join('、') : '全部站点', useKeywordDb);
     }, '生成文案');
 }
 
-function _runFamilyGen(fid, rows, label){
+function _runFamilyGen(fid, rows, label, useKeywordDb){
     var ok = 0, fail = [], i = 0;
     function step(){
       if (i >= rows.length){
@@ -915,7 +917,7 @@ function _runFamilyGen(fid, rows, label){
       }
       var row = rows[i++]; var sku = row['SKU'] || row.sku || '';
       if (!sku){ step(); return; }
-      API.generate(_genBodyFromRow(row, sku)).then(function(r2){
+      API.generate(_genBodyFromRow(row, sku, useKeywordDb)).then(function(r2){
         if (r2.ok && r2.data && r2.data.success) ok++; else fail.push(sku);
         step();
       });

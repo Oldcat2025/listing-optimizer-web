@@ -1220,12 +1220,12 @@ page('gen-new', {
         fld('季节范围', '<select id="gen-season" class="ctl"><option value="ALL_SEASON">四季通用</option><option value="SPRING_SUMMER">春夏</option><option value="AUTUMN_WINTER">秋冬</option><option value="CHRISTMAS">圣诞节</option><option value="THANKSGIVING">感恩节</option></select>', '可修改（从「人工审核重做」进来时改完再提交）') +
         fld('品牌名', '<input id="gen-brand" class="ctl" placeholder="如 HomGoodz">', '可修改') +
         fld('文案语言', '<select id="gen-lang" class="ctl"><option value="en-US">英文</option><option value="en-GB">英文(英式)</option><option value="de-DE">德文</option><option value="fr-FR">法文</option><option value="it-IT">意大利文</option><option value="es-ES">西班牙文</option></select>', '选择文案语言') +
-        fld('标题是否包含材质', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-title-mat" style="width:auto"> 允许材质词进标题（春夏防水款 / 材质是核心卖点时勾选）</label>') +
-        fld('词库参与生成', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-use-kw" checked style="width:auto"> 关键词库 / 广告词库参与文案生成</label>') +
+        fld('标题是否包含材质', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-title-mat" style="width:auto"> 允许材质词进标题（材质已确认且是核心卖点时勾选）</label>') +
+        fld('词库参与生成', '<label style="display:flex;align-items:center;gap:8px;font-weight:normal"><input type="checkbox" id="gen-use-kw" style="width:auto"> 应用关键词库 / 广告词库（可选）</label>', '默认关闭，仅依据商品图片和资料生成；勾选后参考相关词库，商品事实和主定位优先。') +
         fld('参与的季节/假日', '<select id="gen-kw-season" class="ctl"><option value="">不按季节筛词（默认）</option></select>', '一个商品只属于一个季节/节日——商品自身的季节在上面「季节范围」里定。这里默认不筛；<b>只有</b>需要额外参考某个节日词库时才选。') +
       '</div>' +
       '<div style="margin-top:16px;font-size:12.5px;color:var(--t-2);font-weight:500">竞品 ASIN（选填，最多 3 个）</div>' +
-      '<div class="hint" style="font-size:11.5px;color:var(--t-3);margin:4px 0 8px">填<b>该市场</b>正在跑的竞品商品 ASIN，生成时系统会把竞品流量词纳入候选池；不填不影响生成。</div>' +
+      '<div class="hint" style="font-size:11.5px;color:var(--t-3);margin:4px 0 8px">填<b>该市场</b>正在跑的竞品商品 ASIN；勾选「应用词库」后，系统会将相关竞品流量词纳入候选池。不填不影响生成。</div>' +
       '<div class="form g3">' +
         fld('竞品 ASIN 1', '<input id="gen-asin1" class="ctl" placeholder="B0XXXXXXXXX">') +
         fld('竞品 ASIN 2', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
@@ -1262,6 +1262,9 @@ page('gen-new', {
         }
       });
     }
+            var useKw = document.getElementById('gen-use-kw');
+            function syncLibraryInputs(){ var enabled=!!(useKw && useKw.checked); ['gen-kw-season','gen-asin1','gen-asin2','gen-asin3'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=!enabled;}); }
+            if(useKw)useKw.onchange=syncLibraryInputs; syncLibraryInputs();
             var skuRows = [];
             var marketSel = document.getElementById('gen-market');
       var langSel = document.getElementById('gen-lang');
@@ -1301,7 +1304,7 @@ page('gen-new', {
         if (_se){ var has = _se.querySelector('option[value="'+code+'"]'); if (!has){ _se.innerHTML = '<option value="'+code+'">'+(nm||code)+'</option>' + _se.innerHTML; } _se.value = code; }
         var _br = document.getElementById('gen-brand'); if (_br) _br.value = skuInfo['品牌名'] || '';
         var sess = (typeof session === 'function') ? session() : null;
-        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: val('gen-season') || skuInfo['季节范围'] || '', brand_name: val('gen-brand') || skuInfo['品牌名'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '', title_include_material: (document.getElementById('gen-title-mat')||{}).checked || false, use_keyword_db: ((document.getElementById('gen-use-kw')||{}).checked !== false), keyword_seasons: (val('gen-kw-season') || '') };
+        var body = { sku: sku, marketplace: val('gen-market') || 'US', category: skuInfo['类目'] || skuInfo['category'] || '', season_scope: val('gen-season') || skuInfo['季节范围'] || '', brand_name: val('gen-brand') || skuInfo['品牌名'] || '', product_image_url: skuInfo['产品图片URL'] || skuInfo['product_image_url'] || '', locale: val('gen-lang') || '', competitor_asin1: val('gen-asin1').trim(), competitor_asin2: val('gen-asin2').trim(), competitor_asin3: val('gen-asin3').trim(), executed_by: (sess && sess.user_name) || '', title_include_material: (document.getElementById('gen-title-mat')||{}).checked || false, use_keyword_db: ((document.getElementById('gen-use-kw')||{}).checked === true), keyword_seasons: (val('gen-kw-season') || '') };
         API.generate(body).then(function(r){
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
