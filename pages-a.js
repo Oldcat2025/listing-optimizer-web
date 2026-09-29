@@ -97,7 +97,7 @@ page('dash-todo', {
             {t:'看待审文案', s:'系统只给一套定稿', n:review, tone:'run', go:'rev-list'},
             {t:'看检查报告', s:'五项检查', n:review, go:'rev-audit'},
             {t:'放行或打回', s:'打回指定字段', n:review, go:'rev-action'},
-            {t:'处理疑难', s:'系统修不了的', n:failed, tone:'fail', go:'rev-manual'},
+            {t:'处理疑难', s:'系统修不了的', n:failed, tone:'fail', go:'rev-action'},
           ]), {sub:'点任意环节直接跳过去处理'}) +
           panel('待审核商品（'+reviewRows.length+' 条）', pagedTable(['图片','SKU','站点','状态','更新时间',''], rowList(reviewRows,'去审核','btn'), 20, 'dash-my-review'), {flush:true});
         } else {
@@ -1679,7 +1679,7 @@ page('gen-run', {
               chip(statusCn(x['最终状态']), t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
-              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-manual'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
+              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-action'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
             ]; })
           ), {flush:true});
         }
