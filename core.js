@@ -428,11 +428,12 @@ function callout(kind, title, body){
 }
 
 /* ─── 尺寸多选共用工具（2.2 父体弹窗 / 2.3 商品资料 共用）─── */
-var SKU_SIZE_OPTIONS = ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch'];
+var SKU_SIZE_OPTIONS = ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch','12x20 inch'];
 /* [fix 09-16v] 尺寸选项**按站点单位自适应** —— 原先写死 inch 列表，德国站（cm）也显示 inch，
    这也是「商品模板尺寸对不上」的根源。美国/加拿大/英国用 inch，德/法/意/西用 cm。 */
 var SIZE_BY_UNIT = {
-  inch: ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch'],
+  /* [0929] 常用尺寸新增 12x20 inch（长条抱枕/腰枕尺寸）—— 新增父体与新增商品共用此清单 */
+  inch: ['16x16 inch','18x18 inch','20x20 inch','24x24 inch','26x26 inch','12x20 inch'],
   cm:   ['40x40 cm','45x45 cm','50x50 cm','55x55 cm','60x60 cm']
 };
 function sizeOptionsForMarket(mkt){
