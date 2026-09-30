@@ -50,7 +50,15 @@ page('dash-todo', {
           return 5;
         }
         skuRows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
+        /* [fix 09-30] 操作按钮按识别状态分流：已识别→去生成；未识别→去识别（直接触发，不进生成环节）。 */
+        function recogReady(x){ return String((x && x['识别状态']) || '').trim() === '已识别'; }
+        function goBtn(x){
+          var sku = x['SKU'] || '';
+          if (recogReady(x)) return btn('去生成 →', '', 'gen-new', sku);
+          return '<button class="btn" data-recog-sku="' + sku + '" title="先做产品识别，识别结果落库后才能生成文案">去识别 →</button>';
+        }
         function rowList(rows, actionTxt, btnCls){
+          window.__SKU_ROWS = (window.__SKU_ROWS || []).concat(rows);
           return rows.map(function(x){
             var sku = x['SKU']||'';
             var st = String(x['处理状态']||'').toUpperCase();
@@ -66,7 +74,7 @@ page('dash-todo', {
               (function(){
                 var todo = (st === '' || st === 'PENDING' || st === '待处理');
                 return '<div style="white-space:nowrap">' + btn(actionTxt, btnCls||'', go, sku) +
-                  (todo ? ' ' + btn('去生成 →', '', 'gen-new', sku) : '') + '</div>';
+                  (todo ? ' ' + goBtn(x) : '') + '</div>';
               })()
             ];
           });
@@ -405,6 +413,7 @@ page('sku-list', {
           return '<span style="font-size:11px;color:var(--t-3)">本地图</span>';
         }
         function renderList(list){
+          window.__SKU_ROWS = list;   /* [fix 09-30] 供「去识别」按钮取行数据 */
           list = mktCur() ? list.filter(mktHit) : list;   /* [需求 09-19] 站点筛选：所有调用路径统一生效 */
           var tr = list.map(function(x){
           return [
@@ -423,7 +432,7 @@ page('sku-list', {
               return '<div style="white-space:nowrap">' + btn('详情', '', 'sku-dna', (x.SKU||'')) +
                 ' ' + btn('编辑', '', 'sku-detail?edit=1', (x.SKU||'')) +
                 ' ' + '<button class="btn btn--ghost" data-del-sku="' + (x.SKU||'') + '" style="color:var(--red)">删除</button>' +
-                (todo ? ' ' + btn('去生成 →', '', 'gen-new', (x.SKU||'')) : '') + '</div>';
+                (todo ? ' ' + goBtn(x) : '') + '</div>';
             })()
           ];
         });
@@ -867,6 +876,40 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         }
       }, 300);
     }
+    /* [fix 09-30] 「去识别」：直接对该 SKU 触发产品识别（走 create 的编辑重跑路径）。
+       运行中禁用按钮防连点（识别可能烧一次视觉额度）；完成后提示刷新。 */
+    function bindRecogButtons(){
+      if (window.__recogBound) return; window.__recogBound = true;
+      document.addEventListener('click', function(ev){
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-recog-sku]') : null;
+        if (!b) return;
+        ev.preventDefault();
+        if (b.disabled) return;
+        var sku = b.getAttribute('data-recog-sku') || '';
+        var row = (window.__SKU_ROWS || []).filter(function(x){ return String(x.SKU || x['SKU'] || '') === sku; })[0] || {};
+        if (!row['目标市场'] || !row['类目']){ toast('商品资料还没加载完，请刷新后再试'); return; }
+        b.disabled = true; var oldTxt = b.textContent; b.textContent = '识别中…';
+        API.create({
+          sku: sku,
+          marketplace: row['目标市场'] || '',
+          category: row['类目'] || '',
+          season_scope: row['季节范围'] || 'ALL_SEASON',
+          record_id: row['记录ID'] || '',
+          family_id: row['产品族ID'] || '',
+          brand_name: row['品牌名'] || '',
+          product_image_url: row['产品图片URL'] || ''
+        }).then(function(r){
+          if (r && r.ok && r.data && r.data.success){
+            toast('已提交识别，约 20 秒后自动刷新');
+            setTimeout(function(){ if (typeof render === 'function') render(); }, 22000);
+            setTimeout(function(){ if (b){ b.disabled = false; b.textContent = oldTxt; } }, 60000);
+          } else {
+            toast('提交识别失败：' + ((r && r.data && r.data.error) || '请重试'));
+            b.disabled = false; b.textContent = oldTxt;
+          }
+        });
+      });
+    }
     function showGoGenBtn(){
       var old = document.getElementById('go-gen-fab');
       if (old){ old.style.display = 'block'; return; }
@@ -893,6 +936,7 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
       if (!skuParam || isEdit){
         var saveBtn = document.getElementById('sku-save-btn'); if (saveBtn) saveBtn.onclick = (isEdit ? submitEditSku : submitNewSku);
         bindSkuUpload();
+        bindRecogButtons();
         loadSeasons('nsku-season', '');
         loadMaterialChips();   // [fix 2026-09-18] 材质候选词快选
         API.table('产品族', {}, 200).then(function(r){
