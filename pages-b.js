@@ -124,7 +124,8 @@ page('rev-detail', {
         if (root) root.innerHTML = ghost('正在加载文案详情…');        var q = ((document.querySelector('.tb .inp')||{}).value || '').trim();
         var mkt = (document.querySelector('.tb .sel')||{}).value || '';
         var flt = (window.CUR_SKU && !q) ? {SKU: window.CUR_SKU} : {};
-        API.table('定稿输出表', flt, 200).then(function(r){
+        Promise.all([API.table('定稿输出表', flt, 200), API.table('模型绑定', {}, 50)]).then(function(rs){
+          var r = rs[0];
           if (!root) return;
           if (!r.ok || !r.data || r.data.success === false) {
             root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return;
@@ -162,6 +163,14 @@ page('rev-detail', {
             var ta = String(a['生成时间']||''), tb = String(b['生成时间']||'');
             return ta < tb ? 1 : (ta > tb ? -1 : 0);
           });
+          var _modelTxt = (function(){
+            var wms = [];
+            (((rs[1]||{}).data||{}).data || []).forEach(function(m){
+              var env = String(m['环节']||'');
+              if (env.indexOf('COPY') === 0 && String(m['启用']) !== 'false' && wms.indexOf(m['模型']) < 0) wms.push(m['模型']);
+            });
+            return wms.length ? wms.join(' / ') : '—';
+          })();
           var x = rows[0];
         var sku = x['SKU'] || window.CUR_SKU || '';
         function cpBtn(t){ return btn('复制','',null,null,t); }
@@ -199,12 +208,6 @@ page('rev-detail', {
               copybox('亮点 Highlights', x['Highlights']||'', '<b>'+(x['Highlights字符数']||'')+'</b> 字符' + (x['Highlights短语数']?' · '+x['Highlights短语数']+' 个短语':''), cpBtn(x['Highlights']||'')) +
               bm +
               copybox('后台搜索词 Backend', x['Backend Search Terms']||'', '<b>'+(x['Backend字节数']||'')+'</b> 字节', cpBtn(x['Backend Search Terms']||''), true) +
-              panel('这套文案是怎么来的', kv([
-                ['商品 / 站点', (x['SKU']||'—')+' / '+(x['目标市场']||'—')],
-                ['任务编号', x['运行ID']||'—'],
-                ['文案版本', x['定稿版本号']||'—'],
-                ['生成时间', bjTime(x['生成时间'])],
-              ]), {sub:'出问题时按这几项就能复现'}) +
             '</div>' +
             '<div>' +
               '<div id="rd-prodimg"></div>' +
@@ -215,7 +218,15 @@ page('rev-detail', {
                 '</div>') +
               '<div class="btnrow">'+btn('看检查报告','btn','rev-audit',sku)+btn('看选词记录','','rev-ledger',sku)+btn('整套复制','',null,null,full)+'</div>' +
             '</div>' +
-          '</div>';
+          '</div>' +
+          /* [fix 09-30] 「这套文案是怎么来的」移出左列 → 跨整宽覆盖右侧空白，并加「文案写作模型」 */
+          panel('这套文案是怎么来的', kv([
+            ['商品 / 站点', (x['SKU']||'—') + ' / ' + (x['目标市场']||'—')],
+            ['任务编号', x['运行ID']||'—'],
+            ['文案版本', x['定稿版本号']||'—'],
+            ['生成时间', bjTime(x['生成时间'])],
+            ['文案写作模型', _modelTxt],
+          ]), {sub:'出问题时按这几项就能复现'});
       });
       }
       loadDetail();

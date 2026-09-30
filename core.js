@@ -1146,6 +1146,35 @@ function refreshSideVersion(){
   } catch(e){}
 }
 /* ===== [fix 09-30] 证书渲染 从 pages-b.js 抽出，供 4.2/4.3 复用（containerId 参数化） ===== */
+/* [fix 09-30] 失败原因中文化：错误码 → 普通用户看得懂的说明（不显示 raw JSON/英文码） */
+var CERT_REASON_CN = {
+  'VAGUE_MAIN_STYLE': '标题的主风格写得太笼统 —— 只写了“节日/温馨”这类泛泛的说法，没有点出具体的设计风格（比如现代、乡村、几何）',
+  'MISSING_MOTIF': '标题里没出现商品的主要图案（买家一眼要认出的那个图案）',
+  'MISSING_COLOR': '标题里没出现商品的主色调',
+  'MISSING_STYLE': '标题里没出现设计风格',
+  'MISSING_CARRIER': '标题里没出现适用载体（沙发、床、椅子等）',
+  'SPLIT_MOTIF_PHRASE': '图案短语被拆开了 —— 图案名中间插进了别的词，读起来不像一个完整图案',
+  'CONTENT_REVIEW': '内容复核没通过 —— 多半是图案/风格的说法不自然',
+  'TITLE_LENGTH': '标题超出字数上限',
+  'HIGHLIGHTS_LENGTH': '亮点超出字数上限',
+  'BULLET_LENGTH': '五点描述超出字数上限',
+  'BACKEND_DUPLICATE': '后台搜索词和标题/亮点里的词重复',
+  'DUPLICATE_TITLES': '多条变体的标题互相重复',
+  'DUPLICATE_BULLET': '几条五点描述内容重复',
+  'MISSING_CHINESE_PAIR': '缺中文对照',
+  'MISSING_SIZE': '缺尺寸信息',
+  'MISSING_VARIANT': '缺变体信息',
+  'MISSING_PRODUCT_IDENTITY': '缺产品身份信息（到底卖的是什么商品）',
+  'MISSING_CONFIRMED_PRODUCT_ENTITY': '产品实体还没确认',
+  'MISSING_CONFIRMED_QUANTITY': '数量没确认（几件装）',
+  'MISSING_MASTER_POSITIONING': '缺主定位',
+  'MISSING_DESIGN_SCENES': '缺设计场景',
+  'EXPLICIT_FORBIDDEN': '用了平台禁止的说法',
+  'FORBIDDEN_CLAIM': '用了不能承诺的说法',
+  'PROHIBITED_CONTENT': '内容不符合平台规范',
+  'STYLE_CONFLICT': '风格设定前后冲突',
+  'REFUSE_INVALID_PARENT_PLAN': '父体方案不合法，拒绝执行'
+};
 function verdict(v){
         var o = v;
         if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }
@@ -1170,6 +1199,21 @@ function verdict(v){
               return [ desc, c ];
             });
             return head + '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px;color:var(--t-2);user-select:none">' + summaryLine + '（点开看明细）</summary><div style="margin-top:8px">' + table(['检查内容','结论'], rows) + '</div></details>';
+          }
+          /* [fix 09-30] 失败证书（被拦下、没产出新证书）→ 用中文说明，不显示 raw JSON/英文码 */
+          if (stUp === 'BLOCKED' || o.reason) {
+            var _code = String(o.reason || '');
+            if (!_code && o.detail) { try { _code = (JSON.parse(o.detail) || {}).code || ''; } catch(e){} }
+            var _dets = [];
+            if (o.detail) { try { var _dd = JSON.parse(o.detail); if (_dd && _dd.detail) _dets = [].concat(_dd.detail); } catch(e){} }
+            var _cn = CERT_REASON_CN[_code] || '系统拦下了这条文案，具体原因还没归类，请人工核对。';
+            var _hh = '<div style="margin:4px 0 10px"><span title="' + (_code ? ('技术编号：' + _code) : '') + '">' + chip('未通过（已拦截）', 'fail') + '</span></div>';
+            _hh += '<div style="font-size:13.5px;line-height:1.9;color:var(--t-2)">';
+            if (o.note) _hh += '<div style="color:var(--t-3);font-size:12.5px;margin-bottom:8px;line-height:1.7">' + String(o.note) + '</div>';
+            _hh += '<b>为什么没通过</b><br>' + _cn;
+            if (_dets.length) _hh += '<br><br><b>涉及的内容</b>：' + _dets.join('、');
+            _hh += '</div>';
+            return _hh;
           }
           var keys = Object.keys(o).filter(function(k){ var vv = o[k]; return vv === null || (typeof vv !== 'object'); });
           if (!keys.length) return table(['结论'], [[String(v || '—')]]);
