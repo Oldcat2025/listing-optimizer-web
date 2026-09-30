@@ -1182,7 +1182,7 @@ function verdict(v){
           var st = String(o.status || o.certificate_type || '');
           var stUp = st.toUpperCase();
           var tone = (stUp === 'PASS' || stUp === 'PASS_WITH_NOTES') ? 'ok' : (stUp.indexOf('FAIL') === 0 ? 'fail' : 'warn');
-          var head = '<div style="margin:4px 0 8px">' + chip(st || '—', tone) + '</div>';
+          var head = '<div style="margin:4px 0 8px">' + chip(certStatusCn(st), tone) + '</div>';
           var asrts = (Array.isArray(o.assertions) && o.assertions.length) ? o.assertions : null;
           if (asrts) {
             var passN = 0, failN = 0;
@@ -1191,7 +1191,7 @@ function verdict(v){
             var rows = asrts.map(function(a){
               var at = String(a.status || '').toUpperCase();
               var tt = (at === 'PASS' || at === 'PASS_WITH_NOTES') ? 'ok' : (at.indexOf('FAIL') === 0 ? 'fail' : 'warn');
-              var c = chip(a.status || '—', tt);
+              var c = chip(certStatusCn(a.status), tt);
               var desc = String(a.desc || '—');
               if (at === 'FAIL' || at === 'WARN') {
                 desc += '<div class="dim" style="font-size:11px;color:var(--t-4);margin-top:2px">实际：' + String(a.actual || '—').slice(0,80) + '<br>期望：' + String(a.expected || '—').slice(0,80) + '</div>';
