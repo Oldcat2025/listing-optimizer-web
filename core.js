@@ -1270,7 +1270,7 @@ function renderCert(x, containerId){
         }
         root.innerHTML =
           stats([
-            ['是否通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
+            ['是否通过', passed ? '是' : '否', '五项检查全部通过才算', passed?'ok':'fail', false],
             ['证书数量', String(certCols.length), '', '', false],
             ['站点', x['目标市场']||'—', '', '', false],
             ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
