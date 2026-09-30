@@ -1552,17 +1552,33 @@ page('gen-queue', {
     }
     var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
     setTimeout(function(){
-      API.table('SKU_输入表', {}, 200).then(function(r){
+      /* [fix 09-30] 队列以「真任务表（运行日志）」为准 —— 原先读的是商品表的 processing_status，
+         而每个新商品录入时默认就是 pending ⇒ 「录了商品」被误显示成「提交了生成任务」
+         （老猫只提交 1 个任务却看到 12 条排队）。商品表只用来补图片与操作句柄。 */
+      Promise.all([
+        API.table('运行日志表', {}, 200),
+        API.table('SKU_输入表', {}, 200)
+      ]).then(function(rs){
         var root = document.getElementById('gen-queue-root');
         if (!root) return;
+        var r = rs[0];
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
-        var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        var q = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'PENDING' || s === 'PROCESSING'; });
-        /* [fix 09-16al] 优先级仍是主键（急件可插队）；同优先级改为**新创建的在前**（原来早的在先，
-           刚提交的任务沉在队列底部，客户找不到）。 */
-        q.sort(function(a,b){ var pa=parseInt(a['优先级']||'0')||0, pb=parseInt(b['优先级']||'0')||0; if (pa!==pb) return pa-pb; return String(b['创建时间']||'').localeCompare(String(a['创建时间']||'')); });
+        var logs = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
+        var seenQ = {}, q = [];
+        logs.forEach(function(x){
+          var st = String(x['最终状态']||'').toUpperCase();
+          if (st !== 'PENDING' && st !== 'PROCESSING') return;
+          if (seenQ[x['SKU']]) return;                 /* 同一 SKU 只显示最新一条运行记录 */
+          seenQ[x['SKU']] = 1; q.push(x);
+        });
+        var skuRows = ((rs[1] && rs[1].data && rs[1].data.data) || []);
+        var infoMap = {};
+        skuRows.forEach(function(s){ if (s && s['SKU']) infoMap[s['SKU']] = s; });
+        function info(x, k){ var m = infoMap[x['SKU']] || {}; return m[k]; }
+        /* [fix 09-16al] 优先级仍是主键（急件可插队）；同优先级改为**新提交的在前**。 */
+        q.sort(function(a,b){ var pa=parseInt(info(a,'优先级')||'0')||0, pb=parseInt(info(b,'优先级')||'0')||0; if (pa!==pb) return pa-pb; return String(b['开始时间']||'').localeCompare(String(a['开始时间']||'')); });
         if (!q.length){ root.innerHTML = callout('warn','暂无数据','当前没有排队中或处理中的任务。'); return; }
-        var running = q.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === 'PROCESSING'; }).length;
+        var running = q.filter(function(x){ return String(x['最终状态']||'').toUpperCase() === 'PROCESSING'; }).length;
         var pending = q.length - running;
         root.innerHTML =
           stats([
@@ -1572,14 +1588,14 @@ page('gen-queue', {
           panel('队列（' + (qQ = mktCur() ? q.filter(mktHit) : q).length + ' 条）', pagedTable(
             ['图片','SKU','产品族','站点','处理状态','优先级','更新时间',''],
             qQ.map(function(x){ return [
-              thumbHtml(x['产品图片URL']),
+              thumbHtml(info(x,'产品图片URL')),
               '<span class="m">' + (x['SKU']||'—') + '</span>',
-              x['产品族ID']||'—',
+              info(x,'产品族ID')||'—',
               x['目标市场']||'—',
-              chip(x['处理状态']||'', toneOf(x['处理状态'])),
-              (x['优先级'] ? '<span class="chip chip--run">优先</span>' : '—'),
-              '<span class="m">' + toLocal(x['更新时间']) + '</span>',
-              '<button class="btn btn--ghost" data-qa="priority" data-rid="'+encodeURIComponent(x['记录ID']||'')+'">优先</button> <button class="btn btn--danger" data-qa="cancel" data-rid="'+encodeURIComponent(x['记录ID']||'')+'">取消</button>'
+              chip(x['最终状态']||'', toneOf(x['最终状态'])),
+              (info(x,'优先级') ? '<span class="chip chip--run">优先</span>' : '—'),
+              '<span class="m">' + toLocal(x['开始时间']) + '</span>',
+              '<button class="btn btn--ghost" data-qa="priority" data-rid="'+encodeURIComponent(info(x,'记录ID')||'')+'">优先</button> <button class="btn btn--danger" data-qa="cancel" data-rid="'+encodeURIComponent(info(x,'记录ID')||'')+'">取消</button>'
             ]; })
           ), {flush:true});
         root.addEventListener('click', function(e){
