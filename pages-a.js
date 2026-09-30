@@ -803,6 +803,35 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
         else { toast('保存失败：' + ((r && r.data && r.data.error) || '网络异常')); if (btn){ btn.disabled = false; btn.textContent = '保存修改'; } }
       });
     }
+    /* [fix 09-30] 上传前压缩：原图动辄 1.8M+，走跨境链路要 80+ 秒。
+       压到长边 1600 / 质量 0.85 —— 视觉识别用这个尺寸完全够，体积掉到 1/5 左右。
+       任何一步失败都回退成原文件，绝不因为压缩把上传搞挂。 */
+    var IMG_MAX_EDGE = 1600, IMG_QUALITY = 0.85;
+    function compressImage(file, maxEdge, quality){
+      return new Promise(function(resolve){
+        try {
+          if (!/^image\//.test(file.type || '')){ resolve(file); return; }   // 非图片不碰
+          var url = URL.createObjectURL(file);
+          var img = new Image();
+          img.onload = function(){
+            var w = img.naturalWidth || 0, h = img.naturalHeight || 0;
+            var scale = Math.min(1, maxEdge / Math.max(w, h));
+            if (!w || !h || scale >= 1){ URL.revokeObjectURL(url); resolve(file); return; }  // 小图不放大/不重压
+            var cv = document.createElement('canvas');
+            cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+            var cx = cv.getContext('2d');
+            cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);   // 透明底铺白（JPEG 无 alpha）
+            cx.drawImage(img, 0, 0, cv.width, cv.height);
+            cv.toBlob(function(blob){
+              URL.revokeObjectURL(url);
+              resolve(blob && blob.size > 0 && blob.size < file.size ? blob : file);   // 压完更大就回退原图
+            }, 'image/jpeg', quality);
+          };
+          img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+          img.src = url;
+        } catch (e) { resolve(file); }
+      });
+    }
     function bindSkuUpload(){
       setTimeout(function(){
         var upBtn = document.getElementById('nsku-upload-btn');
@@ -813,22 +842,27 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
             var f = fileIn.files && fileIn.files[0];
             if (!f) return;
             var prog = document.getElementById('nsku-upload-progress');
-            if (prog) prog.textContent = '上传中：' + f.name + ' …';
-            var rd = new FileReader();
-            rd.onload = function(){
-              var b64 = String(rd.result).split(',')[1];
-              API.uploadImage({ base64: b64, name: f.name, mimeType: f.type || 'image/jpeg' }).then(function(r){
-                if (r && r.ok && r.data && r.data.success){
-                  var img = document.getElementById('nsku-image');
-                  if (img) img.value = r.data.mediaUrl || r.data.driveUrl || '';
-                  var thumb = document.getElementById('nsku-thumb'); if (thumb){ thumb.src = rd.result; thumb.style.display = 'block'; }
-                  if (prog) prog.textContent = '上传成功，已自动填写共享地址';
-                } else {
-                  if (prog) prog.textContent = '上传失败：' + ((r&&r.data&&r.data.error)||'请重试');
-                }
-              });
-            };
-            rd.readAsDataURL(f);
+            if (prog) prog.textContent = '压缩中：' + f.name + ' …';
+            compressImage(f, IMG_MAX_EDGE, IMG_QUALITY).then(function(small){
+              var kb0 = Math.round(f.size / 1024), kb1 = Math.round(small.size / 1024);
+              var upName = String(f.name || 'image').replace(/\.[^.]+$/, '') + '.jpg';   // canvas 输出 JPEG，名字跟格式走
+              if (prog) prog.textContent = '上传中：' + f.name + '（' + kb0 + 'KB → ' + kb1 + 'KB）…';
+              var rd = new FileReader();
+              rd.onload = function(){
+                var b64 = String(rd.result).split(',')[1];
+                API.uploadImage({ base64: b64, name: upName, mimeType: 'image/jpeg' }).then(function(r){
+                  if (r && r.ok && r.data && r.data.success){
+                    var img = document.getElementById('nsku-image');
+                    if (img) img.value = r.data.mediaUrl || r.data.driveUrl || '';
+                    var thumb = document.getElementById('nsku-thumb'); if (thumb){ thumb.src = rd.result; thumb.style.display = 'block'; }
+                    if (prog) prog.textContent = '上传成功（' + kb0 + 'KB → ' + kb1 + 'KB），已自动填写共享地址';
+                  } else {
+                    if (prog) prog.textContent = '上传失败：' + ((r&&r.data&&r.data.error)||'请重试');
+                  }
+                });
+              };
+              rd.readAsDataURL(small);
+            });
           };
         }
       }, 300);
