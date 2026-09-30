@@ -1210,7 +1210,7 @@ function verdict(v){
             var _hh = '<div style="margin:4px 0 10px"><span title="' + (_code ? ('技术编号：' + _code) : '') + '">' + chip('未通过（已拦截）', 'fail') + '</span></div>';
             _hh += '<div style="font-size:13.5px;line-height:1.9;color:var(--t-2)">';
             if (o.note) _hh += '<div style="color:var(--t-3);font-size:12.5px;margin-bottom:8px;line-height:1.7">' + String(o.note) + '</div>';
-            _hh += '<b>为什么没通过</b><br>' + _cn;
+            _hh += '<div style="font-size:14px;font-weight:600;color:var(--t-1);line-height:1.8">' + _cn + '</div>';
             if (_dets.length) _hh += '<br><br><b>涉及的内容</b>：' + _dets.join('、');
             _hh += '</div>';
             return _hh;
