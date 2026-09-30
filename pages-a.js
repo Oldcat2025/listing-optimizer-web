@@ -1472,9 +1472,29 @@ page('gen-new', {
             '<div style="font-size:11.5px;color:var(--t-4);margin-top:3px">点「提交生成」前请核对这里的 SKU 与你预期一致</div>';
         }
       }
-      if (skuSel) skuSel.onchange = syncWillSubmit;
+      /* [fix 09-30] 选了商品就把该商品已录好的资料回填，别让人重填一遍。
+         数据源 = 商品表（新增商品时填的），口径：换商品=换对象 ⇒ 全量重填，并提示可改。 */
+      var LANG_OF = {US:'en-US', CA:'en-US', GB:'en-GB', DE:'de-DE', FR:'fr-FR', IT:'it-IT', ES:'es-ES'};
+      function asBool(v){ return v === true || String(v||'').toLowerCase() === 'true'; }
+      function fillFromSku(sku){
+        var info = (skuRows || []).filter(function(x){ return x && x['SKU'] === sku; })[0];
+        if (!info) return;
+        function setv(id, v){ var el = document.getElementById(id); if (el && v !== undefined && v !== null && v !== '') el.value = v; }
+        if (info['目标市场']) setv('gen-market', String(info['目标市场']).toUpperCase());
+        setv('gen-brand', info['品牌名']);
+        setv('gen-asin1', info['竞品ASIN1']); setv('gen-asin2', info['竞品ASIN2']); setv('gen-asin3', info['竞品ASIN3']);
+        if (langSel) langSel.value = LANG_OF[String(info['目标市场']||'').toUpperCase()] || 'en-US';
+        var cbMat = document.getElementById('gen-title-mat'); if (cbMat) cbMat.checked = asBool(info['标题包含材质']);
+        var cbKw = document.getElementById('gen-use-kw');   if (cbKw)  cbKw.checked  = asBool(info['词库参与']);
+        if (typeof syncLibraryInputs === 'function') syncLibraryInputs();
+        if (info['参与季节']) setv('gen-kw-season', info['参与季节']);
+        /* 季节下拉是异步加载的（loadSeasons 回调会重建 innerHTML），用它的 keepVal 定点指到该商品的季节，
+           否则回填会被后到的回调重置成默认第一项。 */
+        loadSeasons('gen-season', info['季节范围'] || '');
+      }
+      if (skuSel) skuSel.onchange = function(){ syncWillSubmit(); fillFromSku(skuSel.value); };
       loadSeasons('gen-season', '');
-      marketSel.onchange = function(){ var lmap = {US:'en-US', GB:'en-GB', FR:'fr-FR', IT:'it-IT', ES:'es-ES'}; if (langSel) langSel.value = lmap[marketSel.value] || 'en-US'; };
+      marketSel.onchange = function(){ if (langSel) langSel.value = LANG_OF[marketSel.value] || 'en-US'; };
       /* [fix 09-30] 原用 API.listings()：该接口返回的是文案内容快照（title/bullets/backend/status/created_at），
          根本没有 SKU 字段 → done 恒为空 → 下拉把「已生成文案」的商品也全列出来（本该只列还没生成的）。
          改查「定稿输出表」（有 SKU），口径与 4.1 文案列表一致。 */
@@ -1491,6 +1511,7 @@ page('gen-new', {
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
         skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
         syncWillSubmit();   /* [fix 09-30] 填完即刷新「将提交」 */
+        fillFromSku(skuSel.value);   /* [fix 09-30] 首屏（含从 3.4 预选进来）也把商品资料回填 */
         /* [fix 09-29] 从「人工审核重做」进来：带出原任务内容（目标市场/品牌名/季节/竞品ASIN），改完直接重提交 */
         if (preSku){
           var pre = skuRows.find(function(x){ return x['SKU'] === preSku; });
