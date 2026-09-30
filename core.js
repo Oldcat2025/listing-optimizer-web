@@ -1145,3 +1145,70 @@ function refreshSideVersion(){
     API.table('模型绑定', {}, 200).then(function(r){ var el=document.getElementById('svModel'); if(!el) return; var rows=(r&&r.data&&r.data.data)||[]; el.textContent = rows.length?(rows.length+' 个环节已绑定'):'未绑定'; });
   } catch(e){}
 }
+/* ===== [fix 09-30] 证书渲染 从 pages-b.js 抽出，供 4.2/4.3 复用（containerId 参数化） ===== */
+function verdict(v){
+        var o = v;
+        if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }
+        if (o && typeof o === 'object') {
+          var st = String(o.status || o.certificate_type || '');
+          var stUp = st.toUpperCase();
+          var tone = (stUp === 'PASS' || stUp === 'PASS_WITH_NOTES') ? 'ok' : (stUp.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+          var head = '<div style="margin:4px 0 8px">' + chip(st || '—', tone) + '</div>';
+          var asrts = (Array.isArray(o.assertions) && o.assertions.length) ? o.assertions : null;
+          if (asrts) {
+            var passN = 0, failN = 0;
+            asrts.forEach(function(a){ var at = String(a.status||'').toUpperCase(); if (at==='PASS'||at==='PASS_WITH_NOTES') passN++; else if (at.indexOf('FAIL')===0) failN++; });
+            var summaryLine = '共 ' + asrts.length + ' 项检查：' + passN + ' 通过，' + failN + ' 不通过' + (asrts.length-passN-failN ? ('，' + (asrts.length-passN-failN) + ' 未验证') : '');
+            var rows = asrts.map(function(a){
+              var at = String(a.status || '').toUpperCase();
+              var tt = (at === 'PASS' || at === 'PASS_WITH_NOTES') ? 'ok' : (at.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+              var c = chip(a.status || '—', tt);
+              var desc = String(a.desc || '—');
+              if (at === 'FAIL' || at === 'WARN') {
+                desc += '<div class="dim" style="font-size:11px;color:var(--t-4);margin-top:2px">实际：' + String(a.actual || '—').slice(0,80) + '<br>期望：' + String(a.expected || '—').slice(0,80) + '</div>';
+              }
+              return [ desc, c ];
+            });
+            return head + '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:13px;color:var(--t-2);user-select:none">' + summaryLine + '（点开看明细）</summary><div style="margin-top:8px">' + table(['检查内容','结论'], rows) + '</div></details>';
+          }
+          var keys = Object.keys(o).filter(function(k){ var vv = o[k]; return vv === null || (typeof vv !== 'object'); });
+          if (!keys.length) return table(['结论'], [[String(v || '—')]]);
+          return head + table(['检查项','结论'], keys.map(function(k){ return [k, String(o[k])]; }));
+        }
+        return table(['结论'], [[String(v || '—')]]);
+      }
+      function renderCert(x, containerId){
+        var certCols = Object.keys(x).filter(function(k){ return k.indexOf('证书') >= 0 && k !== '全部通过'; });
+        var certTitles = {
+          '完整性证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">① 完整性检查</span>',
+          '处理证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">② 处理与合规检查</span>',
+          '字段证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">③ 字段检查</span>',
+          '质量证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">④ 质量检查</span>',
+          '审计证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">⑤ 审计与来源检查</span>'
+        };
+        var passed = String(x['全部通过']||'').toUpperCase() === 'TRUE';
+        var passSummary = certCols.map(function(col){
+          var v = x[col];
+          var o = null; try { o = JSON.parse(v); } catch(e){ o = null; }
+          var st = '', pn = 0, tt = 0;
+          if (o && typeof o === 'object'){ st = String(o.status || ''); var sm = o.summary || {}; pn = sm.passed || 0; tt = sm.total || 0; }
+          var stUp = st.toUpperCase();
+          var tone = (stUp === 'PASS' || stUp === 'PASS_WITH_NOTES') ? 'ok' : (stUp.indexOf('FAIL') === 0 ? 'fail' : 'warn');
+          return [certTitles[col] || col, chip(st || '—', tone), '<b>' + pn + '</b> / ' + tt];
+        });
+        var root = document.getElementById(containerId || 'rev-audit-root');
+        root.innerHTML =
+          stats([
+            ['是否通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
+            ['证书数量', String(certCols.length), '', '', false],
+            ['站点', x['目标市场']||'—', '', '', false],
+            ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
+          ], 4) +
+          '<div class="card" style="padding:12px 16px;margin:-4px 0 16px">'
+          + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
+          + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div>'
+          + '<div style="font-size:12px;color:var(--t-3);margin-top:6px">生成时间 '+bjTime(x['生成时间'])+'</div></div>' +
+          panel('证书通过概况（通过数 / 总数）', '<div class="cert-seg">' + passSummary.map(function(r, i){ return '<div class="cert-seg__item alt' + (i % 2) + '">' + '<div class="cert-seg__t">' + r[0] + '</div>' + '<div class="cert-seg__c">' + r[1] + '</div>' + '<div class="cert-seg__n">' + r[2] + '</div>' + '</div>'; }).join('') + '</div>', {flush:true}) +
+          certCols.map(function(col){ return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', '<div class="cert-card-body" style="text-align:center">' + verdict(x[col]) + '</div>', {flush:true}); }).join('');
+      }
+      
