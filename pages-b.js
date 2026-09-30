@@ -52,7 +52,7 @@ page('rev-list', {
             '<span class="m">'+(x['SKU']||'')+'</span><div class="dim" style="font-size:11px;color:var(--t-4)">生成未完成，去补全资料后重提</div>',
             x['目标市场']||'—',
             chip('待处理','warn'),
-            String(x['处理时间']||'—').slice(0,16).replace('T',' '),
+            bjTime(x['处理时间']),   /* [fix 09-30] 统一走全局 bjTime */
             btn('编辑重提','','gen-new',(x['SKU']||''))
           ]);
         });
@@ -448,7 +448,7 @@ page('rev-action', {
                           '<span class="m">'+(x['SKU']||'—')+'</span> ' + (x['目标市场']||''),
                           chip(x['最终状态']||'—','warn'),
                           '<span style="font-size:12px">' + String(x['错误详情']||x['错误码']||'—').slice(0,120) + '</span>',
-                          '<span class="m">' + String(x['结束时间']||'—').slice(0,16).replace('T',' ') + '</span>'];
+                          '<span class="m">' + bjTime(x['结束时间']) + '</span>'];
                 }))
             : '<div style="font-size:12.5px;color:var(--t-3);padding:2px">当前没有被系统转人工的任务。</div>') +
           '<div style="font-size:12px;color:var(--t-3);margin-top:10px;line-height:1.8">这一块原先在「需人工处理」（4.6）单独一页 —— 它和上面的放行/打回是<b>同一件工作</b>（都是"系统交给人的活"），所以合并到这里，原 4.6 已从菜单收起。</div>',

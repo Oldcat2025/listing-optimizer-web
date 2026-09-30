@@ -369,8 +369,16 @@ function btn(t, cls, go, sku, copy, todo){
 }
 function bjTime(t){
   if (!t) return '—';
-  var d = new Date(t);
-  if (isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' ');
+  var _s = String(t).trim();
+  /* [fix 09-30] Postgres 会返回两种时间串，必须都吃下：
+     '2026-09-30T06:52:51.67+00:00'（带 T、完整时区）与 '2026-09-30 04:10:54.897477+00'（空格 + 短时区 + 6 位小数）。
+     后者直接 new Date() 各浏览器解析不一致 → 先规范化成 ISO 再解析，否则会漏转时区、和别处显示差 8 小时。 */
+  var _norm = _s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T').replace(/([+-]\d{2})$/, '$1:00');
+  /* 没有时区标识时补 Z：库里统一存 UTC，不补会被浏览器当本地时间、多加 8 小时 */
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(_norm)) _norm += 'Z';
+  var d = new Date(_norm);
+  if (isNaN(d.getTime())) d = new Date(_s);
+  if (isNaN(d.getTime())) return _s.slice(0,16).replace('T',' ');
   var bj = new Date(d.getTime() + 8*3600*1000);
   var p = function(n){ return (n<10?'0':'')+n; };
   return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes());

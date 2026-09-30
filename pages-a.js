@@ -63,7 +63,7 @@ page('dash-todo', {
               '<span class="m">'+sku+'</span>',
               x['目标市场']||'—',
               '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), st==='COMPLETED'?'ok':(st==='FAILED'?'fail':(st==='PROCESSING'?'run':''))) + '</span>' + '<div style="margin-top:3px"><span title="' + recogTip(x['识别状态']) + '" style="cursor:help;font-size:11px">' + chip(recogCn(x['识别状态']), recogTone(x['识别状态'])) + '</span></div>',
-              String(x['更新时间']||'').slice(0,16).replace('T',' '),
+              bjTime(x['更新时间']),   /* [fix 09-30] 统一走全局 bjTime（裸截不转时区，会差 8 小时） */
               (function(){
                 var todo = (st === '' || st === 'PENDING' || st === '待处理');
                 return '<div style="white-space:nowrap">' + btn(actionTxt, btnCls||'', go, sku) +
@@ -180,7 +180,7 @@ page('dash-runs', {
               '<span class="m">' + sku + '</span>',
                 x['目标市场'] || '—',
                 chip(x['处理状态']||'', tone(x['处理状态'])),
-                '<span class="m">' + String(x['更新时间']||'').slice(0,16).replace('T',' ') + '</span>',
+                '<span class="m">' + bjTime(x['更新时间']) + '</span>',
                 btn('详情', '', ((st === 'COMPLETED' || st === 'REVIEW_REQUIRED') ? 'rev-detail' : 'sku-detail'), sku)
               ];
             })
@@ -233,7 +233,7 @@ page('dash-quality', {
               '<span class="m">' + (x['SKU']||'—') + '</span>',
               x['目标市场'] || '—',
               chip('未通过','fail'),
-              '<span class="m">' + String(x['生成时间']||'').slice(0,16).replace('T',' ') + '</span>',
+              '<span class="m">' + bjTime(x['生成时间']) + '</span>',
               btn('查看报告','','rev-audit',(x['SKU']||''))
             ]; })
           ) : callout('ok','全部通过','当前所有证书全部通过，没有失败明细。'), {flush:true});
@@ -417,7 +417,7 @@ page('sku-list', {
             x['季节范围']||'—',
             x['目标市场']||'—',
             '<span title="' + statusTip(x['处理状态']) + '" style="cursor:help">' + chip(statusCn(x['处理状态']), toneOf(x['处理状态'])) + '</span>' + '<div style="margin-top:3px"><span title="' + recogTip(x['识别状态']) + '" style="cursor:help;font-size:11px">' + chip(recogCn(x['识别状态']), recogTone(x['识别状态'])) + '</span></div>',
-            (x['处理时间']||'—').slice(0,10),
+            String(bjTime(x['处理时间'])).slice(0,10),   /* [fix 09-30] 先转北京时间再取日期 */
             (function(){
               var st = String(x['处理状态']||'').toUpperCase();
               var todo = (st === '' || st === 'PENDING' || st === '待处理');
@@ -1539,17 +1539,6 @@ page('gen-queue', {
   },
     body:function(){
     function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='PROCESSING') return 'run'; if (s==='PENDING') return 'neutral'; if (s==='FAILED') return 'fail'; return 'neutral'; }
-    function toLocal(iso){
-      if (!iso) return '—';
-      var s = String(iso);
-      var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s);
-      if (!m) return s.slice(0,16).replace('T',' ');
-      var d = new Date(s);
-      if (isNaN(d.getTime())) return s.slice(0,16).replace('T',' ');
-      var u = new Date(d.getTime() + 8*3600*1000);
-      function p(n){ return (n<10?'0':'')+n; }
-      return u.getUTCFullYear()+'-'+p(u.getUTCMonth()+1)+'-'+p(u.getUTCDate())+' '+p(u.getUTCHours())+':'+p(u.getUTCMinutes());
-    }
     var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
     setTimeout(function(){
       /* [fix 09-30] 队列以「真任务表（运行日志）」为准 —— 原先读的是商品表的 processing_status，
@@ -1594,7 +1583,7 @@ page('gen-queue', {
               x['目标市场']||'—',
               chip(x['最终状态']||'', toneOf(x['最终状态'])),
               (info(x,'优先级') ? '<span class="chip chip--run">优先</span>' : '—'),
-              '<span class="m">' + toLocal(x['开始时间']) + '</span>',
+              '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<button class="btn btn--ghost" data-qa="priority" data-rid="'+encodeURIComponent(info(x,'记录ID')||'')+'">优先</button> <button class="btn btn--danger" data-qa="cancel" data-rid="'+encodeURIComponent(info(x,'记录ID')||'')+'">取消</button>'
             ]; })
           ), {flush:true});
