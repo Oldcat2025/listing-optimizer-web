@@ -1362,7 +1362,11 @@ page('sku-dna', {
         var sel = document.getElementById('dna-sku-sel');
         if (sel) sel.onchange = function(){
           var v = sel.value;
-          window.CUR_SKU = v;
+          /* [fix 09-30] 这里**不该**写全局 CUR_SKU：本页只是「查看识别详情」，
+             而 CUR_SKU 是「下一个动作要操作哪个 SKU」的载体。在这里写它，会让
+             「看过的商品」变成「下次提交的商品」—— 实测老猫在 3.4 点 30x50 提交、
+             实际跑了 45x45。查看动作只改本页局部状态即可。 */
+          window.__DNA_VIEW_SKU = v;
           var ib = document.getElementById('dna-img-box');
           if (ib) ib.innerHTML = imgInner(imgMap[v]);
           loadDna(v);
@@ -1413,7 +1417,9 @@ page('gen-new', {
         fld('竞品 ASIN 2', '<input id="gen-asin2" class="ctl" placeholder="B0XXXXXXXXX">') +
         fld('竞品 ASIN 3', '<input id="gen-asin3" class="ctl" placeholder="B0XXXXXXXXX">') +
       '</div>' +
-      '<div class="btnrow center" style="margin-top:16px;justify-content:center">' +
+      /* [fix 09-30] 提交前把「将提交哪个 SKU」明写在按钮上方 —— 串号问题的最后一道人眼防线。 */
+      '<div id="gen-will-submit" style="margin-top:14px;text-align:center;font-size:13.5px"></div>' +
+      '<div class="btnrow center" style="margin-top:10px;justify-content:center">' +
         '<button class="btn" id="gen-submit" style="background:var(--g-600);color:#fff;border:none;padding:9px 18px;border-radius:var(--r-ctl);font-weight:600;cursor:pointer">提交生成</button>' +
       '</div>' +
       '<div id="gen-result" style="margin-top:12px"></div>') +
@@ -1451,6 +1457,19 @@ page('gen-new', {
             var marketSel = document.getElementById('gen-market');
       var langSel = document.getElementById('gen-lang');
       var skuSel = document.getElementById('gen-sku');
+      /* [fix 09-30] 「将提交」提示：下拉一变就刷新，提交前能一眼核对 SKU。 */
+      function syncWillSubmit(){
+        var w = document.getElementById('gen-will-submit');
+        if (!w || !skuSel) return;
+        var v = String(skuSel.value || '');
+        if (!v || v.indexOf('正在') === 0 || v.indexOf('暂无') === 0 || v.indexOf('所有') === 0){
+          w.innerHTML = '<span style="color:#b45309">⚠ 还没选中任何商品，无法提交</span>';
+        } else {
+          w.innerHTML = '<span style="color:var(--t-2)">将提交：</span><b style="color:var(--t-1)">' + v + '</b>' +
+            '<div style="font-size:11.5px;color:var(--t-4);margin-top:3px">点「提交生成」前请核对这里的 SKU 与你预期一致</div>';
+        }
+      }
+      if (skuSel) skuSel.onchange = syncWillSubmit;
       loadSeasons('gen-season', '');
       marketSel.onchange = function(){ var lmap = {US:'en-US', GB:'en-GB', FR:'fr-FR', IT:'it-IT', ES:'es-ES'}; if (langSel) langSel.value = lmap[marketSel.value] || 'en-US'; };
       /* [fix 09-30] 原用 API.listings()：该接口返回的是文案内容快照（title/bullets/backend/status/created_at），
@@ -1468,6 +1487,7 @@ page('gen-new', {
         if (!skuSel) return;
         if (!rows.length){ skuSel.innerHTML = '<option>所有商品都已生成文案</option>'; return; }
         skuSel.innerHTML = rows.map(function(x){ return '<option value="'+(x.SKU||'')+'">'+(x.SKU||'')+'</option>'; }).join('');
+        syncWillSubmit();   /* [fix 09-30] 填完即刷新「将提交」 */
         /* [fix 09-29] 从「人工审核重做」进来：带出原任务内容（目标市场/品牌名/季节/竞品ASIN），改完直接重提交 */
         if (preSku){
           var pre = skuRows.find(function(x){ return x['SKU'] === preSku; });

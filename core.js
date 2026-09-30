@@ -1139,8 +1139,11 @@ function BOOT(){
     if (sku) window.CUR_SKU = sku;
     var go = b.getAttribute('data-go');
     if (go) {
-      // [fix 09-02] 跳「商品资料填写」且不带 data-sku = 新建意图 → 清残留 CUR_SKU，避免误进编辑模式(新增产品模块消失)
-      if (go.indexOf('sku-detail') === 0 && !sku) window.CUR_SKU = undefined;
+      /* [fix 09-30] 「不带 data-sku 的跳转」= 从菜单发起的新意图 → 必须清掉上一个页面残留的 SKU。
+         原先只对 sku-detail 清；gen-new 没清 ⇒ 从菜单进「新建生成任务」时，下拉会被上一条残留 SKU 预选，
+         用户看到的是 A、提交出去的却是残留的 B（实测 2026-09-30：提交 30x50 跑了 45x45）。
+         带 data-sku 的（如 3.4「编辑并重新提交」）保留预选，不受影响。 */
+      if ((go.indexOf('sku-detail') === 0 || go.indexOf('gen-new') === 0) && !sku) window.CUR_SKU = undefined;
       location.hash = go;
     }
     var copy = b.getAttribute('data-copy');
