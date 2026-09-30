@@ -134,30 +134,8 @@ page('rev-detail', {
           if (q){ var ql = q.toLowerCase(); rows = rows.filter(function(x){ return String(x['SKU']||'').toLowerCase().indexOf(ql) >= 0 || String(x['Title']||'').toLowerCase().indexOf(ql) >= 0; }); }
           if (mkt && mkt !== '全部站点'){ rows = rows.filter(function(x){ return x['目标市场'] === mkt; }); }
           if (!rows.length) {
-            /* [fix 09-30] 定稿表没找到 → 可能是失败/需人工文案，改查证书表显示失败原因（同 4.3） */
-            var _cq = q || window.CUR_SKU || '';
-            if (_cq) {
-              API.table('证书表', {SKU: _cq}, 200).then(function(r2){
-                var certs = ((r2.data || {}).data || []).filter(function(x){ return x && x['运行ID']; });
-                if (certs.length) return certs;
-                return API.table('证书表', {}, 200).then(function(r3){
-                  var ql2 = _cq.toLowerCase();
-                  return ((r3.data || {}).data || []).filter(function(x){ return x && x['运行ID'] && String(x['SKU']||'').toLowerCase().indexOf(ql2) >= 0; });
-                });
-              }).then(function(certs){
-                if (!root) return;
-                if (mkt && mkt !== '全部站点'){ certs = certs.filter(function(x){ return x['目标市场'] === mkt; }); }
-                if (certs.length){
-                  certs.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
-                  renderCert(certs[0], 'rev-detail-root');
-                  root.insertAdjacentHTML('afterbegin', callout('warn','这条文案没通过五项检查（没有成品）','下面是失败原因；修好后重新提交生成即可。'));
-                  return;
-                }
-                root.innerHTML = callout('warn','没有匹配的文案','换个 SKU 或站点试试，或去 4.1 看全部文案。');
-              });
-              return;
-            }
-            root.innerHTML = callout('warn','没有匹配的文案','换个 SKU 或站点试试，或去 4.1 看全部文案。'); return;
+            /* [fix 09-30] 4.2 只放已通过审核的成品文案；失败/待审核的记录在 4.3 看 */
+            root.innerHTML = callout('info','这里只放已通过审核的成品文案','4.2 用来复制上架文案；失败或待审核的记录请到「4.3 质量检查报告」查看。'); return;
           }
           rows.sort(function(a,b){
             var ta = String(a['生成时间']||''), tb = String(b['生成时间']||'');
@@ -233,7 +211,7 @@ page('rev-detail', {
       var sb = document.getElementById('rd-search-btn'); if (sb) sb.onclick = loadDetail;
       // [4.2 改造] 最近 10 条成功文案（点「查看」回填并载入）
       var rc = document.getElementById('rd-recent');
-      if (rc) recentTenPanel({all:true, sub:'点「查看」直接把这一条载入上面的结果区'}).then(function(h){ rc.innerHTML = h; wireRecent(loadDetail); })
+      if (rc) recentTenPanel({sub:'点「查看」直接把这一条载入上面的结果区', pgKey:'rd-recent'}).then(function(h){ rc.innerHTML = h; wireRecent(loadDetail); })
                              .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;
@@ -305,7 +283,7 @@ page('rev-audit', {
       var sb = document.getElementById('rd-audit-search'); if (sb) sb.onclick = loadAudit;
       // [4.3 改造] 最近 10 条成功文案（与 4.2 同一套助手）
       var rc = document.getElementById('ra-recent');
-      if (rc) recentTenPanel({all:true}).then(function(h){ rc.innerHTML = h; wireRecent(loadAudit); })
+      if (rc) recentTenPanel({all:true, pgKey:'ra-recent'}).then(function(h){ rc.innerHTML = h; wireRecent(loadAudit); })
                              .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;

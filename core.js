@@ -303,10 +303,9 @@ function recentTenPanel(opt){
       });
     }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
-    var top = rows.slice(0, 10);
     var sub = opt.sub || '点「查看」直接把这一条载入下面的结果区';
-    if (!top.length) return panel('最近 10 条成功文案', callout('warn','暂时还没有成功的文案','五证书全部通过后会自动出现在这里。'), {sub:sub});
-    var trs = top.map(function(x){
+    if (!rows.length) return panel('文案列表', callout('warn','暂时还没有成功的文案','五证书全部通过后会自动出现在这里。'), {sub:sub});
+    var trs = rows.map(function(x){
       var sku = String(x['SKU']||''), tt = String(x['Title']||'');
       var titleCell = tt
         ? '<span style="font-size:12px">'+(tt.length>44?tt.slice(0,44)+'…':tt)+'</span>'
@@ -318,9 +317,10 @@ function recentTenPanel(opt){
                '<button class="btn btn--ghost" data-recent-sku="'+sku+'">查看</button>' ];
     });
     var _title = opt.all
-      ? '最近 10 条文案（共 '+rows.length+' 条，按生成时间倒序）'
-      : '最近 10 条成功文案（共 '+rows.length+' 条成功，按生成时间倒序）';
-    return panel(_title, table(['SKU','站点','生成时间','标题',''], trs), {flush:true, sub:sub});
+      ? '文案列表（共 '+rows.length+' 条 · 含失败，按生成时间倒序）'
+      : '已通过审核的文案（共 '+rows.length+' 条，按生成时间倒序）';
+    /* [fix 09-30] 加翻页（10 条/页，key 由调用方指定，4.2/4.3 各自独立分页） */
+    return panel(_title, pagedTable(['SKU','站点','生成时间','标题',''], trs, 10, opt.pgKey || 'recent-panel'), {flush:true, sub:sub});
   });
 }
 /* 绑定「查看」：回填查询框 → 调 onPick（页面自己的重载函数）
@@ -1265,7 +1265,7 @@ function renderCert(x, containerId){
             '<div class="card" style="padding:12px 16px;margin:-4px 0 16px">'
             + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
             + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div></div>' +
-            panel('为什么没通过', '<div class="cert-card-body">' + verdict(x[certCols[0]]) + '</div>', {flush:true});
+            panel('为什么没通过', verdict(x[certCols[0]]));
           return;
         }
         root.innerHTML =
