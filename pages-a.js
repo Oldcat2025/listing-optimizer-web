@@ -1646,7 +1646,6 @@ page('gen-run', {
         if (!rows.length){ root.innerHTML = callout('warn','暂无数据','该功能还没有数据，接入数据源后显示实际内容。'); return; }
         function t(st){ var s = String(st||'').toUpperCase(); if (s==='SUCCESS'||s==='COMPLETED') return 'ok'; if (s==='FAILED'||s==='ABORTED_STUCK') return 'fail'; if (s==='REVIEW_REQUIRED') return 'warn'; return 'run'; }
         function statusCn(st){ var s = String(st||'').toUpperCase(); var m = { 'SUCCESS':'成功', 'COMPLETED':'完成', 'FAILED':'失败', 'ABORTED_STUCK':'中止/卡住', 'REVIEW_REQUIRED':'需人工', 'CANDIDATE_WRITTEN':'候选已写', 'DRAFT_WRITTEN':'草稿已写' }; return m[s] || (st||'—'); }
-        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
         // 同 run 会按阶段 append 多行（PROCESSING/SUCCESS/DRAFT_WRITTEN…），选代表行：终态优先，同态取时间最新
         (function(){ var g = {}; rows.forEach(function(x){ var rid = x['运行ID'] || ('SKU:'+x['SKU']); (g[rid] = g[rid] || []).push(x); });
           function isTerm(u){ var s = String(u||'').toUpperCase(); return s==='SUCCESS'||s==='COMPLETED'||s==='FAILED'||s==='REVIEW_REQUIRED'||s==='DRAFT_WRITTEN'; }
@@ -1828,7 +1827,6 @@ page('gen-retry', {
         var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
     // [fix 09-16al] 新发生的失败/需人工排最上面（原来无排序）
     failed.sort(function(a, b){ return String(b['更新时间'] || b['结束时间'] || b['开始时间'] || '').localeCompare(String(a['更新时间'] || a['结束时间'] || a['开始时间'] || '')); });
-        function bjTime(t){ if(!t) return '—'; var d = new Date(t); if(isNaN(d.getTime())) return String(t).slice(0,16).replace('T',' '); var bj = new Date(d.getTime() + 8*3600*1000); var p = function(n){ return (n<10?'0':'')+n; }; return bj.getUTCFullYear()+'-'+p(bj.getUTCMonth()+1)+'-'+p(bj.getUTCDate())+' '+p(bj.getUTCHours())+':'+p(bj.getUTCMinutes()); }
                 function errorCn(e){
           var m = String(e||'');
           if (!m) return '—';
