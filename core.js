@@ -538,10 +538,14 @@ function statusCn(st){
       if (s === 'REVIEW_REQUIRED') return '待人工审核';
       if (s === 'FAILED') return '失败';
       if (s === '' || s === 'PENDING' || s === '待处理') return '待生成';
+      /* [fix 09-30] QUEUED = 已点「提交生成」、排队等主编排跑（原来和「已录入未提交」共用 PENDING，
+         导致用户提交 A 却按队列跑了更早的 B）。 */
+      if (s === 'QUEUED') return '已提交·排队中';
       return String(st||'—');
     }
     function statusTip(st){
       var s = String(st||'').toUpperCase();
+      if (s === 'QUEUED') return '已提交，正在排队等系统处理。\n主编排会按提交顺序取任务；一般 12 分钟内跑完。\n想看进度去「3.2 生成进度」。';
       if (s === '' || s === 'PENDING' || s === '待处理') return '已录入，还没开始处理。\n点右边的「去生成 →」提交生成：系统会先做产品识别（9 维档案），再写标题/亮点/五点/后台词。\n同一父体、同一站点的多个尺寸只识别 1 次（其余自动复用）。';
       if (s === 'PROCESSING') return '正在生成：产品识别 → 写作 → 五证书 → 定稿落库。一般 12 分钟内完成。';
       if (s === 'COMPLETED') return '已生成完毕，五证书全部通过。可在「4.2 文案与审核」看成品。';

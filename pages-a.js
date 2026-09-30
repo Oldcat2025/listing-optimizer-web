@@ -32,7 +32,7 @@ page('dash-todo', {
         var sku = (rs[0].ok && rs[0].data && rs[0].data.data) || [];
         var draft = (rs[1].ok && rs[1].data && rs[1].data.data) || [];
         function cnt(rows, key, val){ return rows.filter(function(x){ return String(x[key]||'').toUpperCase() === val; }).length; }
-        var pending = cnt(sku,'处理状态','PENDING');
+        var pending = cnt(sku,'处理状态','QUEUED');   /* [fix 09-30] 排队等待 = 已提交的 */
         var processing = cnt(sku,'处理状态','PROCESSING');
         var review = cnt(sku,'处理状态','REVIEW_REQUIRED');
         var completed = cnt(sku,'处理状态','COMPLETED');
@@ -44,6 +44,7 @@ page('dash-todo', {
           var u = String(s||'').toUpperCase().trim();
           if (u === 'REVIEW_REQUIRED') return 0;
           if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'QUEUED') return 2;   /* [fix 09-30] 已提交排队中，跟「生成中」一组排 */
           if (u === 'PROCESSING') return 2;
           if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
           if (u === 'FAILED') return 4;
@@ -153,6 +154,7 @@ page('dash-runs', {
           var u = String(s||'').toUpperCase().trim();
           if (u === 'REVIEW_REQUIRED') return 0;
           if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'QUEUED') return 2;   /* [fix 09-30] 已提交排队中，跟「生成中」一组排 */
           if (u === 'PROCESSING') return 2;
           if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
           if (u === 'FAILED') return 4;
@@ -160,7 +162,7 @@ page('dash-runs', {
         }
         rows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
         function cnt(s){ return rows.filter(function(x){ return String(x['处理状态']||'').toUpperCase() === s; }).length; }
-        var running = cnt('PROCESSING'), pending = cnt('PENDING'), completed = cnt('COMPLETED'), review = cnt('REVIEW_REQUIRED'), failed = cnt('FAILED');
+        var running = cnt('PROCESSING'), pending = cnt('QUEUED'), completed = cnt('COMPLETED'), review = cnt('REVIEW_REQUIRED'), failed = cnt('FAILED');   /* [fix 09-30] 排队等待 = 已提交的 */
         function tone(s){ var u = String(s||'').toUpperCase(); return u==='COMPLETED'?'ok':(u==='FAILED'||u==='REVIEW_REQUIRED'?'fail':(u==='PROCESSING'?'run':'')); }
         root.innerHTML =
           stats([
@@ -387,6 +389,7 @@ page('sku-list', {
           var u = String(s||'').toUpperCase().trim();
           if (u === 'REVIEW_REQUIRED') return 0;
           if (u === '' || u === '待处理' || u === '新创建' || u === 'PENDING' || u === 'NEW') return 1;
+          if (u === 'QUEUED') return 2;   /* [fix 09-30] 已提交排队中，跟「生成中」一组排 */
           if (u === 'PROCESSING') return 2;
           if (u === 'COMPLETED' || u === 'SUCCESS') return 3;
           if (u === 'FAILED') return 4;
@@ -1558,7 +1561,7 @@ page('gen-queue', {
     limits:['并发上限由成本护栏决定，不允许在此页突破','取消不退还已消耗费用']
   },
     body:function(){
-    function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='PROCESSING') return 'run'; if (s==='PENDING') return 'neutral'; if (s==='FAILED') return 'fail'; return 'neutral'; }
+    function toneOf(st){ var s = String(st||'').toUpperCase(); if (s==='PROCESSING'||s==='QUEUED') return 'run'; if (s==='PENDING') return 'neutral'; if (s==='FAILED') return 'fail'; return 'neutral'; }
     var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-queue-root">' + ghost('正在加载排队情况…') + '</div>';
     setTimeout(function(){
       /* [fix 09-30] 队列以「真任务表（运行日志）」为准 —— 原先读的是商品表的 processing_status，
@@ -1583,7 +1586,7 @@ page('gen-queue', {
           if (seenQ[_k]) return;
           seenQ[_k] = 1;
           var st = String(x['最终状态']||'').toUpperCase();
-          if (st !== 'PENDING' && st !== 'PROCESSING') return;
+          if (st !== 'QUEUED' && st !== 'PROCESSING') return;   /* [fix 09-30] 队列只该显示已提交的 */
           q.push(x);
         });
         var skuRows = ((rs[1] && rs[1].data && rs[1].data.data) || []);
@@ -1598,7 +1601,7 @@ page('gen-queue', {
         root.innerHTML =
           stats([
             ['处理中', running, 'PROCESSING', 'run', false],
-            ['排队等待', pending, 'PENDING', '', false],
+            ['排队等待', pending, 'QUEUED', '', false],
           ], 2) +
           panel('队列（' + (qQ = mktCur() ? q.filter(mktHit) : q).length + ' 条）', pagedTable(
             ['图片','SKU','产品族','站点','处理状态','优先级','更新时间',''],
