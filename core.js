@@ -310,7 +310,7 @@ function recentTenPanel(opt){
       var sku = String(x['SKU']||''), tt = String(x['Title']||'');
       var titleCell = tt
         ? '<span style="font-size:12px">'+(tt.length>44?tt.slice(0,44)+'…':tt)+'</span>'
-        : '<span style="font-size:12px;color:var(--r-600)">证书未通过'+(x['_failCode']?' · '+x['_failCode']:'')+'</span>';
+        : (function(){ var _fc = ''; if (x['_failCode']) { var _m = CERT_REASON_CN[x['_failCode']]; _fc = _m ? _m.replace(/[—]+.*$/, '').replace(/[（(].*$/, '').trim() : ''; } return '<span style="font-size:12px;color:var(--r-600)">未通过' + (_fc ? '：' + _fc : '：五项检查没通过') + '</span>'; })();
       return [ '<span class="m">'+sku+'</span>',
                x['目标市场']||'—',
                '<span style="font-size:12px;color:var(--t-3)">'+bjTime(x['生成时间'])+'</span>',
@@ -1221,7 +1221,18 @@ function verdict(v){
         }
         return table(['结论'], [[String(v || '—')]]);
       }
-      function renderCert(x, containerId){
+      /* [fix 09-30] 证书状态中文化（给用户看，不出现 BLOCKED/PASS 这类英文） */
+function certStatusCn(st){
+  var u = String(st||'').toUpperCase();
+  if (u === 'PASS') return '通过';
+  if (u === 'PASS_WITH_NOTES') return '通过（有备注）';
+  if (u === 'BLOCKED') return '已拦截';
+  if (u.indexOf('FAIL') === 0) return '未通过';
+  if (u === 'WARN') return '提醒';
+  if (u === 'REVIEW') return '待复核';
+  return st ? String(st) : '—';
+}
+function renderCert(x, containerId){
         var certCols = Object.keys(x).filter(function(k){ return k.indexOf('证书') >= 0 && k !== '全部通过'; });
         var certTitles = {
           '完整性证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">① 完整性检查</span>',
@@ -1231,6 +1242,9 @@ function verdict(v){
           '审计证书':'<span style="color:var(--g-600);font-size:16px;font-weight:700">⑤ 审计与来源检查</span>'
         };
         var passed = String(x['全部通过']||'').toUpperCase() === 'TRUE';
+        /* [fix 09-30] 失败证书（被拦下、5 个证书字段是同一份失败信息）→ 只展示一次原因，不再重复 5 遍 */
+        var _uniq = {}; certCols.forEach(function(col){ _uniq[String(x[col]||'')] = 1; });
+        var _isFailCert = !passed && Object.keys(_uniq).length <= 1;
         var passSummary = certCols.map(function(col){
           var v = x[col];
           var o = null; try { o = JSON.parse(v); } catch(e){ o = null; }
@@ -1238,9 +1252,22 @@ function verdict(v){
           if (o && typeof o === 'object'){ st = String(o.status || ''); var sm = o.summary || {}; pn = sm.passed || 0; tt = sm.total || 0; }
           var stUp = st.toUpperCase();
           var tone = (stUp === 'PASS' || stUp === 'PASS_WITH_NOTES') ? 'ok' : (stUp.indexOf('FAIL') === 0 ? 'fail' : 'warn');
-          return [certTitles[col] || col, chip(st || '—', tone), '<b>' + pn + '</b> / ' + tt];
+          return [certTitles[col] || col, chip(certStatusCn(st), tone), '<b>' + pn + '</b> / ' + tt];
         });
         var root = document.getElementById(containerId || 'rev-audit-root');
+        if (_isFailCert) {
+          root.innerHTML =
+            stats([
+              ['是否通过', '否', '本次没有产出成品文案', 'fail', false],
+              ['站点', x['目标市场']||'—', '', '', false],
+              ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
+            ], 3) +
+            '<div class="card" style="padding:12px 16px;margin:-4px 0 16px">'
+            + '<div style="font-size:12px;color:var(--t-3)">商品名称 / SKU</div>'
+            + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div></div>' +
+            panel('为什么没通过', '<div class="cert-card-body">' + verdict(x[certCols[0]]) + '</div>', {flush:true});
+          return;
+        }
         root.innerHTML =
           stats([
             ['是否通过', passed ? '是' : '否', '五证书全 PASS 才为是', passed?'ok':'fail', false],
