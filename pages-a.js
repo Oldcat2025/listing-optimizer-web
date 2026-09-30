@@ -50,13 +50,6 @@ page('dash-todo', {
           return 5;
         }
         skuRows.sort(function(a,b){ var ra=statusRank(a['处理状态']), rb=statusRank(b['处理状态']); if(ra!==rb) return ra-rb; return String(b['更新时间']||'').localeCompare(String(a['更新时间']||'')); });
-        /* [fix 09-30] 操作按钮按识别状态分流：已识别→去生成；未识别→去识别（直接触发，不进生成环节）。 */
-        function recogReady(x){ return String((x && x['识别状态']) || '').trim() === '已识别'; }
-        function goBtn(x){
-          var sku = x['SKU'] || '';
-          if (recogReady(x)) return btn('去生成 →', '', 'gen-new', sku);
-          return '<button class="btn" data-recog-sku="' + sku + '" title="先做产品识别，识别结果落库后才能生成文案">去识别 →</button>';
-        }
         function rowList(rows, actionTxt, btnCls){
           window.__SKU_ROWS = (window.__SKU_ROWS || []).concat(rows);
           return rows.map(function(x){

@@ -355,6 +355,14 @@ function sel(label, opts){
     (opts||[]).map(function(o){return '<option>'+o+'</option>';}).join('')+'</select>';
 }
 function inp(ph){ return '<input class="inp" placeholder="'+ph+'">'; }
+/* [fix 09-30] 商品列表操作按钮按识别状态分流（全局：工作台/2.1 两处列表共用，避免重复定义）。
+   已识别 → 去生成；未识别/识别不完整 → 去识别（直接触发识别，不进文案生成环节）。 */
+function recogReady(x){ return String((x && x['识别状态']) || '').trim() === '已识别'; }
+function goBtn(x){
+  var sku = (x && x['SKU']) || '';
+  if (recogReady(x)) return btn('去生成 →', '', 'gen-new', sku);
+  return '<button class="btn" data-recog-sku="' + sku + '" title="先做产品识别，识别结果落库后才能生成文案">去识别 →</button>';
+}
 function btn(t, cls, go, sku, copy, todo){
   var a = (go ? ' data-go="'+go+'"' : '') + (sku ? ' data-sku="'+sku+'"' : '') + (copy ? ' data-copy="'+encodeURIComponent(copy)+'"' : '') + (todo ? ' data-todo="'+todo+'"' : '');
   return '<button class="btn '+(cls||'btn--ghost')+'"'+a+'>'+t+'</button>';
