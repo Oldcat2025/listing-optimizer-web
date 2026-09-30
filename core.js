@@ -1217,10 +1217,18 @@ function verdict(v){
             var rows = asrts.map(function(a){
               var at = String(a.status || '').toUpperCase();
               var tt = (at === 'PASS' || at === 'PASS_WITH_NOTES') ? 'ok' : (at.indexOf('FAIL') === 0 ? 'fail' : 'warn');
-              var c = chip(certStatusCn(a.status), tt);
+              /* [fix 09-30] 断言值是数组/对象时，String() 会渲染成无意义的 `[object Object]`。
+         按类型展开：数组用「、」连接，对象转 JSON —— 至少让人看懂失败在哪。 */
+      function fmtCertVal(v){
+        if (v === undefined || v === null || v === '') return '—';
+        if (Array.isArray(v)) return v.map(function(x){ return (x && typeof x === 'object') ? JSON.stringify(x) : String(x); }).join('、');
+        if (typeof v === 'object') return JSON.stringify(v);
+        return String(v);
+      }
+      var c = chip(certStatusCn(a.status), tt);
               var desc = String(a.desc || '—');
               if (at === 'FAIL' || at === 'WARN') {
-                desc += '<div class="dim" style="font-size:11px;color:var(--t-4);margin-top:2px">实际：' + String(a.actual || '—').slice(0,80) + '<br>期望：' + String(a.expected || '—').slice(0,80) + '</div>';
+                desc += '<div class="dim" style="font-size:11px;color:var(--t-4);margin-top:2px">实际：' + fmtCertVal(a.actual).slice(0,220) + '<br>期望：' + fmtCertVal(a.expected).slice(0,80) + '</div>';
               }
               return [ desc, c ];
             });
