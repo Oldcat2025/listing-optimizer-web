@@ -1555,10 +1555,16 @@ page('gen-queue', {
         var logs = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
         var seenQ = {}, q = [];
         logs.forEach(function(x){
+          /* [fix 09-30] 先按 SKU 取「最新一条」记录，再看它是不是进行中 ——
+             顺序反了会把「已完成但历史里有 PROCESSING」的商品也列进队列
+             （30x50 明明已 REVIEW_REQUIRED，却因为有一条旧 PROCESSING 记录而显示「处理中」）。
+             运行日志表按 id DESC 返回，所以每个 SKU 的第一条就是最新。 */
+          var _k = x['SKU'];
+          if (seenQ[_k]) return;
+          seenQ[_k] = 1;
           var st = String(x['最终状态']||'').toUpperCase();
           if (st !== 'PENDING' && st !== 'PROCESSING') return;
-          if (seenQ[x['SKU']]) return;                 /* 同一 SKU 只显示最新一条运行记录 */
-          seenQ[x['SKU']] = 1; q.push(x);
+          q.push(x);
         });
         var skuRows = ((rs[1] && rs[1].data && rs[1].data.data) || []);
         var infoMap = {};
@@ -1787,7 +1793,9 @@ page('gen-run', {
               chip(statusCn(x['最终状态']), t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
-              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'rev-action'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
+              /* [fix 09-30] 「需人工」是**生成**卡住、还没定稿 → 该去「3.4 人工审核重做」；
+                 原先把这类跳去 4.5「审核放行」（那页只管**已定稿**文案的放行）⇒ 永远显示「暂无待审核文案」，看着像死页。 */
+              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'gen-retry'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
             ]; })
           ), {flush:true});
         }
