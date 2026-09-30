@@ -1419,9 +1419,12 @@ page('gen-new', {
           btn.disabled = false; btn.textContent = '提交生成';
           if (r.ok && r.data && r.data.success) {
             result.innerHTML = callout('warn', preSku ? '已重新提交，正在生成' : '已提交，正在生成','SKU '+r.data.sku+' 已进入生成队列，主编排后台生成（一般 12 分钟内），可在「生成进度」查看状态。');
-            // [fix 09-16ak] 提交成功 → 自动重载本页：该 SKU 从「待生成」下拉里消失，排队状态即刻反映（客户反馈）
-            toast('SKU ' + r.data.sku + ' 已提交生成，页面已刷新');
-            setTimeout(function(){ if (typeof render === 'function') render(); }, 700);
+            /* [fix 09-30] 提交成功 → 清预填来源 + 跳「排队情况」。
+               旧实现只 render() 本页：从「人工审核重做」带来的预填（window.CUR_SKU）还在 →
+               表单又恢复成填满状态，用户没看到提示会误按第二次 = 重复提交。 */
+            window.CUR_SKU = undefined;
+            toast('SKU ' + r.data.sku + ' 已提交生成，正在跳转「排队情况」');
+            setTimeout(function(){ location.hash = '#gen-queue'; }, 600);
           } else {
             result.innerHTML = callout('warn','提交失败', (r.data && r.data.error) || '请检查网络或稍后重试');
           }
@@ -1721,12 +1724,7 @@ page('gen-retry', {
     ]
   },
     body:function(){
-    window.retrySku = function(sku){
-      API.generate({sku: sku}).then(function(r){
-        if (r.ok && r.data && r.data.success) toast('SKU ' + sku + ' 已重新提交生成');
-        else toast('重新提交失败：' + ((r.data && r.data.error) || '请检查网络'));
-      });
-    };
+    /* [fix 09-30] 死代码 window.retrySku 已删（全项目无调用点，且是无防护的重复提交入口）。 */
     var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
     setTimeout(function(){
       API.table('SKU_输入表', {}, 200).then(function(r){
