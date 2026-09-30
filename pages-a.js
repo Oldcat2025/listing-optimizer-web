@@ -1196,15 +1196,13 @@ page('sku-dna', {
     setTimeout(function(){
       var root = document.getElementById('sku-dna-root');
       if (!root) return;
-      Promise.all([API.table('产品识别结果', (sku ? {SKU: sku} : {}), (sku ? 5 : 5)),   /* [fix 09-19] 服务端按 SKU 筛：原先是全表取出再前端筛（1651KB/9s→163KB/1.2s） */
-        API.table('SKU_输入表', (sku ? {SKU: sku} : {}), (sku ? 1 : 200))]).then(function(rs){
-        var r1 = rs[0];
-        if (!r1.ok || !r1.data || r1.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r1.data&&r1.data.error)||'请检查网络或稍后重试'); return; }
-        var _all = ((r1.data.data)||[]).filter(function(x){ return x && x['SKU']; });
-        (function(){ var m = {}; _all.forEach(function(x){ var k = x['SKU']; var t = String(x['识别时间']||''); if (!m[k] || t > String(m[k]['识别时间']||'')) m[k] = x; }); rows = Object.keys(m).map(function(k){ return m[k]; }); })();
-        var rows = rows;
-        var skuRows = ((rs[1] && rs[1].data && rs[1].data.data)||[]);
-        if (!rows.length){ root.innerHTML = callout('warn','暂无识别结果','还没有商品完成「产品识别」。请先提交生成，系统会用 GPT-4o 识别产品图片、生成 9 维产品档案与精准主定位。'); return; }
+      /* [fix 09-30] 两步取数：下拉只吃轻量商品表（~10KB，含识别状态/款式/站点），
+         识别详情按需精确取（~8KB/次）。原先一次性全量取「产品识别结果」（每行含完整 9 维档案 ~77KB），
+         只能靠 limit 截断 —— limit=5 时第 3 款商品直接看不见（最早添加的那款被截掉）。 */
+      API.table('SKU_输入表', (sku ? {SKU: sku} : {}), 200).then(function(r0){
+        if (!r0.ok || !r0.data || r0.data.success === false){ root.innerHTML = callout('stop','数据加载失败',(r0.data&&r0.data.error)||'请检查网络或稍后重试'); return; }
+        var skuRows = ((r0.data.data)||[]).filter(function(x){ return x && x['SKU'] && String(x['识别状态']||'').trim() === '已识别'; });
+        if (!skuRows.length){ root.innerHTML = callout('warn','暂无识别结果','还没有商品完成「产品识别」。请先提交生成，系统会用 GPT-4o 识别产品图片、生成 9 维产品档案与精准主定位。'); return; }
         function safeParse(s){ if (!s) return null; if (typeof s === 'object') return s; try { return JSON.parse(s); } catch(e){ return null; } }
         function arr(v){ if (Array.isArray(v) && v.length) return v; if (typeof v === 'string' && v.trim()) return v.split(/[，,、;；]/).map(function(s){return s.trim();}).filter(Boolean); return []; }
         function st(v){ return (v === null || v === undefined || v === '') ? '—' : String(v); }
@@ -1320,17 +1318,33 @@ page('sku-dna', {
         skuRows.forEach(function(sx){ if (sx && sx['SKU']) imgMap[sx['SKU']] = sx['产品图片URL'] || ''; });
         // [fix 2026-09-18] 下拉框只列「实际识别了什么」：同一父体+站点的多个尺寸共享同一份识别结果，
         // 不再按尺寸重复列出（原来 3 个尺寸 = 3 个几乎相同的条目，客户反馈「商品太多」）
-        var _fam = {}, _gmap = {}, _gorder = [];
-        (skuRows||[]).forEach(function(sx){ if (sx && sx['SKU']) _fam[sx['SKU']] = sx['产品族ID'] || ''; });
-        rows.forEach(function(x){
-          var k = String(_fam[x['SKU']] || x['SKU']) + '|' + String(x['目标市场'] || '');
-          if (!_gmap[k]){ _gmap[k] = { rep:x['SKU'], market:x['目标市场'] || '', skus:[] }; _gorder.push(k); }
-          _gmap[k].skus.push(x['SKU']);
+        var _gmap = {}, _gorder = [];
+        skuRows.forEach(function(sx){
+          if (!sx || !sx['SKU']) return;
+          var k = String(sx['产品族ID'] || sx['SKU']) + '|' + String(sx['目标市场'] || '');
+          if (!_gmap[k]){ _gmap[k] = { rep:sx['SKU'], market:sx['目标市场'] || '', skus:[] }; _gorder.push(k); }
+          _gmap[k].skus.push(sx['SKU']);
         });
         var groups = _gorder.map(function(k){ return _gmap[k]; });
         var cur = sku;
-        if (!cur || !rows.some(function(x){ return x['SKU'] === cur; })) cur = groups[0].rep;
-        function pick(v){ return rows.filter(function(x){ return x['SKU'] === v; })[0] || rows[0]; }
+        if (!cur || !skuRows.some(function(x){ return x['SKU'] === cur; })) cur = groups[0].rep;
+        /* [fix 09-30] 识别详情改成「切一次取一次」：单 SKU 精确查（~8KB），不再往首屏塞全表 */
+        function loadDna(v){
+          var ct0 = document.getElementById('dna-content');
+          if (ct0) ct0.innerHTML = ghost('正在加载识别详情…');
+          API.table('产品识别结果', {SKU: v}, 5).then(function(r1){
+            var rw = null;
+            if (r1 && r1.ok && r1.data && r1.data.data && r1.data.data.length){
+              rw = r1.data.data.slice().sort(function(a,b){ return String(b['识别时间']||'').localeCompare(String(a['识别时间']||'')); })[0];
+            }
+            var ct = document.getElementById('dna-content');
+            if (!ct) return;
+            ct.innerHTML = rw ? dnaOf(rw) : callout('warn','这个商品还没有识别结果','识别可能还在跑（一般 3-5 分钟），稍后刷新本页；也可以回「商品列表」点「去识别」重新触发。');
+          }).catch(function(e){
+            var ct = document.getElementById('dna-content');
+            if (ct) ct.innerHTML = callout('stop','识别详情加载失败', String((e && e.message) || e).slice(0, 140));
+          });
+        }
         function imgInner(url){ if (!url) return '<div style="width:76px;height:76px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999;background:#f3f4f6;border-radius:10px">无图片</div>'; return thumbHtml(url, 76); }
         var selOpts = groups.map(function(g){
           var lab = g.rep + '（' + g.market + (g.skus.length > 1 ? ' · 同款共 ' + g.skus.length + ' 个尺寸' : '') + '）';
@@ -1339,19 +1353,19 @@ page('sku-dna', {
         root.innerHTML =
           '<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;flex-wrap:wrap">' +
             '<div id="dna-img-box" style="flex-shrink:0">' + imgInner(imgMap[cur]) + '</div>' +
-            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（' + groups.length + ' 个款式 · 共 ' + rows.length + ' 个 SKU）</div>' +
+            '<div style="flex:1;min-width:220px"><div style="font-size:11px;color:#888;margin-bottom:5px">当前识别商品（' + groups.length + ' 个款式 · 共 ' + skuRows.length + ' 个 SKU）</div>' +
             '<select id="dna-sku-sel" style="width:100%;max-width:520px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-weight:600;background:#fff">' + selOpts + '</select></div>' +
             '<div style="font-size:11px;color:#aaa;max-width:200px">下拉切换 → 查看该商品的产品图片与识别详情</div>' +
           '</div>' +
-          '<div id="dna-content">' + dnaOf(pick(cur)) + '</div>';
+          '<div id="dna-content">' + ghost('正在加载识别详情…') + '</div>';
+        loadDna(cur);   /* [fix 09-30] 首屏详情按需取 */
         var sel = document.getElementById('dna-sku-sel');
         if (sel) sel.onchange = function(){
           var v = sel.value;
           window.CUR_SKU = v;
           var ib = document.getElementById('dna-img-box');
           if (ib) ib.innerHTML = imgInner(imgMap[v]);
-          var ct = document.getElementById('dna-content');
-          if (ct) ct.innerHTML = dnaOf(pick(v));
+          loadDna(v);
         };
       });
     }, 0);
