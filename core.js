@@ -304,7 +304,7 @@ function recentTenPanel(opt){
     }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });
     var top = rows.slice(0, 10);
-    var sub = '点「查看」直接把这一条载入下面的结果区';
+    var sub = opt.sub || '点「查看」直接把这一条载入下面的结果区';
     if (!top.length) return panel('最近 10 条成功文案', callout('warn','暂时还没有成功的文案','五证书全部通过后会自动出现在这里。'), {sub:sub});
     var trs = top.map(function(x){
       var sku = String(x['SKU']||''), tt = String(x['Title']||'');

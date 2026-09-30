@@ -116,8 +116,8 @@ page('rev-detail', {
       [inp('搜索 SKU 或标题'), sel('全部站点', MARKETS_ALL),
        '<button class="btn" id="rd-search-btn">查询</button>'],
       [], {tight:true}
-    ) + '<div id="rd-recent">' + ghost('正在加载最近成功文案…') + '</div>'
-      + '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>';
+    ) + '<div id="rev-detail-root">' + ghost('正在加载文案详情…') + '</div>'
+      + '<div id="rd-recent">' + ghost('正在加载文案…') + '</div>';
     setTimeout(function(){
             function loadDetail(){
         var root = document.getElementById('rev-detail-root');
@@ -197,7 +197,7 @@ page('rev-detail', {
       var sb = document.getElementById('rd-search-btn'); if (sb) sb.onclick = loadDetail;
       // [4.2 改造] 最近 10 条成功文案（点「查看」回填并载入）
       var rc = document.getElementById('rd-recent');
-      if (rc) recentTenPanel().then(function(h){ rc.innerHTML = h; wireRecent(loadDetail); })
+      if (rc) recentTenPanel({all:true, sub:'点「查看」直接把这一条载入上面的结果区'}).then(function(h){ rc.innerHTML = h; wireRecent(loadDetail); })
                              .catch(function(e){ rc.innerHTML = callout('stop','最近文案加载失败', String(e)); });
     }, 0);
     return el;
