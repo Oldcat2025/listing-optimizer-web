@@ -1368,11 +1368,14 @@ page('gen-new', {
       var skuSel = document.getElementById('gen-sku');
       loadSeasons('gen-season', '');
       marketSel.onchange = function(){ var lmap = {US:'en-US', GB:'en-GB', FR:'fr-FR', IT:'it-IT', ES:'es-ES'}; if (langSel) langSel.value = lmap[marketSel.value] || 'en-US'; };
-      Promise.all([API.skus({}), API.listings()]).then(function(rs){
+      /* [fix 09-30] 原用 API.listings()：该接口返回的是文案内容快照（title/bullets/backend/status/created_at），
+         根本没有 SKU 字段 → done 恒为空 → 下拉把「已生成文案」的商品也全列出来（本该只列还没生成的）。
+         改查「定稿输出表」（有 SKU），口径与 4.1 文案列表一致。 */
+      Promise.all([API.skus({}), API.table('定稿输出表', {}, 200)]).then(function(rs){
         skuRows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
         var listingRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
         var done = {};
-        listingRows.forEach(function(x){ if (x['SKU']) done[x['SKU']] = 1; });
+        listingRows.forEach(function(x){ if (x && x['SKU']) done[String(x['SKU'])] = 1; });
         var rows = (preSku && skuRows.filter(function(x){ return x['SKU'] === preSku; }).length)
           ? skuRows.filter(function(x){ return x['SKU'] === preSku; })
           : skuRows.filter(function(x){ return x['记录ID'] && !done[x['SKU']]; });
