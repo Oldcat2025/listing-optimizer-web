@@ -405,10 +405,15 @@ page('rev-action', {
   },
     body:function(){
     var el = toolbar([kwBox('搜索 SKU / 标题'), kwBtn(), mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待处理队列…') + '</div>';
+    /* [fix 10-01 A1] 从 3.3「详情」跳来时按 SKU 预过滤（见下方 setTimeout 内）。 */
+    function _preSku(){ var h = (location.hash||'').replace(/^#/,''); var k = h.indexOf('/');
+      return k >= 0 ? decodeURIComponent(h.slice(k+1)) : ''; }
     setTimeout(function(){
-      /* [fix 10-01] 4.5 需要两个数据源：定稿表（待放行）+ 运行日志表（系统转人工）。 */
-      Promise.all([API.table('定稿输出表', {}, 200), API.table('运行日志表', {}, 200)]).then(function(rs){
-        var r = rs[0], _runRows = (rs[1] && rs[1].data && rs[1].data.data) || [];
+      /* [fix 10-01 A1] DOM 已就绪：先把 hash 里的 SKU 填进搜索框，kwHit 才会生效。 */
+      (function(){ var _p = _preSku(); if (_p){ var _qi = document.querySelector('.tb .inp'); if (_qi) _qi.value = _p; } })();
+      /* [fix 10-01 A1] 4.5 = 人工放行关卡。数据源=定稿表：
+         五证书 AUTO_OK 的 ready_to_publish=true（可上架）；1-2 项不通过的已写好草稿但 false → 停在这里等人放行。 */
+      API.table('定稿输出表', {}, 200).then(function(r){
         var root = document.getElementById('rev-action-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }

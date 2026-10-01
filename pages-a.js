@@ -1840,9 +1840,15 @@ page('gen-run', {
               chip(statusCn(x['最终状态']), t(x['最终状态'])),
               '<span class="m">' + bjTime(x['开始时间']) + '</span>',
               '<span class="m">' + bjTime(x['结束时间']) + '</span>',
-              /* [fix 09-30] 「需人工」是**生成**卡住、还没定稿 → 该去「3.4 人工审核重做」；
-                 原先把这类跳去 4.5「审核放行」（那页只管**已定稿**文案的放行）⇒ 永远显示「暂无待审核文案」，看着像死页。 */
-              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase(); if (st === 'REVIEW_REQUIRED') return 'gen-retry'; if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail'; return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
+              /* [fix 10-01 A1] 按最终状态分流（与 3.4/4.5 的新分工一致）：
+                 FAILED（3 项以上不通过 / 系统异常）→ 3.4 重做；
+                 REVIEW_REQUIRED（1-2 项不通过，已写好草稿）→ 4.5 人工放行；
+                 成功 → 4.2 看成品；其他（运行中/候选已写）→ 3.3 本页运行详情。 */
+              btn('详情', '', (function(y){ var st = String(y['最终状态']||'').toUpperCase();
+                if (st === 'FAILED' || st === 'ABORTED_STUCK') return 'gen-retry';
+                if (st === 'REVIEW_REQUIRED') return 'rev-action';
+                if (st === 'SUCCESS' || st === 'COMPLETED') return 'rev-detail';
+                return 'gen-run/' + (y['运行ID']||''); })(x), (x['SKU']||''))
             ]; })
           ), {flush:true});
         }
@@ -1873,7 +1879,12 @@ page('gen-retry', {
     body:function(){
     /* [fix 09-30] 死代码 window.retrySku 已删（全项目无调用点，且是无防护的重复提交入口）。 */
     var el = toolbar([mktSel()], [], {tight:true}) + '<div id="gen-retry-root">' + ghost('正在加载失败任务…') + '</div>';
+    /* [fix 10-01] 从 3.3「详情」跳来时按 SKU 预过滤（见下方 setTimeout 内）。 */
+    function _preSku(){ var h = (location.hash||'').replace(/^#/,''); var k = h.indexOf('/');
+      return k >= 0 ? decodeURIComponent(h.slice(k+1)) : ''; }
     setTimeout(function(){
+      /* [fix 10-01] DOM 已就绪：先把 hash 里的 SKU 填进搜索框，kwHit 才会生效。 */
+      (function(){ var _p = _preSku(); if (_p){ var _qi = document.querySelector('.tb .inp'); if (_qi) _qi.value = _p; } })();
       API.table('SKU_输入表', {}, 200).then(function(r){
         var root = document.getElementById('gen-retry-root');
         if (!root) return;
