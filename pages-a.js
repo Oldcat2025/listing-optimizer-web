@@ -1854,7 +1854,7 @@ page('gen-run', {
 page('gen-retry', {
   roles:['运营','审核','管理员'],
   guide:[
-    '这里是<b>失败和需要人工审核</b>的任务清单。',
+    '这里是<b>严重失败</b>的任务清单（3 项以上检查不通过、或系统异常）。',
     '点「重新提交」会让系统重新生成一遍，<b>已经写好的部分不会白费</b>。',
     '重新提交前，先回「商品资料填写」把资料改对。'
   ],
@@ -1879,7 +1879,9 @@ page('gen-retry', {
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data || []).filter(function(x){ return x && x['SKU']; });
-        var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED' || s === 'REVIEW_REQUIRED'; });
+        /* [fix 10-01 A1] 分工：3.4 只管「严重失败（3 项以上证书不通过 / 系统异常）」→ 重做；
+           「1-2 项不通过」的已写好草稿，归 4.5 人工审放行。 */
+        var failed = rows.filter(function(x){ var s = String(x['处理状态']||'').toUpperCase(); return s === 'FAILED'; });
     // [fix 09-16al] 新发生的失败/需人工排最上面（原来无排序）
     failed.sort(function(a, b){ return String(b['更新时间'] || b['结束时间'] || b['开始时间'] || '').localeCompare(String(a['更新时间'] || a['结束时间'] || a['开始时间'] || '')); });
                 function errorCn(e){
@@ -1899,7 +1901,7 @@ page('gen-retry', {
           for (var k in map){ if (m.indexOf(k) >= 0) return map[k]; }
           return m;
         }
-        if (!failed.length){ root.innerHTML = callout('warn','暂无数据','当前没有失败的任务。'); return; }
+        if (!failed.length){ root.innerHTML = callout('ok','暂无严重失败任务','1-2 项检查不通过的已写好草稿，请到「4.5 审核放行与人工处理」处理。'); return; }
         root.innerHTML =
           panel('失败 / 需人工任务（共 ' + (fQ = mktCur() ? failed.filter(mktHit) : failed).length + ' 条）', pagedTable(
             ['图片','SKU','产品族','站点','错误信息','处理时间','操作',''],
