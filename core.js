@@ -1201,6 +1201,12 @@ var CERT_REASON_CN = {
   'STYLE_CONFLICT': '风格设定前后冲突',
   'REFUSE_INVALID_PARENT_PLAN': '父体方案不合法，拒绝执行'
 };
+Object.assign(CERT_REASON_CN, {
+  ROLE_EVIDENCE_MISSING:'主题覆盖证据待核实', FACT_EVIDENCE_MISSING:'商品事实引用待核实', HIGHLIGHTS_EVIDENCE_MISSING:'亮点覆盖证据待核实',
+  REVIEW_UNAVAILABLE:'复核服务未返回有效结果', MISSING_REQUIREMENT:'基本要求存在遗漏', FACT_CONTRADICTION:'商品事实存在矛盾',
+  OPTIONAL_POLISH:'可选优化建议', UNSUPPORTED_CLAIM:'声明依据待核实', MODEL_NO_CONTENT:'模型未返回文案', INVALID_PLAN_STRUCTURE:'模型返回格式不完整',
+  WRITING_CONTRACT_UNAVAILABLE:'写作流程未返回当前版本产物', FINAL_TEXT_CHANGED_AFTER_VALIDATION:'保存文本与已审文本不一致'
+});
 function verdict(v){
         var o = v;
         if (typeof v === 'string') { try { o = JSON.parse(v); } catch(e){ o = null; } }
@@ -1226,7 +1232,8 @@ function verdict(v){
         return String(v);
       }
       var c = chip(certStatusCn(a.status), tt);
-              var desc = String(a.desc || '—');
+              function safeCertText(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+              var desc = a.code ? safeCertText(CERT_REASON_CN[a.code] || a.code) + '<div style="margin-top:4px">'+safeCertText(a.field)+'：'+safeCertText(a.detail)+'</div>' : safeCertText(a.desc || a.detail || '—');
               if (at === 'FAIL' || at === 'WARN') {
                 desc += '<div class="dim" style="font-size:11px;color:var(--t-4);margin-top:2px">实际：' + fmtCertVal(a.actual).slice(0,220) + '<br>期望：' + fmtCertVal(a.expected).slice(0,80) + '</div>';
               }
@@ -1264,6 +1271,8 @@ function certStatusCn(st){
   if (u.indexOf('FAIL') === 0) return '未通过';
   if (u === 'WARN') return '提醒';
   if (u === 'REVIEW') return '待复核';
+  if (u === 'ERROR') return '系统执行异常';
+  if (u === 'NOT_VERIFIED') return '未评估';
   return st ? String(st) : '—';
 }
 function renderCert(x, containerId){
@@ -1304,7 +1313,7 @@ function renderCert(x, containerId){
         }
         root.innerHTML =
           stats([
-            ['是否通过', passed ? '是' : '否', '五项检查全部通过才算', passed?'ok':'fail', false],
+            ['可否定稿', passed ? '可以' : '待处理', '实质错误须修正；争议项待复核；优化建议不阻断', passed?'ok':'warn', false],
             ['证书数量', String(certCols.length), '', '', false],
             ['站点', x['目标市场']||'—', '', '', false],
             ['生成时间', '<span style="font-size:12px;font-weight:400">'+bjTime(x['生成时间'])+'</span>', '', '', false],
@@ -1314,6 +1323,12 @@ function renderCert(x, containerId){
           + '<div style="font-size:14px;font-weight:600;margin-top:4px;word-break:break-all;line-height:1.45">'+(x['SKU']||'—')+'</div>'
           + '<div style="font-size:12px;color:var(--t-3);margin-top:6px">生成时间 '+bjTime(x['生成时间'])+'</div></div>' +
           panel('证书通过概况（通过数 / 总数）', '<div class="cert-seg">' + passSummary.map(function(r, i){ return '<div class="cert-seg__item alt' + (i % 2) + '">' + '<div class="cert-seg__t">' + r[0] + '</div>' + '<div class="cert-seg__c">' + r[1] + '</div>' + '<div class="cert-seg__n">' + r[2] + '</div>' + '</div>'; }).join('') + '</div>', {flush:true}) +
-          certCols.map(function(col){ return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', '<div class="cert-card-body" style="text-align:center">' + verdict(x[col]) + '</div>', {flush:true}); }).join('');
+          certCols.map(function(col){ var value=x[col]; try { var clean=typeof value==='string'?JSON.parse(value):value; clean=Object.assign({},clean); delete clean.draft; value=JSON.stringify(clean); } catch(e){} return panel('<div style="width:100%;text-align:center">'+(certTitles[col] || col)+'</div>', '<div class="cert-card-body" style="text-align:center">' + verdict(value) + '</div>', {flush:true}); }).join('');
+        var audit=null; try { audit=typeof x['审计证书']==='string'?JSON.parse(x['审计证书']):x['审计证书']; } catch(e){}
+        var draft=audit && audit.draft;
+        if (draft && !draft.ready_to_publish && draft.sku===x['SKU'] && draft.workflow_run_id===x['运行ID']) {
+          function safe(v){ return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+          var fields=[['标题',draft.title],['亮点',draft.highlights]].concat((draft.bullets||[]).map(function(b,i){return ['五点 '+(i+1),b];})).concat([['后台词',draft.backend_search_terms],['中文标题',draft.title_zh],['中文亮点',draft.highlights_zh]]).concat((draft.bullets_zh||[]).map(function(b,i){return ['中文五点 '+(i+1),b];}));
+          root.innerHTML += panel('本次草稿（未定稿）', '<p>草稿已保存，尚不能作为审核通过的文案发布。已有定稿保持原版本。请结合上方具体问题复核或重新生成。</p>'+fields.map(function(f){return '<div style="margin:12px 0"><b>'+safe(f[0])+'</b><div style="white-space:pre-wrap;user-select:text">'+safe(f[1])+'</div></div>';}).join(''));
+        }
       }
-      
