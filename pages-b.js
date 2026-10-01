@@ -429,7 +429,7 @@ page('rev-action', {
                         '<span style="font-size:12px">'+String(x['Title']||'—').slice(0,44)+'</span>',
                         'v'+(x['定稿版本号']||'1'),
                         '<span class="m">'+bjTime(x['生成时间'])+'</span>',
-                        btn('看报告','','rev-audit',_s) + '<button class="btn" data-pass-sku="'+_s+'" data-pass-mkt="'+_m+'" style="background:var(--g-600);color:#fff;border:none">放行</button>'];
+                        btn('看报告','','rev-audit',_s) + btn('重新生成','','gen-new',_s) + '<button class="btn" data-pass-sku="'+_s+'" data-pass-mkt="'+_m+'" style="background:var(--g-600);color:#fff;border:none">放行</button>'];
               }), 10, 'rev-action-pend'), {flush:true})
           : '';
         root.innerHTML = callout('', head, body0) + _pendTable + '<div class="cols c2">' +
