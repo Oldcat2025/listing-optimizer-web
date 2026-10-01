@@ -403,23 +403,52 @@ page('rev-action', {
     ]
   },
     body:function(){
-    var el = toolbar([kwBox('搜索 SKU / 标题'), kwBtn(), mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待审核…') + '</div>';
+    var el = toolbar([kwBox('搜索 SKU / 标题'), kwBtn(), mktSel()], [], {tight:true}) + '<div id="rev-action-root">' + ghost('正在加载待处理队列…') + '</div>';
     setTimeout(function(){
-      API.table('定稿输出表', {}, 200).then(function(r){
+      /* [fix 10-01] 4.5 需要两个数据源：定稿表（待放行）+ 运行日志表（系统转人工）。 */
+      Promise.all([API.table('定稿输出表', {}, 200), API.table('运行日志表', {}, 200)]).then(function(rs){
+        var r = rs[0], _runRows = (rs[1] && rs[1].data && rs[1].data.data) || [];
         var root = document.getElementById('rev-action-root');
         if (!root) return;
         if (!r.ok || !r.data || r.data.success === false) { root.innerHTML = callout('stop','数据加载失败',(r.data&&r.data.error)||'请检查网络或稍后重试'); return; }
         var rows = (r.data.data||[]).filter(function(x){ return x && x['SKU'] && String(x['准备发布']||'').toUpperCase() !== 'TRUE' && mktHit(x) && kwHit(x); });
-        var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待审核文案';
+        /* [fix 10-01] 「待人工处理」列表的数据源 = 运行日志表（真任务表）里最终状态 REVIEW_REQUIRED 的，
+           同一 SKU+站点取最近一次。原先这块在页面下方单独一块，现合并进主列表（4.5 = 人工处理队列）。 */
+        var mrows = [];
+        (function(){ var _g = {};
+          _runRows.forEach(function(x){
+            if (String(x['最终状态']||'').toUpperCase() !== 'REVIEW_REQUIRED') return;
+            var k = String(x['SKU']||'')+'|'+String(x['目标市场']||'');
+            var cur = _g[k];
+            if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) _g[k] = x;
+          });
+          mrows = Object.keys(_g).map(function(k){ return _g[k]; });
+          mrows = mrows.filter(function(x){ return mktHit(x) && (!kwHit || kwHit(x)); });
+          mrows.sort(function(a,b){ var ta=String(a['结束时间']||a['开始时间']||''), tb=String(b['结束时间']||b['开始时间']||''); return ta<tb?1:(ta>tb?-1:0); });
+        })();
+        var head = rows.length ? ('待审核 · ' + rows[0]['SKU'] + ' / ' + (rows[0]['目标市场']||'—') + ' / v' + (rows[0]['定稿版本号']||'1')) : '暂无待放行文案';
         var body0 = rows.length ? '五项检查已完成。你放行之后，运营复制上架，再回来登记 ASIN，这条商品才进入效果跟踪。' : '当前没有待审核的定稿文案。';
         root.innerHTML = callout('', head, body0) + '<div class="cols c2">' +
-            panel('放行 / 打回', '<div class="form">'+
+            panel('放行 / 打回（针对待放行文案）', '<div class="form">'+
               fld('你的结论', '<select class="ctl" id="rel-action"><option value="pass">放行（可上架）</option><option value="reject">打回 · 让运营补商品资料</option><option value="reject">打回 · 只重做某个字段</option></select>') +
               fld('打回哪个字段（选了打回才需要填）', '<select class="ctl" id="rel-field"><option value="">—</option><option>标题</option><option>亮点</option><option>五点描述</option><option>后台搜索词</option></select>') +
               fld('审核意见（<b>必填</b>，会进操作记录）', '<textarea class="ctl" id="rel-reason" rows="4" placeholder="写给下一个人看的，会存进操作记录"></textarea>') +
-            '</div><div class="hint">' + (rows.length ? ('本次作用于：<b>' + (rows[0]['SKU']||'') + ' / ' + (rows[0]['目标市场']||'—') + '</b>') : '当前没有待审核文案（定稿都是「已放行」状态），没有可提交的对象。') + '</div>' +
+            '</div><div class="hint">' + (rows.length ? ('本次作用于：<b>' + (rows[0]['SKU']||'') + ' / ' + (rows[0]['目标市场']||'—') + '</b>') : '当前没有待放行文案（定稿都已放行或还没生成），没有可提交的对象。') + '</div>' +
             '<div class="btnrow" style="margin-top:14px">' + (rows.length ? '<button class="btn" id="rel-submit-btn" style="background:var(--g-600);color:#fff;border:none;font-weight:600">提交结论</button>' : '') + '</div>') +
-            panel('待审核列表', pagedTable(['SKU','站点','定稿版本',''], rows.map(function(x){ return ['<span class="m">'+(x['SKU']||'')+'</span>', x['目标市场']||'—', 'v'+(x['定稿版本号']||'1'), btn('审核','btn','rev-action',(x['SKU']||''))]; })), {flush:true}) +
+            panel('待人工处理（' + mrows.length + ' 条）',
+              (mrows.length
+                ? pagedTable(['商品 / 站点','当前状态','原因','最近一次','操作'],
+                    mrows.map(function(x){
+                      var _sku = String(x['SKU']||'');
+                      return ['<span class="m">'+_sku+'</span> <span class="dim">'+(x['目标市场']||'')+'</span>',
+                              chip('系统转人工','warn'),
+                              '<span style="font-size:12px">' + String(x['错误详情']||x['错误码']||'五项检查未通过').slice(0,110) + '</span>',
+                              '<span class="m">' + bjTime(x['结束时间']||x['开始时间']) + '</span>',
+                              btn('看报告','','rev-audit',_sku) + btn('重提','','gen-new',_sku)];
+                    }))
+                : '<div style="font-size:12.5px;color:var(--t-3);padding:2px">当前没有被系统转人工的任务。</div>') +
+              '<div style="font-size:12px;color:var(--t-3);margin-top:10px;line-height:1.8">这一块与「需人工处理」（4.6）是同一件事（都是「系统交给人的活」）。处理方式：点「看报告」确认失败原因，或点「重提」补全资料后重新生成。</div>',
+              {flush:true});
           '</div>' +
           callout('info','人工改判','人工改判选词结论需要接入候选台账写接口，当前暂未开放。');
       /* [item2 2026-09-19] 提交结论 → WH-Listing-Release（放行必须写理由，落 audit_trail） */
@@ -442,30 +471,6 @@ page('rev-action', {
             } else { toast((r && r.data && (r.data.error || r.data.message)) || '提交失败'); }
           });
       };
-      });
-      /* [fix 09-19] 与 4.6「需人工处理」合并：同一页处理「系统交给人的活」 */
-      API.table('运行日志表', {}, 200).then(function(r2){
-        var root2 = document.getElementById('rev-action-root'); if (!root2) return;
-        var rr = (r2 && r2.data && r2.data.data) || [];
-        (function(){ var g2 = {}; rr.forEach(function(x){ var k=(x['SKU']||'')+'|'+(x['目标市场']||''); var cur=g2[k];
-          if (!cur || String(x['结束时间']||x['开始时间']||'') > String(cur['结束时间']||cur['开始时间']||'')) g2[k]=x; });
-          rr = Object.keys(g2).map(function(k){ return g2[k]; }); })();
-        var mrows = rr.filter(function(x){ return String(x['最终状态']||'').toUpperCase() === 'REVIEW_REQUIRED'; });
-        mrows.sort(function(a,b2){ var ta=String(a['结束时间']||''), tb=String(b2['结束时间']||''); return ta<tb?1:(ta>tb?-1:0); });
-        var html = panel('系统转人工的（' + mrows.length + ' 条）',
-          (mrows.length
-            ? pagedTable(['运行ID','商品 / 站点','最终状态','错误详情','结束时间'],
-                mrows.map(function(x){
-                  return ['<span class="m">'+(x['运行ID']||'—')+'</span>',
-                          '<span class="m">'+(x['SKU']||'—')+'</span> ' + (x['目标市场']||''),
-                          chip(x['最终状态']||'—','warn'),
-                          '<span style="font-size:12px">' + String(x['错误详情']||x['错误码']||'—').slice(0,120) + '</span>',
-                          '<span class="m">' + bjTime(x['结束时间']) + '</span>'];
-                }))
-            : '<div style="font-size:12.5px;color:var(--t-3);padding:2px">当前没有被系统转人工的任务。</div>') +
-          '<div style="font-size:12px;color:var(--t-3);margin-top:10px;line-height:1.8">这一块原先在「需人工处理」（4.6）单独一页 —— 它和上面的放行/打回是<b>同一件工作</b>（都是"系统交给人的活"），所以合并到这里，原 4.6 已从菜单收起。</div>',
-          {flush:true});
-        root2.insertAdjacentHTML('beforeend', html);
       });
     }, 0);
     return el;
