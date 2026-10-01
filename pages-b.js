@@ -59,15 +59,27 @@ page('rev-list', {
         var note = pendingRev.length ? '顶部 ' + pendingRev.length + ' 条为生成未完成的任务（去「编辑重提」补全资料后重新生成）。' : '';
         el.innerHTML = pagedTable(['关联商品 SKU','标题','站点','状态','时间',''], tr, 20, 'rev-list-all') + (note ? '<div style="margin-top:8px;font-size:12px;color:var(--t-3)">' + note + '</div>' : '');
       }
-      Promise.all([API.table('定稿输出表', {}, 200), API.table('SKU_输入表', {}, 200)]).then(function(rs){
+      /* [fix 10-01] 第二个数据源改为运行日志表：4.1 要显示「待审核 + 可上架」的所有文案记录，
+         未通过的以 run_log 为准（sku_input 的处理状态会被「重新识别」覆盖）。 */
+      Promise.all([API.table('定稿输出表', {}, 200), API.table('运行日志表', {}, 200)]).then(function(rs){
         var el = document.getElementById('rev-data');
         if (!el) return;
         var rows = (rs[0].ok && rs[0].data && rs[0].data.data) ? rs[0].data.data : [];
         rows = rows.filter(function(x){ return x && x['记录ID']; });
-        var skuRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
+        var runRows = (rs[1].ok && rs[1].data && rs[1].data.data) ? rs[1].data.data : [];
         var doneSku = {};
         rows.forEach(function(x){ if (x['SKU']) doneSku[x['SKU']] = 1; });
-        var pendingRev = skuRows.filter(function(x){ var st = String(x['处理状态']||'').toUpperCase(); return (st === 'REVIEW_REQUIRED' || st === 'FAILED') && x['SKU'] && !doneSku[x['SKU']]; });
+        /* [fix 10-01] 同一 SKU+站点取最近一次未通过任务；已有定稿的不再重复列（它们按「待审核/可上架」正常显示） */
+        var _lastRun = {};
+        runRows.forEach(function(x){
+          var st = String(x['最终状态']||'').toUpperCase();
+          if (st !== 'REVIEW_REQUIRED' && st !== 'FAILED') return;
+          var _k = String(x['SKU']||'')+'|'+String(x['目标市场']||'');
+          var _t = String(x['结束时间']||x['开始时间']||'');
+          if (!_lastRun[_k] || _t > String(_lastRun[_k]['结束时间']||_lastRun[_k]['开始时间']||'')) _lastRun[_k] = x;
+        });
+        var pendingRev = Object.keys(_lastRun).map(function(k){ return _lastRun[k]; })
+          .filter(function(x){ return x['SKU'] && !doneSku[x['SKU']]; });
         if (!rows.length && !pendingRev.length){ el.innerHTML = callout('warn','还没有文案','生成任务完成后，文案会出现在这里。'); return; }
         renderList(rows, pendingRev);
         /* [需求 09-19] 4.1 加「站点/国家」筛选：关键词与站点同时生效；排序在 renderList 内已按生成时间倒序 */

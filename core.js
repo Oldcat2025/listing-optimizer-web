@@ -282,10 +282,13 @@ document.addEventListener('change', function(e){
 function recentTenPanel(opt){
   opt = opt || {};
   // 证书表载荷大（每行含 5 份证书 JSON），只取最近 80 行足够覆盖「最近 10 条」的筛选 → 降低耗时
-  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, opt.all ? 200 : 80), opt.all ? API.table('SKU_输入表', {}, 200) : Promise.resolve(null)]).then(function(rs){
+  /* [fix 10-01] 第三个数据源由 SKU_输入表 改为 运行日志表（真任务表）：
+     失败记录必须来自它 —— 「重新识别」会重写 sku_input 的处理状态（已修，但历史已被覆盖），
+     而 run_log 保留每次任务的最终状态/错误码/错误详情，是「所有文案任务记录」的唯一完整来源。 */
+  return Promise.all([API.table('定稿输出表', {}, 200), API.table('证书表', {}, opt.all ? 200 : 80), opt.all ? API.table('运行日志表', {}, 200) : Promise.resolve(null)]).then(function(rs){
     var fin  = ((rs[0].data||{}).data) || [];
     var cert = ((rs[1].data||{}).data) || [];
-    var skus = (opt.all && rs[2] && rs[2].data) ? (rs[2].data.data || []) : [];
+    var runs = (opt.all && rs[2] && rs[2].data) ? (rs[2].data.data || []) : [];
     var pass = {};
     cert.forEach(function(c){ if (String(c['全部通过']||'').toUpperCase()==='TRUE') pass[String(c['SKU']||'')] = 1; });
     var rows = fin.filter(function(x){ return x && x['Title']; });
@@ -295,11 +298,20 @@ function recentTenPanel(opt){
     if (opt.all) {
       var _seen = {};
       rows.forEach(function(x){ _seen[String(x['SKU']||'')+'|'+String(x['目标市场']||'')] = 1; });
-      skus.forEach(function(s){
-        if (['REVIEW_REQUIRED','FAILED'].indexOf(String(s['处理状态']||'')) < 0) return;
-        var _key = String(s['SKU']||'')+'|'+String(s['目标市场']||'');
-        if (_seen[_key]) return; _seen[_key] = 1;
-        rows.push({ SKU: s['SKU'], 目标市场: s['目标市场'], 生成时间: (s['处理时间'] || s['更新时间'] || ''), Title: '', _failCode: String(s['错误信息']||'').replace(/^CERTIFICATE_FAIL:/,'') });
+      /* [fix 10-01] 改从运行日志表补「未通过/失败」记录；同一 SKU+站点取最近一次任务 */
+      var _latest = {};
+      runs.forEach(function(s){
+        var st = String(s['最终状态']||'').toUpperCase();
+        if (['REVIEW_REQUIRED','FAILED'].indexOf(st) < 0) return;
+        var _k = String(s['SKU']||'')+'|'+String(s['目标市场']||'');
+        var _t = String(s['结束时间']||s['开始时间']||'');
+        if (!_latest[_k] || _t > String(_latest[_k]['结束时间']||_latest[_k]['开始时间']||'')) _latest[_k] = s;
+      });
+      Object.keys(_latest).forEach(function(_k){
+        var s = _latest[_k];
+        if (_seen[_k]) return; _seen[_k] = 1;
+        rows.push({ SKU: s['SKU'], 目标市场: s['目标市场'], 生成时间: (s['结束时间']||s['开始时间']||''), Title: '',
+                    _failCode: String(s['错误码']||'').replace(/^CERTIFICATE_FAIL:/,''), _failDetail: String(s['错误详情']||'') });
       });
     }
     rows.sort(function(a,b){ var ta=String(a['生成时间']||''), tb=String(b['生成时间']||''); return ta<tb?1:(ta>tb?-1:0); });

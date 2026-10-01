@@ -893,10 +893,13 @@ fld('SKU 编号 <span style="color:var(--red)">*</span>', '<input id="nsku-sku" 
           record_id: row['记录ID'] || '',
           family_id: row['产品族ID'] || '',
           brand_name: row['品牌名'] || '',
-          product_image_url: row['产品图片URL'] || ''
+          product_image_url: row['产品图片URL'] || '',
+          /* [fix 09-30 C] 明确要求重跑识别：否则后端见同族已有档案就复用（reuse_parent_dna），
+             点「去识别」不会真识别，只是复制旧档案（连旧的错误语言一起复制）。 */
+          force_recognize: true
         }).then(function(r){
           if (r && r.ok && r.data && r.data.success){
-            toast('已提交识别，约 20 秒后自动刷新');
+            toast('已提交重新识别（强制重跑），约 30 秒后自动刷新');
             setTimeout(function(){ if (typeof render === 'function') render(); }, 22000);
             setTimeout(function(){ if (b){ b.disabled = false; b.textContent = oldTxt; } }, 60000);
           } else {
